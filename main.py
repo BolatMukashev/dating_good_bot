@@ -19,9 +19,17 @@ dp = Dispatcher(storage=storage)
 async def cmd_start(message: types.Message, state: FSMContext):
     user_name = message.from_user.full_name
     user_id = message.from_user.id
-    await message.answer(
-        f"Привет, {user_name}! Я бот. Твой ID: {user_id}"
+    kb = [
+        [
+            types.KeyboardButton(text="Отправить местоположение", request_location=True)
+        ]
+    ]
+    keyboard = types.ReplyKeyboardMarkup(
+        keyboard=kb,
+        resize_keyboard=True,
+        input_field_placeholder="Что это?"
     )
+    await message.answer(f"Привет, {user_name}! Я бот. Твой ID: {user_id}", reply_markup=keyboard)
 
 
 async def main():
