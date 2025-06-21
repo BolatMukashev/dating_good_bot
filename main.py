@@ -1,11 +1,14 @@
 import logging
 import aiohttp
+import random
+from aiogram.types import InputMediaPhoto
 from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from config import BOT_API_KEY, ADMIN_ID, MONGO_DB_PASSWORD, MONGO_DB_USERNAME
+from test_db import test_db
 
 # ------------------------------------------------------------------- Настройка и активация бота -------------------------------------------------------
 
@@ -39,6 +42,25 @@ async def get_location_info(latitude, longitude, lang='en'):
 
 # ------------------------------------------------------------------- Команды -------------------------------------------------------
 
+
+# Команда поиск
+@dp.message(Command("search"))
+async def cmd_search(message: types.Message, state: FSMContext):
+
+    random_user = random.choice(test_db)
+    target_tg_id = random_user.get('tg_id', 0)
+    target_name = random_user.get('name', '')
+    description = random_user.get('description', '')
+    photo_id = random_user.get('photo_id', '')
+
+    button1 = InlineKeyboardButton(text="☕ Свидание", callback_data=f"reaction_love|{target_name}|{target_tg_id}")
+    button2 = InlineKeyboardButton(text="👩‍❤️‍💋‍👨 Постель", callback_data=f"reaction_sex|{target_name}|{target_tg_id}")
+    button3 = InlineKeyboardButton(text="💬 Общение", callback_data=f"reaction_chat|{target_name}|{target_tg_id}")
+    button4 = InlineKeyboardButton(text="Пропустить ⏩", callback_data=f"reaction_skip|{target_name}|{target_tg_id}")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button1, button2, button3], [button4]])
+    await message.answer_photo(photo=photo_id, caption=f"<b>{target_name}</b>\n<i>{description}</i>", parse_mode="HTML", reply_markup=markup)
+
+
 # Команда старт
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
@@ -68,8 +90,15 @@ async def cmd_start(message: types.Message, state: FSMContext):
                              parse_mode="HTML")
 
 
+# ------------------------------------------------------------------- Колбеки -------------------------------------------------------
+
+gender = {"man": "Мужчина", "woman": "Женщина", "any": "Другое"}
+gender_choice = {"search_man": "Ищу Мужчину", "search_woman": "Ищу Женщину", "search_any": "Пол не имеет значения"}
+
 @dp.callback_query(F.data == "18yes")
 async def to_query(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    print(f'Запись в базу: {user_id} Есть 18 - True')
     await callback.answer(text="Отлично! Ты подтвердил, что тебе больше 18 лет")
 
     # 1. Меняем текст сообщения и убираем inline-кнопки
@@ -90,6 +119,7 @@ async def to_query(callback: types.CallbackQuery):
 # Принимаем локацию
 @dp.message(F.location)
 async def handle_location(message: types.Message):
+    user_id = message.from_user.id
     await message.delete() #удалить сообщение пользователя с локацией
     latitude = message.location.latitude
     longitude = message.location.longitude
@@ -102,7 +132,7 @@ async def handle_location(message: types.Message):
     country_en, city_en = await get_location_info(latitude, longitude, lang='en')
 
     # Пример записи в базу (здесь просто выводим)
-    print(f"В базу сохраняем: {city_en}, {country_en}")
+    print(f"Запись в базу: {user_id} расположение {city_en}, {country_en}")
 
     # Отправляем пользователю локализованный ответ
     await message.answer(
@@ -118,7 +148,9 @@ async def handle_location(message: types.Message):
 
 @dp.callback_query(F.data.in_(["man", "woman", "any"]))
 async def to_query2(callback: types.CallbackQuery):
-    await callback.answer(text=f"Отлично! Ты указал, что ты {callback.data}")
+    user_id = callback.from_user.id
+    print(f'Запись в базу: {user_id} выбрал пол {callback.data}')
+    await callback.answer(text=f"Отлично! Ты указал, что ты {gender.get(callback.data)}")
     await callback.message.edit_text(text="✅ Шаг 3 выполнен")
     button1 = InlineKeyboardButton(text="Ищу Мужчину", callback_data="search_man")
     button2 = InlineKeyboardButton(text="Ищу Женщину", callback_data="search_woman")
@@ -129,33 +161,136 @@ async def to_query2(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data.in_(["search_man", "search_woman", "search_any"]))
 async def to_query3(callback: types.CallbackQuery):
-    await callback.answer(text=f"Отлично! Ты указал, что ты ищешь {callback.data}")
+    user_id = callback.from_user.id
+    print(f'Запись в базу: {user_id} находится в поиске {callback.data}')
+    await callback.answer(text=f"Отлично! Ты указал, что ты ищешь {gender_choice.get(callback.data)}")
     await callback.message.edit_text(text="✅ Шаг 4 выполнен")
     await callback.message.answer("👉 Шаг 5. Отправь свое фото 📷", reply_markup=ReplyKeyboardRemove())
 
 
 @dp.message(F.photo)
 async def handle_photo(message: types.Message):
+    user_id = message.from_user.id
     photo = message.photo[-1]
     file_id = photo.file_id
-    print(f"Сохраняем file_id в базу: {file_id}")
+    print(f"Запись в базу: {user_id} file_id фотографии {file_id}")
     await message.delete()
-    await message.answer("✅ Шаг 5 выполнен\nСпасибо! Анкета заполнена")
-    await message.answer("Чтобы начать поиск собеседника, нажми на кнопку: /search")
+    await message.answer("✅ Шаг 5 выполнен")
+    await message.answer("👉 Шаг 6. Расскажи коротко о себе")
 
-images = ['AgACAgIAAxkBAAOpaFUN5N1PnDytY4qZqUwdka5Zi90AApn-MRswjKhKYGc9tYZ7EGoBAAMCAAN5AAM2BA', "AgACAgIAAxkBAAO9aFUYHC0j-gl4QYi2ARqRS7_XbgMAApb7MRtG0qhKQUXKmf05tGkBAAMCAAN5AAM2BA", 'AgACAgIAAxkBAAPTaFUeDmVz3HH3ax0WJYJZ8cg-pioAAoLwMRs5EqlKD8cme7mTwosBAAMCAAN5AAM2BA']
 
-# Команда поиск
-@dp.message(Command("search"))
-async def cmd_search(message: types.Message, state: FSMContext):
-    file_id = 'AgACAgIAAxkBAAOpaFUN5N1PnDytY4qZqUwdka5Zi90AApn-MRswjKhKYGc9tYZ7EGoBAAMCAAN5AAM2BA'  # Твой сохранённый file_id
-    file_id = "AgACAgIAAxkBAAO9aFUYHC0j-gl4QYi2ARqRS7_XbgMAApb7MRtG0qhKQUXKmf05tGkBAAMCAAN5AAM2BA"
-    button1 = InlineKeyboardButton(text="☕ Свидание", callback_data="reaction_1")
-    button2 = InlineKeyboardButton(text="👩‍❤️‍💋‍👨 Постель", callback_data="reaction_2")
-    button3 = InlineKeyboardButton(text="💬 Общение", callback_data="reaction_3")
-    button4 = InlineKeyboardButton(text="Пропустить ⏩", callback_data="reaction_4")
+# обработка колбека поиска, свидание
+@dp.callback_query(lambda c: c.data.startswith("reaction_love|"))
+async def handle_reaction_love(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    parts = callback.data.split("|", 2)
+    target_name = parts[1]
+    target_tg_id = parts[2]
+    print(f'Запись в базу: {user_id} реакция Свидание на {target_tg_id}')
+    await callback.answer(text=f"Ты лайкнул {target_name}")
+
+    random_user = random.choice(test_db)
+    target_tg_id = random_user.get('tg_id', 0)
+    target_name = random_user.get('name', '')
+    description = random_user.get('description', '')
+    photo_id = random_user.get('photo_id', '')
+
+    button1 = InlineKeyboardButton(text="☕ Свидание", callback_data=f"reaction_love|{target_name}|{target_tg_id}")
+    button2 = InlineKeyboardButton(text="👩‍❤️‍💋‍👨 Постель", callback_data=f"reaction_sex|{target_name}|{target_tg_id}")
+    button3 = InlineKeyboardButton(text="💬 Общение", callback_data=f"reaction_chat|{target_name}|{target_tg_id}")
+    button4 = InlineKeyboardButton(text="Пропустить ⏩", callback_data=f"reaction_skip|{target_name}|{target_tg_id}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1, button2, button3], [button4]])
-    await message.answer_photo(photo=file_id, caption="*Имя человека*\n_Инфо о себе_", reply_markup=markup, parse_mode="MarkdownV2")
+    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
+    await callback.message.edit_caption(caption=f"<b>{target_name}</b>\n<i>{description}</i>", parse_mode="HTML")
+    await callback.message.edit_reply_markup(reply_markup=markup)
+
+
+# обработка колбека поиска, постель
+@dp.callback_query(lambda c: c.data.startswith("reaction_sex|"))
+async def handle_reaction_sex(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    parts = callback.data.split("|", 2)
+    target_name = parts[1]
+    target_tg_id = parts[2]
+    print(f'Запись в базу: {user_id} реакция Постель на {target_tg_id}')
+    await callback.answer(text=f"Ты лайкнул {target_name}")
+
+    random_user = random.choice(test_db)
+    target_tg_id = random_user.get('tg_id', 0)
+    target_name = random_user.get('name', '')
+    description = random_user.get('description', '')
+    photo_id = random_user.get('photo_id', '')
+
+    button1 = InlineKeyboardButton(text="☕ Свидание", callback_data=f"reaction_love|{target_name}|{target_tg_id}")
+    button2 = InlineKeyboardButton(text="👩‍❤️‍💋‍👨 Постель", callback_data=f"reaction_sex|{target_name}|{target_tg_id}")
+    button3 = InlineKeyboardButton(text="💬 Общение", callback_data=f"reaction_chat|{target_name}|{target_tg_id}")
+    button4 = InlineKeyboardButton(text="Пропустить ⏩", callback_data=f"reaction_skip|{target_name}|{target_tg_id}")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button1, button2, button3], [button4]])
+    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
+    await callback.message.edit_caption(caption=f"<b>{target_name}</b>\n<i>{description}</i>", parse_mode="HTML")
+    await callback.message.edit_reply_markup(reply_markup=markup)
+
+
+# обработка колбека поиска, общение
+@dp.callback_query(lambda c: c.data.startswith("reaction_chat|"))
+async def handle_reaction_chat(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    parts = callback.data.split("|", 2)
+    target_name = parts[1]
+    target_tg_id = parts[2]
+    print(f'Запись в базу: {user_id} реакция Общение на {target_tg_id}')
+    await callback.answer(text=f"Ты лайкнул {target_name}")
+
+    random_user = random.choice(test_db)
+    target_tg_id = random_user.get('tg_id', 0)
+    target_name = random_user.get('name', '')
+    description = random_user.get('description', '')
+    photo_id = random_user.get('photo_id', '')
+
+    button1 = InlineKeyboardButton(text="☕ Свидание", callback_data=f"reaction_love|{target_name}|{target_tg_id}")
+    button2 = InlineKeyboardButton(text="👩‍❤️‍💋‍👨 Постель", callback_data=f"reaction_sex|{target_name}|{target_tg_id}")
+    button3 = InlineKeyboardButton(text="💬 Общение", callback_data=f"reaction_chat|{target_name}|{target_tg_id}")
+    button4 = InlineKeyboardButton(text="Пропустить ⏩", callback_data=f"reaction_skip|{target_name}|{target_tg_id}")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button1, button2, button3], [button4]])
+    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
+    await callback.message.edit_caption(caption=f"<b>{target_name}</b>\n<i>{description}</i>", parse_mode="HTML")
+    await callback.message.edit_reply_markup(reply_markup=markup)
+
+
+# обработка колбека поиска, пропустить
+@dp.callback_query(lambda c: c.data.startswith("reaction_skip|"))
+async def handle_reaction_skip(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    parts = callback.data.split("|", 2)
+    target_name = parts[1]
+    target_tg_id = parts[2]
+    print(f'Запись в базу: {user_id} реакция Пропуск на {target_tg_id}')
+    await callback.answer(text=f"Ты пропустил {target_name}")
+
+    random_user = random.choice(test_db)
+    target_tg_id = random_user.get('tg_id', 0)
+    target_name = random_user.get('name', '')
+    description = random_user.get('description', '')
+    photo_id = random_user.get('photo_id', '')
+
+    button1 = InlineKeyboardButton(text="☕ Свидание", callback_data=f"reaction_love|{target_name}|{target_tg_id}")
+    button2 = InlineKeyboardButton(text="👩‍❤️‍💋‍👨 Постель", callback_data=f"reaction_sex|{target_name}|{target_tg_id}")
+    button3 = InlineKeyboardButton(text="💬 Общение", callback_data=f"reaction_chat|{target_name}|{target_tg_id}")
+    button4 = InlineKeyboardButton(text="Пропустить ⏩", callback_data=f"reaction_skip|{target_name}|{target_tg_id}")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button1, button2, button3], [button4]])
+    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
+    await callback.message.edit_caption(caption=f"<b>{target_name}</b>\n<i>{description}</i>", parse_mode="HTML")
+    await callback.message.edit_reply_markup(reply_markup=markup)
+
+
+@dp.message(F.text)
+async def handle_text(message: types.Message):
+    user_id = message.from_user.id
+    await message.delete()
+    text = message.text
+    print(f"Запись в базу: {user_id} добавил описание {text}")
+    await message.answer("✅ Шаг 6 выполнен")
+    await message.answer("Чтобы начать поиск собеседника, нажми на кнопку: /search")
 
 
 async def main():
