@@ -43,13 +43,30 @@ async def get_location_info(latitude, longitude, lang='en'):
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
-    user_name = message.from_user.first_name
-    print(f'Запись в базу: {user_id}, {user_name}')
-    await message.answer(f"Привет, {user_name}!\nГотов к новым знакомствам?\n\nЧтобы начать нужно выполнить несколько простых шагов\nШаг 1. Подтверди что тебе есть 18 лет\nШаг 2. Отправь мне свое местоположение\nШаг 3. Укажи свой пол \nШаг 4. Кого ты ищешь? \nШаг 5. Отправь свое фото")
-    button = InlineKeyboardButton(text="Мне больше 18 лет", callback_data="18yes")
-    markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
-    await message.answer("Шаг 1. Подтверди что тебе есть 18 лет\nПо законам многих стран, чтобы пользоваться сервисами подобным нашего тебе должно быть больше 18 лет.\nДай свое согласие, что ты понимаешь все риски и уже достиг нужного возраста",
-                         reply_markup=markup)
+    first_name = message.from_user.first_name
+    username = message.from_user.username
+    if username == None:
+        await message.answer("""
+⚠️ Для использования бота необходимо установить username в Telegram.
+
+Как это сделать:
+1️⃣ Откройте Telegram → Настройки → Имя пользователя (tg://settings/username)
+2️⃣ Придумайте уникальное Имя пользователя
+3️⃣ Сохрани ✅
+
+После этого вернись в бота \nи нажми 👉 /start , чтобы продолжить регистрацию.
+""")
+    else:
+        print(f'Запись в базу: {user_id}, {first_name}, {username}')
+        await message.answer(f"Привет, {first_name}!\nГотов к новым знакомствам?\n\nЧтобы начать нужно выполнить несколько простых шагов:\n\nШаг 1. Подтверди что тебе есть 18 лет\nШаг 2. Отправь свое местоположение\nШаг 3. Укажи свой пол \nШаг 4. Кого ты ищешь? \nШаг 5. Отправь свое фото\nШаг 6. Расскажи коротко о себе")
+        button = InlineKeyboardButton(text="Мне больше 18 лет", callback_data="18yes")
+        markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
+        await message.answer("👉 Шаг 1. Подтверди, что тебе есть 18 лет\n\n"
+                             "<i>По законам многих стран, чтобы пользоваться сервисами, подобными нашему, тебе должно быть больше 18 лет.</i>\n\n"
+                             "Дай своё согласие, что ты понимаешь все риски и уже достиг нужного возраста.",
+                             reply_markup=markup,
+                             parse_mode="HTML")
+
 
 @dp.callback_query(F.data == "18yes")
 async def to_query(callback: types.CallbackQuery):
@@ -96,7 +113,7 @@ async def handle_location(message: types.Message):
     button2 = InlineKeyboardButton(text="Женщина", callback_data="woman")
     button3 = InlineKeyboardButton(text="Другое", callback_data="any")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2], [button3]])
-    await message.answer("Шаг 3. Укажи свой пол", reply_markup=markup)
+    await message.answer("👉 Шаг 3. Укажи свой пол", reply_markup=markup)
 
 
 @dp.callback_query(F.data.in_(["man", "woman", "any"]))
@@ -107,14 +124,14 @@ async def to_query2(callback: types.CallbackQuery):
     button2 = InlineKeyboardButton(text="Ищу Женщину", callback_data="search_woman")
     button3 = InlineKeyboardButton(text="Пол не имеет значения", callback_data="search_any")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2], [button3]])
-    await callback.message.answer("Шаг 4. Укажи кото ты ищешь", reply_markup=markup)
+    await callback.message.answer("👉 Шаг 4. Укажи кото ты ищешь", reply_markup=markup)
 
 
 @dp.callback_query(F.data.in_(["search_man", "search_woman", "search_any"]))
 async def to_query3(callback: types.CallbackQuery):
     await callback.answer(text=f"Отлично! Ты указал, что ты ищешь {callback.data}")
     await callback.message.edit_text(text="✅ Шаг 4 выполнен")
-    await callback.message.answer("Шаг 5. Отправь свое фото", reply_markup=ReplyKeyboardRemove())
+    await callback.message.answer("👉 Шаг 5. Отправь свое фото 📷", reply_markup=ReplyKeyboardRemove())
 
 
 @dp.message(F.photo)
@@ -123,7 +140,22 @@ async def handle_photo(message: types.Message):
     file_id = photo.file_id
     print(f"Сохраняем file_id в базу: {file_id}")
     await message.delete()
-    await message.answer("✅ Шаг 5 выполнен\nСпасибо! Анкета заполнена. Скоро начнём поиск собеседников.")
+    await message.answer("✅ Шаг 5 выполнен\nСпасибо! Анкета заполнена")
+    await message.answer("Чтобы начать поиск собеседника, нажми на кнопку: /search")
+
+images = ['AgACAgIAAxkBAAOpaFUN5N1PnDytY4qZqUwdka5Zi90AApn-MRswjKhKYGc9tYZ7EGoBAAMCAAN5AAM2BA', "AgACAgIAAxkBAAO9aFUYHC0j-gl4QYi2ARqRS7_XbgMAApb7MRtG0qhKQUXKmf05tGkBAAMCAAN5AAM2BA", 'AgACAgIAAxkBAAPTaFUeDmVz3HH3ax0WJYJZ8cg-pioAAoLwMRs5EqlKD8cme7mTwosBAAMCAAN5AAM2BA']
+
+# Команда поиск
+@dp.message(Command("search"))
+async def cmd_search(message: types.Message, state: FSMContext):
+    file_id = 'AgACAgIAAxkBAAOpaFUN5N1PnDytY4qZqUwdka5Zi90AApn-MRswjKhKYGc9tYZ7EGoBAAMCAAN5AAM2BA'  # Твой сохранённый file_id
+    file_id = "AgACAgIAAxkBAAO9aFUYHC0j-gl4QYi2ARqRS7_XbgMAApb7MRtG0qhKQUXKmf05tGkBAAMCAAN5AAM2BA"
+    button1 = InlineKeyboardButton(text="☕ Свидание", callback_data="reaction_1")
+    button2 = InlineKeyboardButton(text="👩‍❤️‍💋‍👨 Постель", callback_data="reaction_2")
+    button3 = InlineKeyboardButton(text="💬 Общение", callback_data="reaction_3")
+    button4 = InlineKeyboardButton(text="Пропустить ⏩", callback_data="reaction_4")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button1, button2, button3], [button4]])
+    await message.answer_photo(photo=file_id, caption="*Имя человека*\n_Инфо о себе_", reply_markup=markup, parse_mode="MarkdownV2")
 
 
 async def main():
