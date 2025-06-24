@@ -53,8 +53,8 @@ class ReactionType(str, Enum):
         }[self]
 
 
-
 # ------------------------------------------------------------------- Функции -------------------------------------------------------
+
 
 # Получить данные о местоположении с указанным языком
 async def get_location_info(latitude, longitude, lang='en'):
@@ -91,6 +91,37 @@ async def get_random_user():
     return photo_id, caption, markup
 
 
+async def get_matches_menu_buttons():
+    menu_picture = "AgACAgIAAxkBAAICDGhaXCO-TfkX8fbcf4DaK4lL1LIKAAI78zEbD-DZShxo9bfqrVFeAQADAgADeQADNgQ"
+
+    button0 = InlineKeyboardButton(text="💘 Совпадения [1]", callback_data=f"matches")
+    button1 = InlineKeyboardButton(text="Свидание [512]", callback_data=f"whant_love")
+    button2 = InlineKeyboardButton(text="Постель [123]", callback_data=f"whant_sex")
+    button3 = InlineKeyboardButton(text="Общение [9999]", callback_data=f"whant_chat")
+    button4 = InlineKeyboardButton(text="Обновить 🔄", callback_data=f"reload_match")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button0], [button1, button2, button3], [button4],])
+    
+    return menu_picture, markup
+
+
+async def get_matches_user():
+    random_user = random.choice(test_db)
+    target_tg_id = random_user.get('tg_id', 0)
+    target_name = random_user.get('name', '')
+    target_username = random_user.get('username', '')
+    description = random_user.get('description', '')
+    photo_id = random_user.get('photo_id', '')
+    caption=f"<b>{target_name}</b>\n<i>{description}</i>"
+
+    button1 = InlineKeyboardButton(text="✉️ Начать знакомство", callback_data=f"matches_chat|{target_name}|{target_tg_id}", url=f"https://t.me/{target_username}")
+    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"matches_back|{target_name}|{target_tg_id}")
+    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"matches_next|{target_name}|{target_tg_id}")
+    button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"matches_menu")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
+    
+    return photo_id, caption, markup
+
+
 # ------------------------------------------------------------------- Команды -------------------------------------------------------
 
 
@@ -104,17 +135,8 @@ async def cmd_search(message: types.Message, state: FSMContext):
 # Команда Совпадения
 @dp.message(Command("match"))
 async def cmd_match(message: types.Message, state: FSMContext):
-
-    button0 = InlineKeyboardButton(text="💘 Совпадения [1]", callback_data=f"matches")
-    button1 = InlineKeyboardButton(text="☕ Свидания [5]", callback_data=f"whant_love")
-    button2 = InlineKeyboardButton(text="👩‍❤️‍💋‍👨 Постель [3]", callback_data=f"whant_sex")
-    button3 = InlineKeyboardButton(text="💬 Общение [0]", callback_data=f"whant_chat")
-    button4 = InlineKeyboardButton(text="Обновить 🔄", callback_data=f"reload_match")
-    markup = InlineKeyboardMarkup(inline_keyboard=[[button0], [button1], [button2], [button3], [button4],])
-    await message.answer('Совпадения - подборка людей, которые разделяют с тобой общие интересы. Ты можешь сразу им написать\n\n'
-    'Свидания - Подборка людей, которые хотели бы интересно провести с тобой время\n\n'
-    'Постель - подборка людей, которые хотят с тобой переспать\n\n'
-    'Общение - подборка людей, которым интересно общение с тобой\n\n', reply_markup=markup)
+    menu_picture, markup = await get_matches_menu_buttons()
+    await message.answer_photo(photo=menu_picture, parse_mode="HTML", reply_markup=markup)
 
 
 # Команда старт
@@ -153,7 +175,7 @@ gender = {"man": "Мужчина", "woman": "Женщина", "any": "Друго
 gender_choice = {"search_man": "Ищу Мужчину", "search_woman": "Ищу Женщину", "search_any": "Пол не имеет значения"}
 
 @dp.callback_query(F.data == "18yes")
-async def to_query(callback: types.CallbackQuery):
+async def query_18years(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     print(f'Запись в базу: {user_id} Есть 18 - True')
     await callback.answer(text="Отлично! Ты подтвердил, что тебе больше 18 лет")
@@ -206,7 +228,7 @@ async def handle_location(message: types.Message):
 
 
 @dp.callback_query(F.data.in_(["man", "woman", "any"]))
-async def to_query2(callback: types.CallbackQuery):
+async def query_gender(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     print(f'Запись в базу: {user_id} выбрал пол {callback.data}')
     await callback.answer(text=f"Отлично! Ты указал, что ты {gender.get(callback.data)}")
@@ -219,7 +241,7 @@ async def to_query2(callback: types.CallbackQuery):
 
 
 @dp.callback_query(F.data.in_(["search_man", "search_woman", "search_any"]))
-async def to_query3(callback: types.CallbackQuery):
+async def query_gender_choice(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     print(f'Запись в базу: {user_id} находится в поиске {callback.data}')
     await callback.answer(text=f"Отлично! Ты указал, что ты ищешь {gender_choice.get(callback.data)}")
@@ -257,6 +279,23 @@ async def handle_reaction(callback: types.CallbackQuery):
     photo_id, caption, markup = await get_random_user()
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
     await callback.message.edit_caption(caption=caption, parse_mode="HTML")
+    await callback.message.edit_reply_markup(reply_markup=markup)
+
+
+@dp.callback_query(F.data == "matches")
+async def query_matches(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    photo_id, caption, markup = await get_matches_user()
+    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
+    await callback.message.edit_caption(caption=caption, parse_mode="HTML")
+    await callback.message.edit_reply_markup(reply_markup=markup)
+
+
+@dp.callback_query(F.data == "matches_menu")
+async def query_matches_menu(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    menu_picture, markup = await get_matches_menu_buttons()
+    await callback.message.edit_media(media=InputMediaPhoto(media=menu_picture))
     await callback.message.edit_reply_markup(reply_markup=markup)
 
 
