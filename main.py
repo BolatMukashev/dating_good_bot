@@ -29,10 +29,10 @@ dp = Dispatcher(storage=storage)
 
 
 class ReactionType(str, Enum):
-    LOVE = "reaction_love"
-    SEX = "reaction_sex"
-    CHAT = "reaction_chat"
-    SKIP = "reaction_skip"
+    LOVE = "LOVE"
+    SEX = "SEX"
+    CHAT = "CHAT"
+    SKIP = "SKIP"
 
     @property
     def label(self):
@@ -82,26 +82,52 @@ async def get_random_user():
     photo_id = random_user.get('photo_id', '')
     caption=f"<b>{target_name}</b>\n<i>{description}</i>"
 
-    button1 = InlineKeyboardButton(text="☕ Свидание", callback_data=f"reaction_love|{target_name}|{target_tg_id}")
-    button2 = InlineKeyboardButton(text="👩‍❤️‍💋‍👨 Постель", callback_data=f"reaction_sex|{target_name}|{target_tg_id}")
-    button3 = InlineKeyboardButton(text="💬 Общение", callback_data=f"reaction_chat|{target_name}|{target_tg_id}")
-    button4 = InlineKeyboardButton(text="Пропустить ⏩", callback_data=f"reaction_skip|{target_name}|{target_tg_id}")
+    button1 = InlineKeyboardButton(text="☕ Свидание", callback_data=f"reaction|LOVE|{target_name}|{target_tg_id}")
+    button2 = InlineKeyboardButton(text="👩‍❤️‍💋‍👨 Постель", callback_data=f"reaction|SEX|{target_name}|{target_tg_id}")
+    button3 = InlineKeyboardButton(text="💬 Общение", callback_data=f"reaction|CHAT|{target_name}|{target_tg_id}")
+    button4 = InlineKeyboardButton(text="Пропустить ⏩", callback_data=f"reaction|SKIP|{target_name}|{target_tg_id}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1, button2, button3], [button4]])
     
     return photo_id, caption, markup
 
 
 async def get_matches_menu_buttons():
-    menu_picture = "AgACAgIAAxkBAAICDGhaXCO-TfkX8fbcf4DaK4lL1LIKAAI78zEbD-DZShxo9bfqrVFeAQADAgADeQADNgQ"
+    menu_picture = "AgACAgIAAxkBAAICVmhbrdh8xXXGx6Xy1tr0ouQN0sjFAAIZ8DEbBk3hSoeHxcGbNuBQAQADAgADeQADNgQ"
 
-    button0 = InlineKeyboardButton(text="💘 Совпадения [1]", callback_data=f"matches")
-    button1 = InlineKeyboardButton(text="Свидание [512]", callback_data=f"whant_love")
-    button2 = InlineKeyboardButton(text="Постель [123]", callback_data=f"whant_sex")
-    button3 = InlineKeyboardButton(text="Общение [9999]", callback_data=f"whant_chat")
-    button4 = InlineKeyboardButton(text="Обновить 🔄", callback_data=f"reload_match")
+    button0 = InlineKeyboardButton(text=f"💘 Совпадения [{random.randint(0, 1000)}]", callback_data=f"matches")
+    button1 = InlineKeyboardButton(text=f"Свидание [{random.randint(0, 1000)}]", callback_data=f"who_wants|LOVE")
+    button2 = InlineKeyboardButton(text=f"Постель [{random.randint(0, 1000)}]", callback_data=f"who_wants|SEX")
+    button3 = InlineKeyboardButton(text=f"Общение [{random.randint(0, 1000)}]", callback_data=f"who_wants|CHAT")
+    button4 = InlineKeyboardButton(text=f"Обновить 🔄", callback_data=f"reload_matches_menu")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button0], [button1, button2, button3], [button4],])
     
     return menu_picture, markup
+
+
+async def get_wants_user(reaction):
+    if reaction == "love":
+        pass
+    elif reaction == "sex":
+        pass
+    elif reaction == "chat":
+        pass
+    
+    random_user = random.choice(test_db)
+    target_tg_id = random_user.get('tg_id', 0)
+    target_name = random_user.get('name', '')
+    target_username = random_user.get('username', '')
+    description = random_user.get('description', '')
+    photo_id = random_user.get('photo_id', '')
+    caption=f"<b>{target_name}</b>\n<i>{description}</i>"
+
+
+    button1 = InlineKeyboardButton(text="Добавить в Совпадения 10 ⭐️", callback_data=f"wants_pay|{target_name}|{target_tg_id}|{target_username}", pay=True)
+    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"wants_back|{target_name}|{target_tg_id}")
+    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"wants_next|{target_name}|{target_tg_id}")
+    button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"matches_menu")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
+
+    return photo_id, caption, markup
 
 
 async def get_matches_user():
@@ -171,8 +197,10 @@ async def cmd_start(message: types.Message, state: FSMContext):
 # ------------------------------------------------------------------- Колбеки -------------------------------------------------------
 
 
-gender = {"man": "Мужчина", "woman": "Женщина", "any": "Другое"}
+gender = {"MAN": "Мужчина", "WOMAN": "Женщина", "ANY": "Другое"}
 gender_choice = {"search_man": "Ищу Мужчину", "search_woman": "Ищу Женщину", "search_any": "Пол не имеет значения"}
+gender_choice_db = {"search_man": "MAN", "search_woman": "WOMAN", "search_any": "ANY"}
+
 
 @dp.callback_query(F.data == "18yes")
 async def query_18years(callback: types.CallbackQuery):
@@ -220,18 +248,18 @@ async def handle_location(message: types.Message):
         f"✅ Шаг 2 выполнен\nТы находишься в:\nГород: {city_local}\nСтрана: {country_local}",
         reply_markup=ReplyKeyboardRemove()
     )
-    button1 = InlineKeyboardButton(text="Мужчина", callback_data="man")
-    button2 = InlineKeyboardButton(text="Женщина", callback_data="woman")
-    button3 = InlineKeyboardButton(text="Другое", callback_data="any")
+    button1 = InlineKeyboardButton(text="Мужчина", callback_data="MAN")
+    button2 = InlineKeyboardButton(text="Женщина", callback_data="WOMAN")
+    button3 = InlineKeyboardButton(text="Другое", callback_data="ANY")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2], [button3]])
     await message.answer("👉 Шаг 3. Укажи свой пол", reply_markup=markup)
 
 
-@dp.callback_query(F.data.in_(["man", "woman", "any"]))
+@dp.callback_query(F.data.in_(["MAN", "WOMAN", "ANY"]))
 async def query_gender(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     print(f'Запись в базу: {user_id} выбрал пол {callback.data}')
-    await callback.answer(text=f"Отлично! Ты указал, что ты {gender.get(callback.data)}")
+    await callback.answer(text=f"Отлично! Ты указал: {gender.get(callback.data)}")
     await callback.message.edit_text(text="✅ Шаг 3 выполнен")
     button1 = InlineKeyboardButton(text="Ищу Мужчину", callback_data="search_man")
     button2 = InlineKeyboardButton(text="Ищу Женщину", callback_data="search_woman")
@@ -243,8 +271,10 @@ async def query_gender(callback: types.CallbackQuery):
 @dp.callback_query(F.data.in_(["search_man", "search_woman", "search_any"]))
 async def query_gender_choice(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    print(f'Запись в базу: {user_id} находится в поиске {callback.data}')
-    await callback.answer(text=f"Отлично! Ты указал, что ты ищешь {gender_choice.get(callback.data)}")
+    
+    print(f'Запись в базу: {user_id} находится в поиске {gender_choice_db.get(callback.data)}')
+
+    await callback.answer(text=f"Отлично! Ты указал: {gender_choice.get(callback.data)}")
     await callback.message.edit_text(text="✅ Шаг 4 выполнен")
     await callback.message.answer("👉 Шаг 5. Отправь свое фото 📷", reply_markup=ReplyKeyboardRemove())
 
@@ -260,11 +290,11 @@ async def handle_photo(message: types.Message):
     await message.answer("👉 Шаг 6. Расскажи коротко о себе\n<i>Постарайся уложиться в 2-3 строки</i>", parse_mode="HTML")
 
 
-# обработка колбека поиска, свидание
-@dp.callback_query(lambda c: c.data.startswith("reaction_"))
+# обработка колбека поиска
+@dp.callback_query(lambda c: c.data.startswith("reaction"))
 async def handle_reaction(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    action_str, target_name, target_tg_id = callback.data.split("|", 2)
+    _, action_str, target_name, target_tg_id = callback.data.split("|", 3)
 
     try:
         reaction = ReactionType(action_str)
@@ -272,7 +302,7 @@ async def handle_reaction(callback: types.CallbackQuery):
         await callback.answer("Неизвестная реакция")
         return
 
-    print(f'Запись в базу: {user_id} реакция {reaction.label} на {target_tg_id}')
+    print(f'Запись в базу: {user_id} реакция {action_str} на {target_tg_id}')
 
     await callback.answer(reaction.message_template.format(name=target_name))
 
@@ -296,6 +326,24 @@ async def query_matches_menu(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     menu_picture, markup = await get_matches_menu_buttons()
     await callback.message.edit_media(media=InputMediaPhoto(media=menu_picture))
+    await callback.message.edit_reply_markup(reply_markup=markup)
+
+
+@dp.callback_query(F.data == "reload_matches_menu")
+async def query_reload_matches_menu(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    _, markup = await get_matches_menu_buttons()
+    await callback.message.edit_reply_markup(reply_markup=markup)
+
+
+# обработка колбека кому нравишься
+@dp.callback_query(lambda c: c.data.startswith("who_wants"))
+async def handle_who_wants(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    _, reaction = callback.data.split("|", 1)
+    photo_id, caption, markup = await get_wants_user(reaction)
+    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
+    await callback.message.edit_caption(caption=caption, parse_mode="HTML")
     await callback.message.edit_reply_markup(reply_markup=markup)
 
 
