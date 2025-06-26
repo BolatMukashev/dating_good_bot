@@ -13,3 +13,5 @@ __pycache__/
 
 # Игнорируем зависимости, если они не в requirements.txt
 pip-log.txt
+
+my_database.db

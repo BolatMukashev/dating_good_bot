@@ -9,8 +9,10 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from config import BOT_API_KEY, ADMIN_ID, MONGO_DB_PASSWORD, MONGO_DB_USERNAME
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from models import Base, User, Reaction, Buy
 from test_db import test_db
-
 
 
 # ------------------------------------------------------------------- Настройка и активация бота -------------------------------------------------------
@@ -26,6 +28,13 @@ logger = logging.getLogger(__name__)
 bot = Bot(token=BOT_API_KEY)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
+
+
+# Создание подключения и сессии
+engine = create_engine("sqlite:///my_database.db")
+Session = sessionmaker(bind=engine)
+session = Session()
+
 
 
 class ReactionType(str, Enum):
@@ -183,7 +192,12 @@ async def cmd_start(message: types.Message, state: FSMContext):
 После этого вернись в бота \nи нажми 👉 /start , чтобы продолжить регистрацию.
 """)
     else:
-        print(f'Запись в базу: {user_id}, {first_name}, {username}')
+        # запись в базу
+        new_user = User(telegram_id=user_id, first_name=first_name, username=username)
+        session.add(new_user)
+        session.commit()
+        session.close()
+
         await message.answer(f"Привет, {first_name}!\nГотов к новым знакомствам?\n\nЧтобы начать нужно выполнить несколько простых шагов:\n\nШаг 1. Подтверди что тебе есть 18 лет\nШаг 2. Отправь свое местоположение\nШаг 3. Укажи свой пол \nШаг 4. Кого ты ищешь? \nШаг 5. Отправь свое фото\nШаг 6. Расскажи коротко о себе")
         button = InlineKeyboardButton(text="Мне больше 18 лет", callback_data="18yes")
         markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
@@ -198,14 +212,20 @@ async def cmd_start(message: types.Message, state: FSMContext):
 
 
 gender = {"MAN": "Мужчина", "WOMAN": "Женщина", "ANY": "Другое"}
-gender_choice = {"search_man": "Ищу Мужчину", "search_woman": "Ищу Женщину", "search_any": "Пол не имеет значения"}
-gender_choice_db = {"search_man": "MAN", "search_woman": "WOMAN", "search_any": "ANY"}
+gender_search = {"search_man": "Ищу Мужчину", "search_woman": "Ищу Женщину", "search_any": "Пол не имеет значения"}
+gender_search_db = {"search_man": "MAN", "search_woman": "WOMAN", "search_any": "ANY"}
 
 
 @dp.callback_query(F.data == "18yes")
 async def query_18years(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    print(f'Запись в базу: {user_id} Есть 18 - True')
+
+    # запись в базу
+    user = session.query(User).filter_by(telegram_id=user_id).first()
+    user.eighteen_years_old = True
+    session.commit()
+    session.close()
+
     await callback.answer(text="Отлично! Ты подтвердил, что тебе больше 18 лет")
 
     # 1. Меняем текст сообщения и убираем inline-кнопки
@@ -240,8 +260,12 @@ async def handle_location(message: types.Message):
     # 2. Получаем название на английском для записи в базу
     country_en, city_en = await get_location_info(latitude, longitude, lang='en')
 
-    # Пример записи в базу (здесь просто выводим)
-    print(f"Запись в базу: {user_id} расположение {city_en}, {country_en}")
+    # запись в базу
+    user = session.query(User).filter_by(telegram_id=user_id).first()
+    user.country = country_en
+    user.city = city_en
+    session.commit()
+    session.close()
 
     # Отправляем пользователю локализованный ответ
     await message.answer(
@@ -258,7 +282,13 @@ async def handle_location(message: types.Message):
 @dp.callback_query(F.data.in_(["MAN", "WOMAN", "ANY"]))
 async def query_gender(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    print(f'Запись в базу: {user_id} выбрал пол {callback.data}')
+
+    # запись в базу
+    user = session.query(User).filter_by(telegram_id=user_id).first()
+    user.gender = callback.data
+    session.commit()
+    session.close()
+
     await callback.answer(text=f"Отлично! Ты указал: {gender.get(callback.data)}")
     await callback.message.edit_text(text="✅ Шаг 3 выполнен")
     button1 = InlineKeyboardButton(text="Ищу Мужчину", callback_data="search_man")
@@ -269,12 +299,16 @@ async def query_gender(callback: types.CallbackQuery):
 
 
 @dp.callback_query(F.data.in_(["search_man", "search_woman", "search_any"]))
-async def query_gender_choice(callback: types.CallbackQuery):
+async def query_gender_search(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     
-    print(f'Запись в базу: {user_id} находится в поиске {gender_choice_db.get(callback.data)}')
+    # запись в базу
+    user = session.query(User).filter_by(telegram_id=user_id).first()
+    user.gender_search = gender_search_db.get(callback.data)
+    session.commit()
+    session.close()
 
-    await callback.answer(text=f"Отлично! Ты указал: {gender_choice.get(callback.data)}")
+    await callback.answer(text=f"Отлично! Ты указал: {gender_search.get(callback.data)}")
     await callback.message.edit_text(text="✅ Шаг 4 выполнен")
     await callback.message.answer("👉 Шаг 5. Отправь свое фото 📷", reply_markup=ReplyKeyboardRemove())
 
@@ -284,7 +318,13 @@ async def handle_photo(message: types.Message):
     user_id = message.from_user.id
     photo = message.photo[-1]
     file_id = photo.file_id
-    print(f"Запись в базу: {user_id} file_id фотографии {file_id}")
+
+    # запись в базу
+    user = session.query(User).filter_by(telegram_id=user_id).first()
+    user.photo_id = file_id
+    session.commit()
+    session.close()
+
     await message.delete()
     await message.answer("✅ Шаг 5 выполнен")
     await message.answer("👉 Шаг 6. Расскажи коротко о себе\n<i>Постарайся уложиться в 2-3 строки</i>", parse_mode="HTML")
@@ -294,15 +334,15 @@ async def handle_photo(message: types.Message):
 @dp.callback_query(lambda c: c.data.startswith("reaction"))
 async def handle_reaction(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    _, action_str, target_name, target_tg_id = callback.data.split("|", 3)
+    _, reaction_str, target_name, target_tg_id = callback.data.split("|", 3)
 
     try:
-        reaction = ReactionType(action_str)
+        reaction = ReactionType(reaction_str)
     except ValueError:
         await callback.answer("Неизвестная реакция")
         return
 
-    print(f'Запись в базу: {user_id} реакция {action_str} на {target_tg_id}')
+    print(f'Запись в базу: {user_id} реакция {reaction_str} на {target_tg_id}')
 
     await callback.answer(reaction.message_template.format(name=target_name))
 
@@ -354,7 +394,13 @@ async def handle_text(message: types.Message):
     text = message.text
     print(text)
     if len(text) <= 110:
-        print(f"Запись в базу: {user_id} добавил описание {text}")
+
+        # запись в базу
+        user = session.query(User).filter_by(telegram_id=user_id).first()
+        user.about_me = text
+        session.commit()
+        session.close()
+
         await message.answer("✅ Шаг 6 выполнен")
         await message.answer("🔍 Найти партнера - /search" \
         "\n💘Совпадения (match) - /match")
