@@ -113,7 +113,7 @@ async def get_matches_menu_buttons():
     return menu_picture, markup
 
 
-async def get_wants_user(reaction):
+async def get_wants_user(reaction, price):
     if reaction == "love":
         pass
     elif reaction == "sex":
@@ -130,7 +130,7 @@ async def get_wants_user(reaction):
     caption=f"<b>{target_name}</b>\n<i>{description}</i>"
 
 
-    button1 = InlineKeyboardButton(text="Добавить в Совпадения 10 ⭐️", callback_data=f"wants_pay|{target_name}|{target_tg_id}|{target_username}", pay=True)
+    button1 = InlineKeyboardButton(text=f"Добавить в Совпадения {price} ⭐️", callback_data=f"wants_pay|{target_name}|{target_tg_id}|{target_username}|{price}", pay=True)
     button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"wants_back|{target_name}|{target_tg_id}")
     button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"wants_next|{target_name}|{target_tg_id}")
     button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"matches_menu")
@@ -342,7 +342,11 @@ async def handle_reaction(callback: types.CallbackQuery):
         await callback.answer("Неизвестная реакция")
         return
 
-    print(f'Запись в базу: {user_id} реакция {reaction_str} на {target_tg_id}')
+    # запись в базу
+    new_reaction = Reaction(telegram_id=user_id, target_tg_id=target_tg_id, reaction=reaction_str)
+    session.add(new_reaction)
+    session.commit()
+    session.close()
 
     await callback.answer(reaction.message_template.format(name=target_name))
 
