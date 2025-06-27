@@ -2,7 +2,7 @@ import logging
 import aiohttp
 import random
 from enum import Enum
-from aiogram.types import InputMediaPhoto
+from aiogram.types import InputMediaPhoto, LabeledPrice
 from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
 from aiogram import Bot, Dispatcher, types, F
@@ -130,7 +130,7 @@ async def get_wants_user(reaction, price):
     caption=f"<b>{target_name}</b>\n<i>{description}</i>"
 
 
-    button1 = InlineKeyboardButton(text=f"Добавить в Совпадения {price} ⭐️", callback_data=f"wants_pay|{target_name}|{target_tg_id}|{target_username}|{price}", pay=True)
+    button1 = InlineKeyboardButton(text=f"Добавить в Совпадения {price} ⭐️", callback_data=f"wants_pay|{target_name}|{target_tg_id}|{price}", pay=True)
     button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"wants_back|{target_name}|{target_tg_id}")
     button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"wants_next|{target_name}|{target_tg_id}")
     button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"matches_menu")
@@ -385,12 +385,66 @@ async def query_reload_matches_menu(callback: types.CallbackQuery):
 async def handle_who_wants(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     _, reaction = callback.data.split("|", 1)
-    photo_id, caption, markup = await get_wants_user(reaction)
+    photo_id, caption, markup = await get_wants_user(reaction, 10)
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
     await callback.message.edit_caption(caption=caption, parse_mode="HTML")
     await callback.message.edit_reply_markup(reply_markup=markup)
 
 
+# ------------------------------------------------------------------- Оплата -------------------------------------------------------
+
+
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+def payment_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.button(text="Оплатить через Telegram Stars ⭐️", pay=True)
+    return builder.as_markup()
+
+
+# обработка колбека оплаты
+@dp.callback_query(lambda c: c.data.startswith("wants_pay"))
+async def handle_wants_pay(callback: types.CallbackQuery):
+    _, target_name, target_tg_id, price_str = callback.data.split("|")
+    price = int(price_str)
+
+    prices = [LabeledPrice(label=f"Добавить {target_name} в Совпадения", amount=price)]
+
+    await callback.message.answer_invoice(
+        title="Добавить в Совпадения",
+        description=f"Открыть доступ к профилю {target_name}",
+        payload=f"match_{target_tg_id}",
+        provider_token="YOUR_PROVIDER_TOKEN",  # <-- сюда токен из BotFather
+        currency="XTR",
+        prices=prices,
+        reply_markup=payment_keyboard()
+    )
+
+    await callback.answer() 
+
+
+@dp.pre_checkout_query()
+async def pre_checkout(pre_checkout_query: types.PreCheckoutQuery):
+    await pre_checkout_query.answer(ok=True)
+
+
+@dp.message(lambda message: message.successful_payment is not None)
+async def on_successful_payment(message: types.Message):
+    payload = message.successful_payment.invoice_payload
+    user_id = message.from_user.id
+
+    # Пример обработки payload:
+    if payload.startswith("match_"):
+        target_id = payload.split("_")[1]
+        # ✅ Добавить в совпадения
+        await message.answer(f"✅ Вы добавили пользователя с ID {target_id} в Совпадения!")
+
+
+
+# ------------------------------------------------------------------- Текст -------------------------------------------------------
+
+
+# обработка текста - добавляет или изменяет описание "о себе"
 @dp.message(F.text)
 async def handle_text(message: types.Message):
     user_id = message.from_user.id
@@ -410,6 +464,9 @@ async def handle_text(message: types.Message):
         "\n💘Совпадения (match) - /match")
     else:
         await message.answer("❌ Шаг 6 не выполнен. Количество символов превышает лимит в 110 символов. Попробуй еще раз")
+
+
+# ------------------------------------------------------------------- Активация бота -------------------------------------------------------
 
 
 async def main():
