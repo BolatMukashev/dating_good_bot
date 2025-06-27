@@ -12,7 +12,7 @@ from aiogram.types import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeybo
 from config import BOT_API_KEY, ADMIN_ID, MONGO_DB_PASSWORD, MONGO_DB_USERNAME
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models import Base, User, Reaction, Buy
+from models import Base, User, Reaction, Payment
 from test_db import test_db
 
 
@@ -386,7 +386,7 @@ async def query_reload_matches_menu(callback: types.CallbackQuery):
 async def handle_who_wants(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     _, reaction = callback.data.split("|", 1)
-    photo_id, caption, markup = await get_wants_user(reaction, 10)
+    photo_id, caption, markup = await get_wants_user(reaction, 1)
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
     await callback.message.edit_caption(caption=caption, parse_mode="HTML")
     await callback.message.edit_reply_markup(reply_markup=markup)
@@ -403,22 +403,22 @@ def payment_keyboard():
 # обработка колбека оплаты
 @dp.callback_query(lambda c: c.data.startswith("wants_pay"))
 async def handle_wants_pay(callback: types.CallbackQuery):
-    _, target_name, target_tg_id, price_str = callback.data.split("|")
+    _, target_name, target_tg_id, price_str = callback.data.split("|", 3)
     price = int(price_str)
 
     prices = [LabeledPrice(label=f"Добавить {target_name} в Совпадения", amount=price)]
 
     await callback.message.answer_invoice(
         title=f"Добавить в Совпадения {target_name}",
-        description=f"При добавлении в Совпадения, вы получите доступ к профилю человека и сможете ему написать",
-        payload=f"match_{target_tg_id}",
-        provider_token="YOUR_PROVIDER_TOKEN",  # <-- сюда токен из BotFather
+        description=f"При добавлении {target_name} в Совпадения, вы получите доступ к профилю человека и сможете ему написать",
+        payload=f"payment_ok|{target_tg_id}|{price}",
+        provider_token="",  # <-- сюда токен из BotFather?
         currency="XTR",
         prices=prices,
         reply_markup=payment_keyboard()
     )
 
-    await callback.answer() 
+    await callback.answer()
 
 
 @dp.pre_checkout_query()
@@ -432,9 +432,15 @@ async def on_successful_payment(message: types.Message):
     user_id = message.from_user.id
 
     # Пример обработки payload:
-    if payload.startswith("match_"):
-        target_id = payload.split("_")[1]
-        # ✅ Добавить в совпадения
+    if payload.startswith("payment_ok"):
+        _, target_id, price = payload.split("|", 2)
+
+        # запись в базу
+        payment = Payment(telegram_id=user_id, target_tg_id=target_id, price=price)
+        session.add(payment)
+        session.commit()
+        session.close()
+
         await message.answer(f"✅ Вы добавили пользователя с ID {target_id} в Совпадения!")
 
 
