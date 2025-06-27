@@ -3,6 +3,7 @@ import aiohttp
 import random
 from enum import Enum
 from aiogram.types import InputMediaPhoto, LabeledPrice
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
 from aiogram import Bot, Dispatcher, types, F
@@ -393,9 +394,6 @@ async def handle_who_wants(callback: types.CallbackQuery):
 
 # ------------------------------------------------------------------- Оплата -------------------------------------------------------
 
-
-from aiogram.utils.keyboard import InlineKeyboardBuilder
-
 def payment_keyboard():
     builder = InlineKeyboardBuilder()
     builder.button(text="Оплатить через Telegram Stars ⭐️", pay=True)
@@ -411,8 +409,8 @@ async def handle_wants_pay(callback: types.CallbackQuery):
     prices = [LabeledPrice(label=f"Добавить {target_name} в Совпадения", amount=price)]
 
     await callback.message.answer_invoice(
-        title="Добавить в Совпадения",
-        description=f"Открыть доступ к профилю {target_name}",
+        title=f"Добавить в Совпадения {target_name}",
+        description=f"При добавлении в Совпадения, вы получите доступ к профилю человека и сможете ему написать",
         payload=f"match_{target_tg_id}",
         provider_token="YOUR_PROVIDER_TOKEN",  # <-- сюда токен из BotFather
         currency="XTR",
@@ -438,7 +436,6 @@ async def on_successful_payment(message: types.Message):
         target_id = payload.split("_")[1]
         # ✅ Добавить в совпадения
         await message.answer(f"✅ Вы добавили пользователя с ID {target_id} в Совпадения!")
-
 
 
 # ------------------------------------------------------------------- Текст -------------------------------------------------------
