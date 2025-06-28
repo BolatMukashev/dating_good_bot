@@ -26,6 +26,8 @@ class User(Base):
     reactions_received = relationship('Reaction', foreign_keys='Reaction.target_tg_id', back_populates='receiver')
     payments_made = relationship('Payment', foreign_keys='Payment.telegram_id', back_populates='buyer')
     payments_received = relationship('Payment', foreign_keys='Payment.target_tg_id', back_populates='target')
+    caches = relationship('Cache', foreign_keys='Cache.telegram_id', back_populates='user')
+
 
 # Таблица reactions
 class Reaction(Base):
@@ -50,6 +52,18 @@ class Payment(Base):
 
     buyer = relationship('User', foreign_keys=[telegram_id], back_populates='payments_made')
     target = relationship('User', foreign_keys=[target_tg_id], back_populates='payments_received')
+
+
+# Таблица кэш
+class Cache(Base):
+    __tablename__ = 'Cache'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    telegram_id = Column(Integer, ForeignKey('users.telegram_id'), nullable=False)
+    parameter = Column(String)
+    message_id = Column(Integer)
+
+    user = relationship('User', foreign_keys=[telegram_id], back_populates='caches')
 
 # Создание таблиц
 Base.metadata.create_all(engine)

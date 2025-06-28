@@ -408,15 +408,17 @@ async def handle_wants_pay(callback: types.CallbackQuery):
 
     prices = [LabeledPrice(label=f"Добавить {target_name} в Совпадения", amount=price)]
 
-    await callback.message.answer_invoice(
+    sent_invoice = await callback.message.answer_invoice(
         title=f"Добавить в Совпадения {target_name}",
-        description=f"При добавлении {target_name} в Совпадения, вы получите доступ к профилю человека и сможете ему написать",
-        payload=f"payment_ok|{target_tg_id}|{price}",
+        description=f"При добавлении в Совпадения, вы получите доступ к профилю {target_name} и сможете ей/ему написать",
+        payload=f"payment_ok|{target_tg_id}|{price}|{callback.message.message_id}",
         provider_token="",  # <-- сюда токен из BotFather?
         currency="XTR",
         prices=prices,
         reply_markup=payment_keyboard()
     )
+
+    invoice_message_id = sent_invoice.message_id
 
     await callback.answer()
 
@@ -433,15 +435,15 @@ async def on_successful_payment(message: types.Message):
 
     # Пример обработки payload:
     if payload.startswith("payment_ok"):
-        _, target_id, price = payload.split("|", 2)
+        _, target_id, price, wants_user_menu = payload.split("|", 3)
 
         # запись в базу
         payment = Payment(telegram_id=user_id, target_tg_id=target_id, price=price)
         session.add(payment)
         session.commit()
         session.close()
-
-        await message.answer(f"✅ Вы добавили пользователя с ID {target_id} в Совпадения!")
+    
+    await bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=int(wants_user_menu), reply_markup=None)
 
 
 # ------------------------------------------------------------------- Текст -------------------------------------------------------
