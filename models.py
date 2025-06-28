@@ -1,9 +1,11 @@
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy.orm import relationship, DeclarativeBase
 
-engine = create_engine("sqlite:///my_database.db", echo=True)
-Base = declarative_base()
+
+# Новый стиль декларативной базы для современного SQLAlchemy
+class Base(DeclarativeBase):
+    pass
+
 
 # Таблица users
 class User(Base):
@@ -41,6 +43,7 @@ class Reaction(Base):
     sender = relationship('User', foreign_keys=[telegram_id], back_populates='reactions_sent')
     receiver = relationship('User', foreign_keys=[target_tg_id], back_populates='reactions_received')
 
+
 # Таблица payment
 class Payment(Base):
     __tablename__ = 'payments'
@@ -56,7 +59,7 @@ class Payment(Base):
 
 # Таблица кэш
 class Cache(Base):
-    __tablename__ = 'Cache'
+    __tablename__ = 'cache'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     telegram_id = Column(Integer, ForeignKey('users.telegram_id'), nullable=False)
@@ -65,5 +68,5 @@ class Cache(Base):
 
     user = relationship('User', foreign_keys=[telegram_id], back_populates='caches')
 
-# Создание таблиц
-Base.metadata.create_all(engine)
+
+# Примечание: создание таблиц теперь происходит в основном коде через async engine
