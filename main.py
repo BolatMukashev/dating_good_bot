@@ -11,8 +11,9 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from config import BOT_API_KEY, ADMIN_ID, MONGO_DB_PASSWORD, MONGO_DB_USERNAME
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import select
+from sqlalchemy import select, update
 from models import Base, User, Reaction, Payment, Cache
 from test_db import test_db
 
@@ -440,9 +441,30 @@ async def handle_wants_pay(callback: types.CallbackQuery):
     )
 
     invoice_message_id = sent_invoice.message_id
+
+
     async with AsyncSessionLocal() as session:
-        cache = Cache(telegram_id=callback.from_user.id, parameter="invoice_message_id", message_id=invoice_message_id)
-        session.add(cache)
+        # Проверка: есть ли уже запись с таким telegram_id и параметром
+        result = await session.execute(
+            select(Cache).where(
+                Cache.telegram_id == callback.from_user.id,
+                Cache.parameter == "invoice_message_id"
+            )
+        )
+        existing_cache = result.scalar_one_or_none()
+
+        if existing_cache:
+            # Обновляем значение message_id
+            existing_cache.message_id = sent_invoice.message_id
+        else:
+            # Создаём новую запись
+            new_cache = Cache(
+                telegram_id=callback.from_user.id,
+                parameter="invoice_message_id",
+                message_id=sent_invoice.message_id
+            )
+            session.add(new_cache)
+
         await session.commit()
 
     await callback.answer()
