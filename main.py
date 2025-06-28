@@ -187,13 +187,15 @@ async def cmd_match(message: types.Message, state: FSMContext):
     await message.answer_photo(photo=menu_picture, parse_mode="HTML", reply_markup=markup)
 
 
-# Команда старт
+from sqlalchemy import select
+
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     first_name = message.from_user.first_name
     username = message.from_user.username
-    if username == None:
+
+    if not username:
         await message.answer("""
 ⚠️ Для использования бота необходимо установить username в Telegram.
 
@@ -204,21 +206,50 @@ async def cmd_start(message: types.Message, state: FSMContext):
 
 После этого вернись в бота \nи нажми 👉 /start , чтобы продолжить регистрацию.
 """)
-    else:
-        # запись в базу
-        async with AsyncSessionLocal() as session:
+        return
+
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(User).where(User.telegram_id == user_id))
+        existing_user = result.scalar_one_or_none()
+
+        if not existing_user:
+            # Если пользователь новый — добавляем
             new_user = User(telegram_id=user_id, first_name=first_name, username=username)
             session.add(new_user)
-            await session.commit()
+        else:
+            # Если пользователь есть — обновляем имя/username при изменении
+            updated = False
+            if existing_user.first_name != first_name:
+                existing_user.first_name = first_name
+                updated = True
+            if existing_user.username != username:
+                existing_user.username = username
+                updated = True
+            if updated:
+                session.add(existing_user)  # можно и без этого, но на всякий случай
 
-        await message.answer(f"Привет, {first_name}!\nГотов к новым знакомствам?\n\nЧтобы начать нужно выполнить несколько простых шагов:\n\nШаг 1. Подтверди что тебе есть 18 лет\nШаг 2. Отправь свое местоположение\nШаг 3. Укажи свой пол \nШаг 4. Кого ты ищешь? \nШаг 5. Отправь свое фото\nШаг 6. Расскажи коротко о себе")
-        button = InlineKeyboardButton(text="Мне больше 18 лет", callback_data="18yes")
-        markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
-        await message.answer("👉 Шаг 1. Подтверди, что тебе есть 18 лет\n\n"
-                             "<i>По законам многих стран, чтобы пользоваться сервисами, подобными нашему, тебе должно быть больше 18 лет.</i>\n\n"
-                             "Дай своё согласие, что ты понимаешь все риски и уже достиг нужного возраста.",
-                             reply_markup=markup,
-                             parse_mode="HTML")
+        await session.commit()
+
+    await message.answer(f"Привет, {first_name}!\nГотов к новым знакомствам?\n\n"
+                         "Чтобы начать нужно выполнить несколько простых шагов:"
+                         "\nШаг 1. Подтверди что тебе есть 18 лет"
+                         "\nШаг 2. Отправь свое местоположение"
+                         "\nШаг 3. Укажи свой пол"
+                         "\nШаг 4. Кого ты ищешь?"
+                         "\nШаг 5. Отправь свое фото"
+                         "\nШаг 6. Расскажи коротко о себе")
+
+    button = InlineKeyboardButton(text="Мне больше 18 лет", callback_data="18yes")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
+
+    await message.answer(
+        "👉 Шаг 1. Подтверди, что тебе есть 18 лет\n\n"
+        "<i>По законам многих стран, чтобы пользоваться сервисами, подобными нашему, тебе должно быть больше 18 лет.</i>\n\n"
+        "Дай своё согласие, что ты понимаешь все риски и уже достиг нужного возраста.",
+        reply_markup=markup,
+        parse_mode="HTML"
+    )
+
 
 
 # ------------------------------------------------------------------- Колбеки -------------------------------------------------------
