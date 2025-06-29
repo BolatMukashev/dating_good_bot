@@ -25,10 +25,30 @@ fake = Faker("ru_RU")
 async_engine = create_async_engine("sqlite+aiosqlite:///my_database.db")
 AsyncSessionLocal = sessionmaker(bind=async_engine, class_=AsyncSession, expire_on_commit=False)
 
-async def seed_user(gender, gender_search, country, city):
+async def seed_user(gender, gender_search=True, random_location=False):
     async with AsyncSessionLocal() as session:
+        if gender == "MAN":
+            first_name=fake.first_name_male()
+            if gender_search:
+                gender_search = "WOMAN"
+            else:
+                gender_search = "MAN"
+        else:
+            first_name=fake.first_name_female()
+            if gender_search:
+                gender_search = "MAN"
+            else:
+                gender_search = "WOMAN"
+        
+        if random_location:
+            country = fake.country()
+            city = fake.city()
+        else:
+            country = "Kazakhstan"
+            city = "Oral"
+
         new_user = User(telegram_id= random.randint(100000000, 999999999),
-                        first_name=fake.first_name(),
+                        first_name=first_name,
                         username="astana11b",
                         gender = gender,
                         gender_search = gender_search,
@@ -42,4 +62,4 @@ async def seed_user(gender, gender_search, country, city):
         print("✅ Пользователи успешно добавлены в базу")
 
 if __name__ == "__main__":
-    asyncio.run(seed_user("MAN", "MAN", "Kazakhstan", "Oral"))
+    asyncio.run(seed_user("WOMAN", gender_search=True, random_location=True))
