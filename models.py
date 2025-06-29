@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text
 from sqlalchemy.orm import relationship, DeclarativeBase
 
 
@@ -65,6 +65,7 @@ class Cache(Base):
     telegram_id = Column(Integer, ForeignKey('users.telegram_id'), nullable=False)
     parameter = Column(String)
     message_id = Column(Integer)
+    data = Column(Text)
 
     user = relationship('User', foreign_keys=[telegram_id], back_populates='caches')
 

@@ -126,26 +126,32 @@ async def get_matches_menu_buttons():
     return menu_picture, markup
 
 
-async def get_wants_user(reaction, price):
-    if reaction == "love":
+async def get_wants_user(reaction: ReactionType, price: int, priced: bool = False, user_info: dict=None, id_in_cache: int=0):
+    if reaction == "LOVE":
         pass
-    elif reaction == "sex":
+    elif reaction == "SEX":
         pass
-    elif reaction == "chat":
+    elif reaction == "CHAT":
         pass
-    
-    random_user = random.choice(test_db)
-    target_tg_id = random_user.get('tg_id', 0)
-    target_name = random_user.get('name', '')
-    target_username = random_user.get('username', '')
-    description = random_user.get('description', '')
-    photo_id = random_user.get('photo_id', '')
-    caption=f"<b>{target_name}</b>\n<i>{description}</i>"
+    if user_info == None:
+        random_user = random.choice(test_db)
+        target_tg_id = random_user.get('tg_id', 0)
+        target_name = random_user.get('name', '')
+        target_username = random_user.get('username', '')
+        description = random_user.get('description', '')
+        photo_id = random_user.get('photo_id', '')
+        caption=f"<b>{target_name}</b>\n<i>{description}</i>"
+    else:
+        target_name = user_info.get('target_name', '')
+        caption = user_info.get('caption', '')
+        photo_id = user_info.get('photo_id', '')
 
-
-    button1 = InlineKeyboardButton(text=f"Добавить в Совпадения {price} ⭐️", callback_data=f"wants_pay|{target_name}|{target_tg_id}|{price}", pay=True)
-    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"wants_back|{target_name}|{target_tg_id}")
-    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"wants_next|{target_name}|{target_tg_id}")
+    if priced:
+        button1 = InlineKeyboardButton(text=f"Добавлено в 💘 Совпадения", callback_data=f"pass")
+    else:
+        button1 = InlineKeyboardButton(text=f"Добавить в Совпадения {price} ⭐️", callback_data=f"wants_pay|{target_tg_id}|{price}|{reaction}", pay=True)
+    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"wants_slider|BACK|{id_in_cache}|{reaction}")
+    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"wants_slider|NEXT|{id_in_cache}||{reaction}")
     button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"matches_menu")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
 
@@ -456,7 +462,7 @@ def payment_keyboard():
 # обработка колбека оплаты
 @dp.callback_query(lambda c: c.data.startswith("wants_pay"))
 async def handle_wants_pay(callback: types.CallbackQuery):
-    _, target_name, target_tg_id, price_str = callback.data.split("|", 3)
+    _, target_tg_id, target_name, caption, photo_id, price_str, reaction = callback.data.split("|")
     price = int(price_str)
 
     prices = [LabeledPrice(label=f"Добавить {target_name} в Совпадения", amount=price)]
@@ -464,18 +470,16 @@ async def handle_wants_pay(callback: types.CallbackQuery):
     sent_invoice = await callback.message.answer_invoice(
         title=f"Добавить в Совпадения {target_name}",
         description=f"При добавлении в Совпадения, вы получите доступ к профилю {target_name} и сможете ей/ему написать",
-        payload=f"payment_ok|{target_tg_id}|{price}|{callback.message.message_id}",
-        provider_token="",  # <-- сюда токен из BotFather?
+        payload=f"payment_ok|{target_tg_id}|{price}|{callback.message.message_id}|{target_name}|{caption}|{photo_id}|{reaction}",
+        provider_token="",
         currency="XTR",
         prices=prices,
         reply_markup=payment_keyboard()
     )
 
-    invoice_message_id = sent_invoice.message_id
-
 
     async with AsyncSessionLocal() as session:
-        # Проверка: есть ли уже запись с таким telegram_id и параметром
+        # Проверка: по telegram_id получить параметр invoice.message_id, если нет - добавить
         result = await session.execute(
             select(Cache).where(
                 Cache.telegram_id == callback.from_user.id,
@@ -486,7 +490,7 @@ async def handle_wants_pay(callback: types.CallbackQuery):
 
         if existing_cache:
             # Обновляем значение message_id
-            existing_cache.message_id = sent_invoice.message_id
+            existing_cache.message_id = sent_invoice.message_id # id invoice сообщения
         else:
             # Создаём новую запись
             new_cache = Cache(
@@ -513,15 +517,18 @@ async def on_successful_payment(message: types.Message):
 
     # Пример обработки payload:
     if payload.startswith("payment_ok"):
-        _, target_id, price, wants_user_menu = payload.split("|", 3)
+        _, target_id, price, message_id, target_name, caption, photo_id, reaction = payload.split("|")
+        user_info = {"target_name": target_name, "caption": caption, "photo_id": photo_id}
 
         # запись в базу
         async with AsyncSessionLocal() as session:
             payment = Payment(telegram_id=user_id, target_tg_id=target_id, price=price)
             session.add(payment)
             await session.commit()
+
+    markup = await get_wants_user(reaction, 1, priced=True, user_info=user_info)
     
-    await bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=int(wants_user_menu), reply_markup=None)
+    await bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=int(message_id), reply_markup=markup)
     
     async with AsyncSessionLocal() as session:
         result = await session.execute(
