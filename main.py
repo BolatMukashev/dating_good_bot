@@ -2,6 +2,7 @@ import logging
 import aiohttp
 import random
 from enum import Enum
+from db_connect import async_engine, Base
 from aiogram.types import InputMediaPhoto, LabeledPrice
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters.command import Command
@@ -14,8 +15,10 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select, update
-from models import Base, User, Reaction, Payment, Cache
+from models import User, Reaction, Payment, Cache
 from test_db import test_db
+from buttons import get_18yes_buttons
+from functions import get_cached_message_id, save_to_cache, create_or_update_user, update_user_fields, add_reaction, add_payment
 
 
 # ------------------------------------------------------------------- Настройка и активация бота -------------------------------------------------------
@@ -33,21 +36,21 @@ storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
 
-# Создание асинхронного подключения и сессии
-async_engine = create_async_engine("sqlite+aiosqlite:///my_database.db")
-AsyncSessionLocal = sessionmaker(
-    bind=async_engine,
-    class_=AsyncSession,
-    expire_on_commit=False
-)
+# # Создание асинхронного подключения и сессии
+# async_engine = create_async_engine("sqlite+aiosqlite:///my_database.db")
+# AsyncSessionLocal = sessionmaker(
+#     bind=async_engine,
+#     class_=AsyncSession,
+#     expire_on_commit=False
+# )
 
-# Функция для получения асинхронной сессии
-async def get_async_session():
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+# # Функция для получения асинхронной сессии - нужна?
+# async def get_async_session():
+#     async with AsyncSessionLocal() as session:
+#         try:
+#             yield session
+#         finally:
+#             await session.close()
 
 
 class ReactionType(str, Enum):
@@ -193,8 +196,7 @@ async def cmd_match(message: types.Message, state: FSMContext):
     await message.answer_photo(photo=menu_picture, parse_mode="HTML", reply_markup=markup)
 
 
-from sqlalchemy import select
-
+# Команда Старт
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
@@ -213,48 +215,25 @@ async def cmd_start(message: types.Message, state: FSMContext):
 После этого вернись в бота \nи нажми 👉 /start , чтобы продолжить регистрацию.
 """)
         return
+    
+    await create_or_update_user(user_id, first_name, username)
 
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(select(User).where(User.telegram_id == user_id))
-        existing_user = result.scalar_one_or_none()
-
-        if not existing_user:
-            # Если пользователь новый — добавляем
-            new_user = User(telegram_id=user_id, first_name=first_name, username=username)
-            session.add(new_user)
-        else:
-            # Если пользователь есть — обновляем имя/username при изменении
-            updated = False
-            if existing_user.first_name != first_name:
-                existing_user.first_name = first_name
-                updated = True
-            if existing_user.username != username:
-                existing_user.username = username
-                updated = True
-            if updated:
-                session.add(existing_user)  # можно и без этого, но на всякий случай
-
-        await session.commit()
-
-    await message.answer(f"Привет, {first_name}!\nГотов к новым знакомствам?\n\n"
+    starting_message = await message.answer(f"Привет, {first_name}!\nГотов к новым знакомствам?\n\n"
                          "Чтобы начать нужно выполнить несколько простых шагов:"
                          "\nШаг 1. Подтверди что тебе есть 18 лет"
                          "\nШаг 2. Отправь свое местоположение"
                          "\nШаг 3. Укажи свой пол"
                          "\nШаг 4. Кого ты ищешь?"
                          "\nШаг 5. Отправь свое фото"
-                         "\nШаг 6. Расскажи коротко о себе")
-
-    button = InlineKeyboardButton(text="Мне больше 18 лет", callback_data="18yes")
-    markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
-
-    await message.answer(
-        "👉 Шаг 1. Подтверди, что тебе есть 18 лет\n\n"
-        "<i>По законам многих стран, чтобы пользоваться сервисами, подобными нашему, тебе должно быть больше 18 лет.</i>\n\n"
-        "Дай своё согласие, что ты понимаешь все риски и уже достиг нужного возраста.",
-        reply_markup=markup,
-        parse_mode="HTML"
-    )
+                         "\nШаг 6. Расскажи коротко о себе"
+                         "\n\n👉 Шаг 1. Подтверди, что тебе есть 18 лет\n\n"
+                         "<i>По законам многих стран, чтобы пользоваться сервисами, подобными нашему, тебе должно быть больше 18 лет.</i>\n\n"
+                         "Дай своё согласие, что ты понимаешь все риски и уже достиг нужного возраста.",
+                         reply_markup = await get_18yes_buttons(),
+                         parse_mode="HTML")
+    
+    # запись в базу
+    await save_to_cache(user_id, "start_message_id", starting_message.message_id)
 
 
 # ------------------------------------------------------------------- Колбеки -------------------------------------------------------
@@ -270,12 +249,7 @@ async def query_18years(callback: types.CallbackQuery):
     user_id = callback.from_user.id
 
     # запись в базу
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(select(User).filter_by(telegram_id=user_id))
-        user = result.scalar_one_or_none()
-        if user:
-            user.eighteen_years_old = True
-            await session.commit()
+    await update_user_fields(user_id, eighteen_years_old=True)
 
     await callback.answer(text="Отлично! Ты подтвердил, что тебе больше 18 лет")
 
@@ -312,13 +286,7 @@ async def handle_location(message: types.Message):
     country_en, city_en = await get_location_info(latitude, longitude, lang='en')
 
     # запись в базу
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(select(User).filter_by(telegram_id=user_id))
-        user = result.scalar_one_or_none()
-        if user:
-            user.country = country_en
-            user.city = city_en
-            await session.commit()
+    await update_user_fields(user_id, country=country_en, city=city_en)
 
     # Отправляем пользователю локализованный ответ
     await message.answer(
@@ -337,12 +305,7 @@ async def query_gender(callback: types.CallbackQuery):
     user_id = callback.from_user.id
 
     # запись в базу
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(select(User).filter_by(telegram_id=user_id))
-        user = result.scalar_one_or_none()
-        if user:
-            user.gender = callback.data
-            await session.commit()
+    await update_user_fields(user_id, gender=callback.data)
 
     await callback.answer(text=f"Отлично! Ты указал: {gender.get(callback.data)}")
     await callback.message.edit_text(text="✅ Шаг 3 выполнен")
@@ -358,12 +321,7 @@ async def query_gender_search(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     
     # запись в базу
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(select(User).filter_by(telegram_id=user_id))
-        user = result.scalar_one_or_none()
-        if user:
-            user.gender_search = gender_search_db.get(callback.data)
-            await session.commit()
+    await update_user_fields(user_id, gender_search=gender_search_db.get(callback.data))
 
     await callback.answer(text=f"Отлично! Ты указал: {gender_search.get(callback.data)}")
     await callback.message.edit_text(text="✅ Шаг 4 выполнен")
@@ -377,12 +335,7 @@ async def handle_photo(message: types.Message):
     file_id = photo.file_id
 
     # запись в базу
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(select(User).filter_by(telegram_id=user_id))
-        user = result.scalar_one_or_none()
-        if user:
-            user.photo_id = file_id
-            await session.commit()
+    await update_user_fields(user_id, photo_id = file_id)
 
     await message.delete()
     await message.answer("✅ Шаг 5 выполнен")
@@ -402,10 +355,7 @@ async def handle_reaction(callback: types.CallbackQuery):
         return
 
     # запись в базу
-    async with AsyncSessionLocal() as session:
-        new_reaction = Reaction(telegram_id=user_id, target_tg_id=target_tg_id, reaction=reaction_str)
-        session.add(new_reaction)
-        await session.commit()
+    await add_reaction(user_id, target_tg_id, reaction_str)
 
     await callback.answer(reaction.message_template.format(name=target_name))
 
@@ -476,30 +426,8 @@ async def handle_wants_pay(callback: types.CallbackQuery):
         reply_markup=payment_keyboard()
     )
 
-
-    async with AsyncSessionLocal() as session:
-        # Проверка: по telegram_id получить параметр invoice.message_id, если нет - добавить
-        result = await session.execute(
-            select(Cache).where(
-                Cache.telegram_id == callback.from_user.id,
-                Cache.parameter == "invoice_message_id"
-            )
-        )
-        existing_cache = result.scalar_one_or_none()
-
-        if existing_cache:
-            # Обновляем значение message_id
-            existing_cache.message_id = sent_invoice.message_id # id invoice сообщения
-        else:
-            # Создаём новую запись
-            new_cache = Cache(
-                telegram_id=callback.from_user.id,
-                parameter="invoice_message_id",
-                message_id=sent_invoice.message_id
-            )
-            session.add(new_cache)
-
-        await session.commit()
+    # сохраняем в Кэш
+    await save_to_cache(callback.from_user.id, "invoice_message_id", sent_invoice.message_id)
 
     await callback.answer()
 
@@ -520,26 +448,15 @@ async def on_successful_payment(message: types.Message):
         user_info = {"target_name": target_name, "caption": caption, "photo_id": photo_id}
 
         # запись в базу
-        async with AsyncSessionLocal() as session:
-            payment = Payment(telegram_id=user_id, target_tg_id=target_id, price=price)
-            session.add(payment)
-            await session.commit()
-
-    markup = await get_wants_user(reaction, 1, priced=True, user_info=user_info)
+        await add_payment(user_id, target_id, price)
     
+    # изменяем запись
+    markup = await get_wants_user(reaction, 1, priced=True, user_info=user_info)
     await bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=int(message_id), reply_markup=markup)
     
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(Cache).filter_by(
-                telegram_id=user_id,
-                parameter="invoice_message_id"
-            )
-        )
-        cache_entry = result.scalar_one_or_none()
-        if cache_entry:
-            invoice_message_id = cache_entry.message_id
-            await bot.delete_message(chat_id=message.chat.id, message_id=invoice_message_id)
+    # получаем id из Кэш
+    invoice_message_id = await get_cached_message_id(user_id, "invoice_message_id")
+    await bot.delete_message(chat_id=message.chat.id, message_id=invoice_message_id)
 
 
 # ------------------------------------------------------------------- Текст -------------------------------------------------------
@@ -555,12 +472,7 @@ async def handle_text(message: types.Message):
     if len(text) >= MIN_COUNT_SYMBOLS and len(text) <= MAX_COUNT_SYMBOLS:
 
         # запись в базу
-        async with AsyncSessionLocal() as session:
-            result = await session.execute(select(User).filter_by(telegram_id=user_id))
-            user = result.scalar_one_or_none()
-            if user:
-                user.about_me = text
-                await session.commit()
+        await update_user_fields(user_id, about_me = text)
 
         await message.answer("✅ Шаг 6 выполнен")
         await message.answer("🔍 Найти партнера - /search" \
@@ -572,16 +484,13 @@ async def handle_text(message: types.Message):
         await message.answer(f"❌ Шаг 6 не выполнен.\nКоличество символов превышает лимит в {MAX_COUNT_SYMBOLS} символов.\nВаш текст содержит {len(text)} символов.\nПопробуй сократить описание и отправь еще раз")
 
 
-
 # ------------------------------------------------------------------- Активация бота -------------------------------------------------------
 
 
 async def main():
-    # Создание таблиц в базе данных
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
-    # Запуск бота
+
     await dp.start_polling(bot)
 
 if __name__ == '__main__':
