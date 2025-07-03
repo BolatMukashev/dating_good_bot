@@ -9,7 +9,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
-from config import BOT_API_KEY, ADMIN_ID, MONGO_DB_PASSWORD, MONGO_DB_USERNAME
+from config import BOT_API_KEY, ADMIN_ID, MONGO_DB_PASSWORD, MONGO_DB_USERNAME, MIN_COUNT_SYMBOLS, MAX_COUNT_SYMBOLS
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import sessionmaker
@@ -94,7 +94,7 @@ async def get_location_info(latitude, longitude, lang='en'):
             country = address.get("country")
             city = address.get("city") or address.get("town") or address.get("village")
             return country, city
-        
+
 
 async def get_random_user():
     random_user = random.choice(test_db)
@@ -255,7 +255,6 @@ async def cmd_start(message: types.Message, state: FSMContext):
         reply_markup=markup,
         parse_mode="HTML"
     )
-
 
 
 # ------------------------------------------------------------------- Колбеки -------------------------------------------------------
@@ -553,7 +552,7 @@ async def handle_text(message: types.Message):
     await message.delete()
     text = message.text
     print(text)
-    if len(text) <= 110:
+    if len(text) >= MIN_COUNT_SYMBOLS and len(text) <= MAX_COUNT_SYMBOLS:
 
         # запись в базу
         async with AsyncSessionLocal() as session:
@@ -566,8 +565,12 @@ async def handle_text(message: types.Message):
         await message.answer("✅ Шаг 6 выполнен")
         await message.answer("🔍 Найти партнера - /search" \
         "\n💘Совпадения (match) - /match")
-    else:
-        await message.answer("❌ Шаг 6 не выполнен. Количество символов превышает лимит в 110 символов. Попробуй еще раз")
+
+    elif len(text) < MIN_COUNT_SYMBOLS:
+        await message.answer(f"❌ Шаг 6 не выполнен.\nМинимальное кол-во символов {MIN_COUNT_SYMBOLS}.\nВаш текст содержит {len(text)} символов.\nПопробуй дополнить описание и отправь еще раз")
+    elif len(text) > MAX_COUNT_SYMBOLS:
+        await message.answer(f"❌ Шаг 6 не выполнен.\nКоличество символов превышает лимит в {MAX_COUNT_SYMBOLS} символов.\nВаш текст содержит {len(text)} символов.\nПопробуй сократить описание и отправь еще раз")
+
 
 
 # ------------------------------------------------------------------- Активация бота -------------------------------------------------------

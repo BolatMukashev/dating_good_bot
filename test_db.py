@@ -8,14 +8,13 @@ test_db = [
 ]
 
 
-# seed_users.py
 import asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from models import Base, User
-from test_db import test_db  # твой список пользователей
 import random
 from faker import Faker
+from sqlalchemy import select, update
 
 
 fake = Faker("ru_RU")
@@ -61,5 +60,21 @@ async def seed_user(gender, gender_search=True, random_location=False):
         await session.commit()
         print("✅ Пользователи успешно добавлены в базу")
 
+
+async def get_user_by_id(user_id):
+
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(User).filter_by(telegram_id=user_id))
+        user = result.scalar_one_or_none()
+        if user:
+            return user
+
+
 if __name__ == "__main__":
-    asyncio.run(seed_user("WOMAN", gender_search=True, random_location=True))
+    # asyncio.run(seed_user("WOMAN", gender_search=True, random_location=True))
+    user = asyncio.run(get_user_by_id(930353927))
+    if user:
+        print(f"Найден пользователь: {user}")
+    else:
+        print("Пользователь не найден")
+    
