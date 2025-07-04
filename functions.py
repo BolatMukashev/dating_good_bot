@@ -1,12 +1,13 @@
 from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
 from models import Base, User, Reaction, Payment, Cache
 from typing import Any
 from db_connect import AsyncSessionLocal
+import aiohttp
 
 
 # получать любое значение Кэш по параметру
+# Пример:
+# start_message_id = await get_cached_message_id(user_id, "start_message_id")
 async def get_cached_message_id(user_id: int, parameter: str) -> int | None:
     async with AsyncSessionLocal() as session:
         result = await session.execute(
@@ -18,11 +19,11 @@ async def get_cached_message_id(user_id: int, parameter: str) -> int | None:
         cache_entry = result.scalar_one_or_none()
         return cache_entry.message_id if cache_entry else None
 
-# Пример:
-# start_message_id = await get_cached_message_id(user_id, "start_message_id")
-
 
 # сохранить любое значение Кэш с параметром
+# Пример:
+# await save_to_cache(user_id, "start_message_id", starting_message.message_id)
+# await save_to_cache(callback.from_user.id, "invoice_message_id", sent_invoice.message_id)
 async def save_to_cache(user_id: int, parameter: str, message_id: int) -> None:
     async with AsyncSessionLocal() as session:
         result = await session.execute(
@@ -45,12 +46,10 @@ async def save_to_cache(user_id: int, parameter: str, message_id: int) -> None:
 
         await session.commit()
 
-# Пример:
-# await save_to_cache(user_id, "start_message_id", starting_message.message_id)
-# await save_to_cache(callback.from_user.id, "invoice_message_id", sent_invoice.message_id)
-
 
 # Функция для создания или обновления пользователя
+# Пример:
+# await create_or_update_user(user_id, first_name, username)
 async def create_or_update_user(user_id: int, first_name: str, username: str) -> None:
     async with AsyncSessionLocal() as session:
         result = await session.execute(
@@ -78,11 +77,11 @@ async def create_or_update_user(user_id: int, first_name: str, username: str) ->
 
         await session.commit()
 
-# Пример:
-# await create_or_update_user(user_id, first_name, username)
-
 
 # Универсальная функция обновления полей пользователя
+# Примеры:
+# await update_user_fields(user_id, first_name="Алиса", username="alisa2025", is_active=True)
+# await update_user_fields(user_id, eighteen_years_old=True)
 async def update_user_fields(user_id: int, **fields: Any) -> bool:
     async with AsyncSessionLocal() as session:
         result = await session.execute(
@@ -104,10 +103,6 @@ async def update_user_fields(user_id: int, **fields: Any) -> bool:
 
         return updated
 
-# Примеры:
-# await update_user_fields(user_id, first_name="Алиса", username="alisa2025", is_active=True)
-# await update_user_fields(user_id, eighteen_years_old=True)
-
 
 # Добавление реакции в базу
 async def add_reaction(user_id: int, target_tg_id: int, reaction_str: str):
@@ -123,5 +118,23 @@ async def add_payment(user_id: int, target_tg_id: int, price: int):
         payment = Payment(telegram_id=user_id, target_tg_id=target_tg_id, price=price)
         session.add(payment)
         await session.commit()
+
+
+# Получить данные о местоположении с указанным языком
+async def get_location_info(latitude, longitude, lang='en'):
+    url = "https://nominatim.openstreetmap.org/reverse"
+    params = {
+        "lat": latitude,
+        "lon": longitude,
+        "format": "json",
+        "accept-language": lang
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, params=params) as resp:
+            data = await resp.json()
+            address = data.get("address", {})
+            country = address.get("country")
+            city = address.get("city") or address.get("town") or address.get("village")
+            return country, city
 
 

@@ -1,7 +1,4 @@
 import logging
-import aiohttp
-import random
-from enum import Enum
 from db_connect import async_engine, Base
 from aiogram.types import InputMediaPhoto, LabeledPrice
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -11,14 +8,10 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from config import BOT_API_KEY, ADMIN_ID, MONGO_DB_PASSWORD, MONGO_DB_USERNAME, MIN_COUNT_SYMBOLS, MAX_COUNT_SYMBOLS
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.exc import NoResultFound
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import select, update
-from models import User, Reaction, Payment, Cache
-from test_db import test_db
-from buttons import get_18yes_buttons
-from functions import get_cached_message_id, save_to_cache, create_or_update_user, update_user_fields, add_reaction, add_payment
+from models import ReactionType, gender, gender_search, gender_search_db
+from buttons import get_18yes_buttons, get_random_user, get_matches_menu_buttons, get_matches_user, get_wants_user
+from functions import get_cached_message_id, save_to_cache, create_or_update_user, update_user_fields, add_reaction, add_payment, get_location_info
 
 
 # ------------------------------------------------------------------- Настройка и активация бота -------------------------------------------------------
@@ -34,149 +27,6 @@ logger = logging.getLogger(__name__)
 bot = Bot(token=BOT_API_KEY)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
-
-
-# # Создание асинхронного подключения и сессии
-# async_engine = create_async_engine("sqlite+aiosqlite:///my_database.db")
-# AsyncSessionLocal = sessionmaker(
-#     bind=async_engine,
-#     class_=AsyncSession,
-#     expire_on_commit=False
-# )
-
-# # Функция для получения асинхронной сессии - нужна?
-# async def get_async_session():
-#     async with AsyncSessionLocal() as session:
-#         try:
-#             yield session
-#         finally:
-#             await session.close()
-
-
-class ReactionType(str, Enum):
-    LOVE = "LOVE"
-    SEX = "SEX"
-    CHAT = "CHAT"
-    SKIP = "SKIP"
-
-    @property
-    def label(self):
-        return {
-            self.LOVE: "Свидание",
-            self.SEX: "Постель",
-            self.CHAT: "Общение",
-            self.SKIP: "Пропуск",
-        }[self]
-
-    @property
-    def message_template(self):
-        return {
-            self.LOVE: "Ты лайкнул {name}",
-            self.SEX: "Ты лайкнул {name}",
-            self.CHAT: "Ты лайкнул {name}",
-            self.SKIP: "Ты пропустил {name}",
-        }[self]
-
-
-# ------------------------------------------------------------------- Функции -------------------------------------------------------
-
-
-# Получить данные о местоположении с указанным языком
-async def get_location_info(latitude, longitude, lang='en'):
-    url = "https://nominatim.openstreetmap.org/reverse"
-    params = {
-        "lat": latitude,
-        "lon": longitude,
-        "format": "json",
-        "accept-language": lang
-    }
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, params=params) as resp:
-            data = await resp.json()
-            address = data.get("address", {})
-            country = address.get("country")
-            city = address.get("city") or address.get("town") or address.get("village")
-            return country, city
-
-
-async def get_random_user():
-    random_user = random.choice(test_db)
-    target_tg_id = random_user.get('tg_id', 0)
-    target_name = random_user.get('name', '')
-    description = random_user.get('description', '')
-    photo_id = random_user.get('photo_id', '')
-    caption=f"<b>{target_name}</b>\n<i>{description}</i>"
-
-    button1 = InlineKeyboardButton(text="☕ Свидание", callback_data=f"reaction|LOVE|{target_name}|{target_tg_id}")
-    button2 = InlineKeyboardButton(text="👩‍❤️‍💋‍👨 Постель", callback_data=f"reaction|SEX|{target_name}|{target_tg_id}")
-    button3 = InlineKeyboardButton(text="💬 Общение", callback_data=f"reaction|CHAT|{target_name}|{target_tg_id}")
-    button4 = InlineKeyboardButton(text="Пропустить ⏩", callback_data=f"reaction|SKIP|{target_name}|{target_tg_id}")
-    markup = InlineKeyboardMarkup(inline_keyboard=[[button1, button2, button3], [button4]])
-    
-    return photo_id, caption, markup
-
-
-async def get_matches_menu_buttons():
-    menu_picture = "AgACAgIAAxkBAAICVmhbrdh8xXXGx6Xy1tr0ouQN0sjFAAIZ8DEbBk3hSoeHxcGbNuBQAQADAgADeQADNgQ"
-
-    button0 = InlineKeyboardButton(text=f"💘 Совпадения [{random.randint(0, 1000)}]", callback_data=f"matches")
-    button1 = InlineKeyboardButton(text=f"Свидание [{random.randint(0, 1000)}]", callback_data=f"who_wants|LOVE")
-    button2 = InlineKeyboardButton(text=f"Постель [{random.randint(0, 1000)}]", callback_data=f"who_wants|SEX")
-    button3 = InlineKeyboardButton(text=f"Общение [{random.randint(0, 1000)}]", callback_data=f"who_wants|CHAT")
-    button4 = InlineKeyboardButton(text=f"Обновить 🔄", callback_data=f"reload_matches_menu")
-    markup = InlineKeyboardMarkup(inline_keyboard=[[button0], [button1, button2, button3], [button4],])
-    
-    return menu_picture, markup
-
-
-async def get_wants_user(reaction: ReactionType, price: int, priced: bool = False, user_info: dict=None, id_in_cache: int=0):
-    if reaction == "LOVE":
-        pass
-    elif reaction == "SEX":
-        pass
-    elif reaction == "CHAT":
-        pass
-    if user_info == None:
-        random_user = random.choice(test_db)
-        target_tg_id = random_user.get('tg_id', 0)
-        target_name = random_user.get('name', '')
-        target_username = random_user.get('username', '')
-        description = random_user.get('description', '')
-        photo_id = random_user.get('photo_id', '')
-        caption=f"<b>{target_name}</b>\n<i>{description}</i>"
-    else:
-        target_name = user_info.get('target_name', '')
-        caption = user_info.get('caption', '')
-        photo_id = user_info.get('photo_id', '')
-
-    if priced:
-        button1 = InlineKeyboardButton(text=f"Добавлено в 💘 Совпадения", callback_data=f"pass")
-    else:
-        button1 = InlineKeyboardButton(text=f"Добавить в Совпадения {price} ⭐️", callback_data=f"wants_pay|{target_tg_id}|{price}|{reaction}", pay=True)
-    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"wants_slider|BACK|{id_in_cache}|{reaction}")
-    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"wants_slider|NEXT|{id_in_cache}||{reaction}")
-    button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"matches_menu")
-    markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
-
-    return photo_id, caption, markup
-
-
-async def get_matches_user():
-    random_user = random.choice(test_db)
-    target_tg_id = random_user.get('tg_id', 0)
-    target_name = random_user.get('name', '')
-    target_username = random_user.get('username', '')
-    description = random_user.get('description', '')
-    photo_id = random_user.get('photo_id', '')
-    caption=f"<b>{target_name}</b>\n<i>{description}</i>"
-
-    button1 = InlineKeyboardButton(text="✉️ Начать знакомство", callback_data=f"matches_chat|{target_name}|{target_tg_id}", url=f"https://t.me/{target_username}")
-    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"matches_back|{target_name}|{target_tg_id}")
-    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"matches_next|{target_name}|{target_tg_id}")
-    button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"matches_menu")
-    markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
-    
-    return photo_id, caption, markup
 
 
 # ------------------------------------------------------------------- Команды -------------------------------------------------------
@@ -237,11 +87,6 @@ async def cmd_start(message: types.Message, state: FSMContext):
 
 
 # ------------------------------------------------------------------- Колбеки -------------------------------------------------------
-
-
-gender = {"MAN": "Мужчина", "WOMAN": "Женщина", "ANY": "Другое"}
-gender_search = {"search_man": "Ищу Мужчину", "search_woman": "Ищу Женщину", "search_any": "Пол не имеет значения"}
-gender_search_db = {"search_man": "MAN", "search_woman": "WOMAN", "search_any": "ANY"}
 
 
 @dp.callback_query(F.data == "18yes")

@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text
 from sqlalchemy.orm import relationship, DeclarativeBase
+from enum import Enum
 
 
 # Новый стиль декларативной базы для современного SQLAlchemy
@@ -71,3 +72,34 @@ class Cache(Base):
 
 
 # Примечание: создание таблиц теперь происходит в основном коде через async engine
+
+
+# виды реакций
+class ReactionType(str, Enum):
+    LOVE = "LOVE"
+    SEX = "SEX"
+    CHAT = "CHAT"
+    SKIP = "SKIP"
+
+    @property
+    def label(self):
+        return {
+            self.LOVE: "Свидание",
+            self.SEX: "Постель",
+            self.CHAT: "Общение",
+            self.SKIP: "Пропуск",
+        }[self]
+
+    @property
+    def message_template(self):
+        return {
+            self.LOVE: "Ты лайкнул {name}",
+            self.SEX: "Ты лайкнул {name}",
+            self.CHAT: "Ты лайкнул {name}",
+            self.SKIP: "Ты пропустил {name}",
+        }[self]
+    
+
+gender = {"MAN": "Мужчина", "WOMAN": "Женщина", "ANY": "Другое"}
+gender_search = {"search_man": "Ищу Мужчину", "search_woman": "Ищу Женщину", "search_any": "Пол не имеет значения"}
+gender_search_db = {"search_man": "MAN", "search_woman": "WOMAN", "search_any": "ANY"}
