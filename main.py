@@ -10,7 +10,7 @@ from aiogram.types import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeybo
 from config import BOT_API_KEY, ADMIN_ID, MONGO_DB_PASSWORD, MONGO_DB_USERNAME, MIN_COUNT_SYMBOLS, MAX_COUNT_SYMBOLS
 from sqlalchemy.exc import NoResultFound
 from models import ReactionType, gender, gender_search, gender_search_db
-from buttons import get_18yes_buttons, get_random_user, get_matches_menu_buttons, get_matches_user, get_wants_user
+from buttons import get_18yes_buttons, get_random_user, get_matches_menu_buttons, get_matches_user, get_wants_user, get_gender_buttons, get_gender_search_buttons
 from functions import get_cached_message_id, save_to_cache, create_or_update_user, update_user_fields, add_reaction, add_payment, get_location_info
 
 
@@ -138,11 +138,8 @@ async def handle_location(message: types.Message):
         f"✅ Шаг 2 выполнен\nТы находишься в:\nГород: {city_local}\nСтрана: {country_local}",
         reply_markup=ReplyKeyboardRemove()
     )
-    button1 = InlineKeyboardButton(text="Мужчина", callback_data="MAN")
-    button2 = InlineKeyboardButton(text="Женщина", callback_data="WOMAN")
-    button3 = InlineKeyboardButton(text="Другое", callback_data="ANY")
-    markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2], [button3]])
-    await message.answer("👉 Шаг 3. Укажи свой пол", reply_markup=markup)
+
+    await message.answer("👉 Шаг 3. Укажи свой пол", reply_markup= await get_gender_buttons())
 
 
 @dp.callback_query(F.data.in_(["MAN", "WOMAN", "ANY"]))
@@ -151,14 +148,12 @@ async def query_gender(callback: types.CallbackQuery):
 
     # запись в базу
     await update_user_fields(user_id, gender=callback.data)
-
+    
+    # уведомление сверху
     await callback.answer(text=f"Отлично! Ты указал: {gender.get(callback.data)}")
+
     await callback.message.edit_text(text="✅ Шаг 3 выполнен")
-    button1 = InlineKeyboardButton(text="Ищу Мужчину", callback_data="search_man")
-    button2 = InlineKeyboardButton(text="Ищу Женщину", callback_data="search_woman")
-    button3 = InlineKeyboardButton(text="Пол не имеет значения", callback_data="search_any")
-    markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2], [button3]])
-    await callback.message.answer("👉 Шаг 4. Укажи кото ты ищешь", reply_markup=markup)
+    await callback.message.answer("👉 Шаг 4. Укажи кото ты ищешь", reply_markup= await get_gender_search_buttons())
 
 
 @dp.callback_query(F.data.in_(["search_man", "search_woman", "search_any"]))
@@ -168,7 +163,9 @@ async def query_gender_search(callback: types.CallbackQuery):
     # запись в базу
     await update_user_fields(user_id, gender_search=gender_search_db.get(callback.data))
 
+    # уведомление сверху
     await callback.answer(text=f"Отлично! Ты указал: {gender_search.get(callback.data)}")
+
     await callback.message.edit_text(text="✅ Шаг 4 выполнен")
     await callback.message.answer("👉 Шаг 5. Отправь свое фото 📷", reply_markup=ReplyKeyboardRemove())
 
@@ -178,6 +175,7 @@ async def handle_photo(message: types.Message):
     user_id = message.from_user.id
     photo = message.photo[-1]
     file_id = photo.file_id
+    print(file_id)
 
     # запись в базу
     await update_user_fields(user_id, photo_id = file_id)
@@ -202,6 +200,7 @@ async def handle_reaction(callback: types.CallbackQuery):
     # запись в базу
     await add_reaction(user_id, target_tg_id, reaction_str)
 
+    # уведомление сверху
     await callback.answer(reaction.message_template.format(name=target_name))
 
     photo_id, caption, markup = await get_random_user()
@@ -246,6 +245,7 @@ async def handle_who_wants(callback: types.CallbackQuery):
 
 
 # ------------------------------------------------------------------- Оплата -------------------------------------------------------
+
 
 def payment_keyboard():
     builder = InlineKeyboardBuilder()

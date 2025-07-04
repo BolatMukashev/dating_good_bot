@@ -91,3 +91,24 @@ async def get_matches_user():
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
     
     return photo_id, caption, markup
+
+
+async def get_gender_buttons():
+    # Кнопки выбора пола
+    button1 = InlineKeyboardButton(text="Мужчина", callback_data="MAN")
+    button2 = InlineKeyboardButton(text="Женщина", callback_data="WOMAN")
+    button3 = InlineKeyboardButton(text="Другое", callback_data="ANY")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2], [button3]])
+    return markup
+
+
+async def get_gender_search_buttons():
+    # Кнопки выбора поиска пола
+    button1 = InlineKeyboardButton(text="Ищу Мужчину", callback_data="search_man")
+    button2 = InlineKeyboardButton(text="Ищу Женщину", callback_data="search_woman")
+    button3 = InlineKeyboardButton(text="Пол не имеет значения", callback_data="search_any")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2], [button3]])
+    return markup
+
+
+
