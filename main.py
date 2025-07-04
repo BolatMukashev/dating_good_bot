@@ -7,12 +7,12 @@ from aiogram.fsm.context import FSMContext
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
-from config import BOT_API_KEY, ADMIN_ID, MONGO_DB_PASSWORD, MONGO_DB_USERNAME, MIN_COUNT_SYMBOLS, MAX_COUNT_SYMBOLS
+from config import BOT_API_KEY, ADMIN_ID, MONGO_DB_PASSWORD, MONGO_DB_USERNAME, MIN_COUNT_SYMBOLS, MAX_COUNT_SYMBOLS, USER_PROFILE_PICTURE, MATCH_MENU_PICTURE, SEARCH_MENU_PICTURE
 from sqlalchemy.exc import NoResultFound
 from models import ReactionType, gender, gender_search, gender_search_db
 from buttons import get_18yes_buttons, get_random_user, get_matches_menu_buttons, get_matches_user, get_wants_user, get_gender_buttons, get_gender_search_buttons
 from functions import get_cached_message_id, save_to_cache, create_or_update_user, update_user_fields, add_reaction, add_payment, get_location_info
-
+from messages import text, supported_languages
 
 # ------------------------------------------------------------------- Настройка и активация бота -------------------------------------------------------
 
@@ -52,6 +52,9 @@ async def cmd_start(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     first_name = message.from_user.first_name
     username = message.from_user.username
+    user_lang = message.from_user.language_code
+    if user_lang not in supported_languages:
+        user_lang = 'en'
 
     if not username:
         await message.answer("""
@@ -67,20 +70,8 @@ async def cmd_start(message: types.Message, state: FSMContext):
         return
     
     await create_or_update_user(user_id, first_name, username)
-
-    starting_message = await message.answer(f"Привет, {first_name}!\nГотов к новым знакомствам?\n\n"
-                         "Чтобы начать нужно выполнить несколько простых шагов:"
-                         "\nШаг 1. Подтверди что тебе есть 18 лет"
-                         "\nШаг 2. Отправь свое местоположение"
-                         "\nШаг 3. Укажи свой пол"
-                         "\nШаг 4. Кого ты ищешь?"
-                         "\nШаг 5. Отправь свое фото"
-                         "\nШаг 6. Расскажи коротко о себе"
-                         "\n\n👉 Шаг 1. Подтверди, что тебе есть 18 лет\n\n"
-                         "<i>По законам многих стран, чтобы пользоваться сервисами, подобными нашему, тебе должно быть больше 18 лет.</i>\n\n"
-                         "Дай своё согласие, что ты понимаешь все риски и уже достиг нужного возраста.",
-                         reply_markup = await get_18yes_buttons(),
-                         parse_mode="HTML")
+    caption=text[user_lang]['user_profile']['start_message'].format(first_name=first_name)
+    starting_message = await message.answer_photo(photo=USER_PROFILE_PICTURE, caption=caption, parse_mode="HTML", reply_markup=await get_18yes_buttons())
     
     # запись в базу
     await save_to_cache(user_id, "start_message_id", starting_message.message_id)
