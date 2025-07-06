@@ -15,7 +15,7 @@ from functions import get_cached_message_id, save_to_cache, create_or_update_use
 from messages import text
 
 
-# ------------------------------------------------------------------- Настройка и активация бота -------------------------------------------------------
+# ------------------------------------------------------------------- Настройка бота -------------------------------------------------------
 
 # TODO Supabase - SQL bd Postgres
 
@@ -51,7 +51,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
     starting_message = await message.answer_photo(photo=USER_PROFILE_PICTURE, caption=caption, parse_mode="HTML", reply_markup=await get_18yes_buttons())
     
     # запись в базу
-    await save_to_cache(user_id, "start_message_id", starting_message.message_id)
+    await save_to_cache(user_id, "start_message_id", message_id = starting_message.message_id)
 
 
 # подтверждение 18 лет
@@ -74,7 +74,7 @@ async def query_18years(callback: types.CallbackQuery):
                                                      reply_markup= await get_location_button(), parse_mode="HTML")
     
     # запись в базу
-    await save_to_cache(user_id, "location_message_id", location_message.message_id)
+    await save_to_cache(user_id, "location_message_id", message_id = location_message.message_id)
 
 
 # подтверждение локации
@@ -97,6 +97,10 @@ async def handle_location(message: types.Message):
 
     # запись в базу
     await update_user_fields(user_id, country=country_en, city=city_en)
+    
+    # запись в базу
+    await save_to_cache(user_id, "country_local", data = country_local)
+    await save_to_cache(user_id, "city_local", data = city_local)
 
     # Отправляем пользователю локализованный ответ
     await message.answer(
@@ -259,7 +263,7 @@ async def handle_wants_pay(callback: types.CallbackQuery):
     )
 
     # сохраняем в Кэш
-    await save_to_cache(callback.from_user.id, "invoice_message_id", sent_invoice.message_id)
+    await save_to_cache(callback.from_user.id, "invoice_message_id", message_id = sent_invoice.message_id)
 
     await callback.answer()
 

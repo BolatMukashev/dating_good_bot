@@ -25,7 +25,7 @@ async def get_cached_message_id(user_id: int, parameter: str) -> int | None:
 # Пример:
 # await save_to_cache(user_id, "start_message_id", starting_message.message_id)
 # await save_to_cache(callback.from_user.id, "invoice_message_id", sent_invoice.message_id)
-async def save_to_cache(user_id: int, parameter: str, message_id: int) -> None:
+async def save_to_cache(user_id: int, parameter: str, message_id: int = None, data: str = None) -> None:
     async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(Cache).where(
@@ -36,16 +36,23 @@ async def save_to_cache(user_id: int, parameter: str, message_id: int) -> None:
         existing_cache = result.scalar_one_or_none()
 
         if existing_cache:
-            existing_cache.message_id = message_id
+            if message_id is not None:
+                existing_cache.message_id = message_id
+                existing_cache.data = None  # очищаем data
+            elif data is not None:
+                existing_cache.data = data
+                existing_cache.message_id = None  # очищаем message_id
         else:
             new_cache = Cache(
                 telegram_id=user_id,
                 parameter=parameter,
-                message_id=message_id
+                message_id=message_id if message_id is not None else None,
+                data=data if data is not None else None
             )
             session.add(new_cache)
 
         await session.commit()
+
 
 
 # Функция для создания или обновления пользователя
