@@ -83,8 +83,6 @@ async def handle_location(message: types.Message):
     user_id = message.from_user.id
     user_lang = await get_user_language(message)
 
-    await message.delete() #удалить сообщение пользователя с локацией
-
     latitude = message.location.latitude
     longitude = message.location.longitude
 
@@ -102,13 +100,18 @@ async def handle_location(message: types.Message):
     await save_to_cache(user_id, "country_local", data = country_local)
     await save_to_cache(user_id, "city_local", data = city_local)
 
-    # Отправляем пользователю локализованный ответ
-    await message.answer(
-        f"✅ Шаг 2 выполнен\nТы находишься в:\nГород: {city_local}\nСтрана: {country_local}",
-        reply_markup=ReplyKeyboardRemove()
-    )
+    await message.delete() #удалить сообщение пользователя с локацией
 
-    await message.answer(text[user_lang]['user_profile']['step_3'], reply_markup= await get_gender_buttons())
+    # получаем id из Кэш и удаляем сообщение
+    location_message_id = await get_cached_message_id(user_id, "location_message_id")
+    await bot.delete_message(chat_id=message.chat.id, message_id=location_message_id)
+
+    # изменяем запись
+    start_message_id = await get_cached_message_id(user_id, "start_message_id")
+    await bot.edit_message_caption(chat_id=message.chat.id,
+                                   message_id=int(start_message_id),
+                                   caption= text[user_lang]['user_profile']['step_3'],
+                                   reply_markup = await get_gender_buttons())
 
 
 @dp.callback_query(F.data.in_(["MAN", "WOMAN", "ANY"]))
@@ -121,6 +124,14 @@ async def query_gender(callback: types.CallbackQuery):
     
     # уведомление сверху
     await callback.answer(text=text[user_lang]['notifications']['gender'].format(user_gender=gender.get(callback.data)))
+
+
+    # изменяем запись
+    start_message_id = await get_cached_message_id(user_id, "start_message_id")
+    await bot.edit_message_caption(chat_id=callback.chat.id,
+                                   message_id=int(start_message_id),
+                                   caption= text[user_lang]['user_profile']['step_3'],
+                                   reply_markup = await get_gender_buttons())
 
     await callback.message.edit_text(text="✅ Шаг 3 выполнен")
     await callback.message.answer(text[user_lang]['user_profile']['step_4'], reply_markup= await get_gender_search_buttons())
@@ -290,7 +301,7 @@ async def on_successful_payment(message: types.Message):
     markup = await get_wants_user(reaction, 1, priced=True, user_info=user_info)
     await bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=int(message_id), reply_markup=markup)
     
-    # получаем id из Кэш
+    # получаем id из Кэш и удаляем сообщение
     invoice_message_id = await get_cached_message_id(user_id, "invoice_message_id")
     await bot.delete_message(chat_id=message.chat.id, message_id=invoice_message_id)
 
