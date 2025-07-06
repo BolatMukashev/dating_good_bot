@@ -10,9 +10,9 @@ from aiogram.types import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeybo
 from config import BOT_API_KEY, ADMIN_ID, MONGO_DB_PASSWORD, MONGO_DB_USERNAME, MIN_COUNT_SYMBOLS, MAX_COUNT_SYMBOLS, USER_PROFILE_PICTURE, MATCH_MENU_PICTURE, SEARCH_MENU_PICTURE
 from sqlalchemy.exc import NoResultFound
 from models import ReactionType, gender, gender_search, gender_search_db
-from buttons import get_18yes_buttons, get_random_user, get_matches_menu_buttons, get_matches_user, get_wants_user, get_gender_buttons, get_gender_search_buttons
-from functions import get_cached_message_id, save_to_cache, create_or_update_user, update_user_fields, add_reaction, add_payment, get_location_info
-from messages import text, supported_languages
+from buttons import get_18yes_buttons, get_random_user, get_matches_menu_buttons, get_matches_user, get_wants_user, get_gender_buttons, get_gender_search_buttons, get_location_button
+from functions import get_cached_message_id, save_to_cache, create_or_update_user, update_user_fields, add_reaction, add_payment, get_location_info, get_user_language
+from messages import text
 
 # ------------------------------------------------------------------- Настройка и активация бота -------------------------------------------------------
 
@@ -52,25 +52,15 @@ async def cmd_start(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     first_name = message.from_user.first_name
     username = message.from_user.username
-    user_lang = message.from_user.language_code
-    if user_lang not in supported_languages:
-        user_lang = 'en'
+    user_lang = await get_user_language(message)
 
     if not username:
-        await message.answer("""
-⚠️ Для использования бота необходимо установить username в Telegram.
-
-Как это сделать:
-1️⃣ Откройте Telegram → Настройки → Имя пользователя (tg://settings/username)
-2️⃣ Придумайте уникальное Имя пользователя
-3️⃣ Сохрани ✅
-
-После этого вернись в бота \nи нажми 👉 /start , чтобы продолжить регистрацию.
-""")
+        await message.answer(text[user_lang]['user_profile']['username_error'])
         return
     
+    # запись в базу
     await create_or_update_user(user_id, first_name, username)
-    caption=text[user_lang]['user_profile']['start_message'].format(first_name=first_name)
+    caption=text[user_lang]['user_profile']['step_1'].format(first_name=first_name)
     starting_message = await message.answer_photo(photo=USER_PROFILE_PICTURE, caption=caption, parse_mode="HTML", reply_markup=await get_18yes_buttons())
     
     # запись в базу
@@ -80,37 +70,37 @@ async def cmd_start(message: types.Message, state: FSMContext):
 # ------------------------------------------------------------------- Колбеки -------------------------------------------------------
 
 
+# подтверждение 18 лет
 @dp.callback_query(F.data == "18yes")
 async def query_18years(callback: types.CallbackQuery):
     user_id = callback.from_user.id
+    user_lang = await get_user_language(callback)
 
     # запись в базу
     await update_user_fields(user_id, eighteen_years_old=True)
 
-    await callback.answer(text="Отлично! Ты подтвердил, что тебе больше 18 лет")
+    # уведомление сверху
+    await callback.answer(text=text[user_lang]['notifications']['18year'])
 
     # 1. Меняем текст сообщения и убираем inline-кнопки
-    await callback.message.edit_text(text="✅ Шаг 1 выполнен")
+    await callback.message.edit_caption(caption=text[user_lang]['user_profile']['step_2'], parse_mode="HTML", reply_markup=None)
 
     # 2. Отдельно отправляем сообщение с обычной клавиатурой для геолокации
-    kb = [[types.KeyboardButton(text="📍 Отправить местоположение", request_location=True)]]
-    keyboard = types.ReplyKeyboardMarkup(
-        keyboard=kb,
-        resize_keyboard=True,
-        input_field_placeholder="Нажми на кнопку"
-    )
-    await callback.message.answer(
-        "👉 Шаг 2. Отправь мне свое местоположение\n\n" \
-        "Теперь нужно определить, где ты находишься. Поиск производится среди людей из того же города, что и ты.\n\n"
-        "<i>Если вы используете десктоп/ПК вам необходимо авторизоваться на мобильном устройстве, чтобы выполнить этот этап</i>",
-        reply_markup=keyboard, parse_mode="HTML")
+    location_message = await callback.message.answer(text[user_lang]['user_profile']['get_location_message'],
+                                                     reply_markup= await get_location_button(), parse_mode="HTML")
+    
+    # запись в базу
+    await save_to_cache(user_id, "location_message_id", location_message.message_id)
 
 
-# Принимаем локацию
+# подтверждение локации
 @dp.message(F.location)
 async def handle_location(message: types.Message):
     user_id = message.from_user.id
+    user_lang = await get_user_language(message)
+
     await message.delete() #удалить сообщение пользователя с локацией
+
     latitude = message.location.latitude
     longitude = message.location.longitude
 
@@ -130,40 +120,44 @@ async def handle_location(message: types.Message):
         reply_markup=ReplyKeyboardRemove()
     )
 
-    await message.answer("👉 Шаг 3. Укажи свой пол", reply_markup= await get_gender_buttons())
+    await message.answer(text[user_lang]['user_profile']['step_3'], reply_markup= await get_gender_buttons())
 
 
 @dp.callback_query(F.data.in_(["MAN", "WOMAN", "ANY"]))
 async def query_gender(callback: types.CallbackQuery):
     user_id = callback.from_user.id
+    user_lang = await get_user_language(callback)
 
     # запись в базу
     await update_user_fields(user_id, gender=callback.data)
     
     # уведомление сверху
-    await callback.answer(text=f"Отлично! Ты указал: {gender.get(callback.data)}")
+    await callback.answer(text=text[user_lang]['notifications']['gender'].format(user_gender=gender.get(callback.data)))
 
     await callback.message.edit_text(text="✅ Шаг 3 выполнен")
-    await callback.message.answer("👉 Шаг 4. Укажи кото ты ищешь", reply_markup= await get_gender_search_buttons())
+    await callback.message.answer(text[user_lang]['user_profile']['step_4'], reply_markup= await get_gender_search_buttons())
 
 
 @dp.callback_query(F.data.in_(["search_man", "search_woman", "search_any"]))
 async def query_gender_search(callback: types.CallbackQuery):
     user_id = callback.from_user.id
+    user_lang = await get_user_language(callback)
     
     # запись в базу
     await update_user_fields(user_id, gender_search=gender_search_db.get(callback.data))
 
     # уведомление сверху
-    await callback.answer(text=f"Отлично! Ты указал: {gender_search.get(callback.data)}")
+    await callback.answer(text=text[user_lang]['notifications']['gender_search'].format(gender_search=gender_search.get(callback.data)))
 
     await callback.message.edit_text(text="✅ Шаг 4 выполнен")
-    await callback.message.answer("👉 Шаг 5. Отправь свое фото 📷", reply_markup=ReplyKeyboardRemove())
+    await callback.message.answer(text[user_lang]['user_profile']['step_5'], reply_markup=ReplyKeyboardRemove())
 
 
 @dp.message(F.photo)
 async def handle_photo(message: types.Message):
     user_id = message.from_user.id
+    user_lang = await get_user_language(message)
+
     photo = message.photo[-1]
     file_id = photo.file_id
     print(file_id)
@@ -173,7 +167,7 @@ async def handle_photo(message: types.Message):
 
     await message.delete()
     await message.answer("✅ Шаг 5 выполнен")
-    await message.answer("👉 Шаг 6. Расскажи коротко о себе\n<i>Постарайся уложиться в 2-3 строки</i>", parse_mode="HTML")
+    await message.answer(text[user_lang]['user_profile']['step_6'], parse_mode="HTML")
 
 
 # обработка колбека поиска
@@ -196,8 +190,7 @@ async def handle_reaction(callback: types.CallbackQuery):
 
     photo_id, caption, markup = await get_random_user()
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
-    await callback.message.edit_caption(caption=caption, parse_mode="HTML")
-    await callback.message.edit_reply_markup(reply_markup=markup)
+    await callback.message.edit_caption(caption=caption, reply_markup=markup, parse_mode="HTML")
 
 
 @dp.callback_query(F.data == "matches")
@@ -205,8 +198,7 @@ async def query_matches(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     photo_id, caption, markup = await get_matches_user()
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
-    await callback.message.edit_caption(caption=caption, parse_mode="HTML")
-    await callback.message.edit_reply_markup(reply_markup=markup)
+    await callback.message.edit_caption(caption=caption, reply_markup=markup, parse_mode="HTML")
 
 
 @dp.callback_query(F.data == "matches_menu")
@@ -231,8 +223,7 @@ async def handle_who_wants(callback: types.CallbackQuery):
     _, reaction = callback.data.split("|", 1)
     photo_id, caption, markup = await get_wants_user(reaction, 1)
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
-    await callback.message.edit_caption(caption=caption, parse_mode="HTML")
-    await callback.message.edit_reply_markup(reply_markup=markup)
+    await callback.message.edit_caption(caption=caption, reply_markup=markup, parse_mode="HTML")
 
 
 # ------------------------------------------------------------------- Оплата -------------------------------------------------------
@@ -302,6 +293,9 @@ async def on_successful_payment(message: types.Message):
 @dp.message(F.text)
 async def handle_text(message: types.Message):
     user_id = message.from_user.id
+    user_lang = await get_user_language(message)
+
+    # удаляем сообщение пользователя
     await message.delete()
     text = message.text
     print(text)
@@ -315,9 +309,9 @@ async def handle_text(message: types.Message):
         "\n💘Совпадения (match) - /match")
 
     elif len(text) < MIN_COUNT_SYMBOLS:
-        await message.answer(f"❌ Шаг 6 не выполнен.\nМинимальное кол-во символов {MIN_COUNT_SYMBOLS}.\nВаш текст содержит {len(text)} символов.\nПопробуй дополнить описание и отправь еще раз")
+        await message.answer(text[user_lang]['user_profile']['min_count_symbols_error'].format(MIN_COUNT_SYMBOLS=MIN_COUNT_SYMBOLS, text_lenght=len(text)))
     elif len(text) > MAX_COUNT_SYMBOLS:
-        await message.answer(f"❌ Шаг 6 не выполнен.\nКоличество символов превышает лимит в {MAX_COUNT_SYMBOLS} символов.\nВаш текст содержит {len(text)} символов.\nПопробуй сократить описание и отправь еще раз")
+        await message.answer(text[user_lang]['user_profile']['max_count_symbols_error'].format(MAX_COUNT_SYMBOLS=MAX_COUNT_SYMBOLS, text_lenght=len(text)))
 
 
 # ------------------------------------------------------------------- Активация бота -------------------------------------------------------

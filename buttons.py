@@ -2,6 +2,7 @@ from aiogram.types import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeybo
 import random
 from test_db import test_db
 from models import ReactionType
+from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 
 
 async def get_18yes_buttons():
@@ -109,6 +110,16 @@ async def get_gender_search_buttons():
     button3 = InlineKeyboardButton(text="Пол не имеет значения", callback_data="search_any")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2], [button3]])
     return markup
+
+
+async def get_location_button():
+    kb = [[KeyboardButton(text="📍 Отправить местоположение", request_location=True)]]
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=kb,
+        resize_keyboard=True,
+        input_field_placeholder="Нажми на кнопку"
+    )
+    return keyboard
 
 
 

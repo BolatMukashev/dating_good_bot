@@ -3,6 +3,7 @@ from models import Base, User, Reaction, Payment, Cache
 from typing import Any
 from db_connect import AsyncSessionLocal
 import aiohttp
+from messages import supported_languages
 
 
 # получать любое значение Кэш по параметру
@@ -120,8 +121,8 @@ async def add_payment(user_id: int, target_tg_id: int, price: int):
         await session.commit()
 
 
-# Получить данные о местоположении с указанным языком
 async def get_location_info(latitude, longitude, lang='en'):
+    # Получить данные о местоположении с указанным языком
     url = "https://nominatim.openstreetmap.org/reverse"
     params = {
         "lat": latitude,
@@ -136,5 +137,14 @@ async def get_location_info(latitude, longitude, lang='en'):
             country = address.get("country")
             city = address.get("city") or address.get("town") or address.get("village")
             return country, city
+        
+
+async def get_user_language(message):
+    # получить язык пользователя, иначе - английский
+    user_lang = message.from_user.language_code
+    if user_lang not in supported_languages:
+        user_lang = 'en'
+    return user_lang
+
 
 
