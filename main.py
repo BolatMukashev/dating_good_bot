@@ -6,18 +6,19 @@ from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from config import BOT_API_KEY, ADMIN_ID, MONGO_DB_PASSWORD, MONGO_DB_USERNAME, MIN_COUNT_SYMBOLS, MAX_COUNT_SYMBOLS, USER_PROFILE_PICTURE, MATCH_MENU_PICTURE, SEARCH_MENU_PICTURE
 from sqlalchemy.exc import NoResultFound
 from models import ReactionType, gender, gender_search, gender_search_db
 from buttons import get_18yes_buttons, get_random_user, get_matches_menu_buttons, get_matches_user, get_wants_user, get_gender_buttons, get_gender_search_buttons, get_location_button
-from functions import get_cached_message_id, save_to_cache, create_or_update_user, update_user_fields, add_reaction, add_payment, get_location_info, get_user_language
+from functions import get_user_info, get_cached_message_id, get_cached_data, save_to_cache, create_or_update_user, update_user_fields, add_reaction, add_payment, get_location_info, get_user_language
 from messages import text
 
 
 # ------------------------------------------------------------------- Настройка бота -------------------------------------------------------
 
 # TODO Supabase - SQL bd Postgres
+# TODO Больше инфы в анкете, кнопки под описанием
+# TODO 2 сообщения после заполнения анкеты
 
 
 # Настройка логирования
@@ -47,6 +48,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
     
     # запись в базу
     await create_or_update_user(user_id, first_name, username)
+    await message.delete() #удалить сообщение пользователя /start
     caption=text[user_lang]['user_profile']['step_1'].format(first_name=first_name)
     starting_message = await message.answer_photo(photo=USER_PROFILE_PICTURE, caption=caption, parse_mode="HTML", reply_markup=await get_18yes_buttons())
     
@@ -111,7 +113,8 @@ async def handle_location(message: types.Message):
     await bot.edit_message_caption(chat_id=message.chat.id,
                                    message_id=int(start_message_id),
                                    caption= text[user_lang]['user_profile']['step_3'],
-                                   reply_markup = await get_gender_buttons())
+                                   reply_markup = await get_gender_buttons(),
+                                   parse_mode="HTML")
 
 
 @dp.callback_query(F.data.in_(["MAN", "WOMAN", "ANY"]))
@@ -125,16 +128,9 @@ async def query_gender(callback: types.CallbackQuery):
     # уведомление сверху
     await callback.answer(text=text[user_lang]['notifications']['gender'].format(user_gender=gender.get(callback.data)))
 
-
-    # изменяем запись
-    start_message_id = await get_cached_message_id(user_id, "start_message_id")
-    await bot.edit_message_caption(chat_id=callback.chat.id,
-                                   message_id=int(start_message_id),
-                                   caption= text[user_lang]['user_profile']['step_3'],
-                                   reply_markup = await get_gender_buttons())
-
-    await callback.message.edit_text(text="✅ Шаг 3 выполнен")
-    await callback.message.answer(text[user_lang]['user_profile']['step_4'], reply_markup= await get_gender_search_buttons())
+    await callback.message.edit_caption(caption=text[user_lang]['user_profile']['step_4'],
+                                        reply_markup = await get_gender_search_buttons(),
+                                        parse_mode="HTML")
 
 
 @dp.callback_query(F.data.in_(["search_man", "search_woman", "search_any"]))
@@ -148,8 +144,9 @@ async def query_gender_search(callback: types.CallbackQuery):
     # уведомление сверху
     await callback.answer(text=text[user_lang]['notifications']['gender_search'].format(gender_search=gender_search.get(callback.data)))
 
-    await callback.message.edit_text(text="✅ Шаг 4 выполнен")
-    await callback.message.answer(text[user_lang]['user_profile']['step_5'], reply_markup=ReplyKeyboardRemove())
+    await callback.message.edit_caption(caption=text[user_lang]['user_profile']['step_5'],
+                                        reply_markup = None,
+                                        parse_mode="HTML")
 
 
 @dp.message(F.photo)
@@ -164,10 +161,14 @@ async def handle_photo(message: types.Message):
     # запись в базу
     await update_user_fields(user_id, photo_id = file_id)
 
-    await message.delete()
-    await message.answer("✅ Шаг 5 выполнен")
-    await message.answer(text[user_lang]['user_profile']['step_6'], parse_mode="HTML")
+    await message.delete() # удаляем фото отправленное пользователем
 
+    # изменяем запись
+    start_message_id = await get_cached_message_id(user_id, "start_message_id")
+    await bot.edit_message_caption(chat_id=message.chat.id,
+                                   message_id=int(start_message_id),
+                                   caption= text[user_lang]['user_profile']['step_6'],
+                                   parse_mode="HTML")
 
 
 # ------------------------------------------------------------------ ПОИСК ----------------------------------------------------------
@@ -314,24 +315,50 @@ async def on_successful_payment(message: types.Message):
 async def handle_text(message: types.Message):
     user_id = message.from_user.id
     user_lang = await get_user_language(message)
+    start_message_id = await get_cached_message_id(user_id, "start_message_id")
 
     # удаляем сообщение пользователя
     await message.delete()
-    text = message.text
-    print(text)
-    if len(text) >= MIN_COUNT_SYMBOLS and len(text) <= MAX_COUNT_SYMBOLS:
+    user_text = message.text
+    if len(user_text) >= MIN_COUNT_SYMBOLS and len(user_text) <= MAX_COUNT_SYMBOLS:
 
-        # запись в базу
-        await update_user_fields(user_id, about_me = text)
+        await update_user_fields(user_id, about_me = user_text) # запись в базу
 
-        await message.answer("✅ Шаг 6 выполнен")
-        await message.answer("🔍 Найти партнера - /search" \
-        "\n💘Совпадения (match) - /match")
+        user = await get_user_info(user_id) # получение инфо о пользователе
+        country_local = await get_cached_data(user_id, "country_local")
+        city_local = await get_cached_data(user_id, "city_local")
 
-    elif len(text) < MIN_COUNT_SYMBOLS:
-        await message.answer(text[user_lang]['user_profile']['min_count_symbols_error'].format(MIN_COUNT_SYMBOLS=MIN_COUNT_SYMBOLS, text_lenght=len(text)))
-    elif len(text) > MAX_COUNT_SYMBOLS:
-        await message.answer(text[user_lang]['user_profile']['max_count_symbols_error'].format(MAX_COUNT_SYMBOLS=MAX_COUNT_SYMBOLS, text_lenght=len(text)))
+        # изменяем запись
+        await bot.edit_message_media(chat_id=message.chat.id,
+                                     message_id=int(start_message_id),
+                                     media=InputMediaPhoto(media=user.photo_id))
+        await bot.edit_message_caption(chat_id=message.chat.id,
+                                       message_id=int(start_message_id),
+                                       reply_markup = None,
+                                       parse_mode="HTML",
+                                       caption=text[user_lang]["user_profile"]["profile"].format(first_name=user.first_name,
+                                                                                                 country_local=country_local,
+                                                                                                 city_local=city_local,
+                                                                                                 gender=gender.get(user.gender),
+                                                                                                 gender_search=gender.get(user.gender_search),
+                                                                                                 about_me=user.about_me))
+
+        
+        await message.answer( "\n💘 Совпадения (match) - /match")
+        await message.answer("🔍 Найти партнера - /search")
+        
+    elif len(user_text) < MIN_COUNT_SYMBOLS:
+        await bot.edit_message_caption(chat_id=message.chat.id,
+                            message_id=int(start_message_id),
+                            caption=text[user_lang]['user_profile']['min_count_symbols_error'].format(MIN_COUNT_SYMBOLS=MIN_COUNT_SYMBOLS, text_length=len(user_text)),
+                            reply_markup = None,
+                            parse_mode="HTML")
+    elif len(user_text) > MAX_COUNT_SYMBOLS:
+        await bot.edit_message_caption(chat_id=message.chat.id,
+                            message_id=int(start_message_id),
+                            caption=text[user_lang]['user_profile']['max_count_symbols_error'].format(MAX_COUNT_SYMBOLS=MAX_COUNT_SYMBOLS, text_length=len(user_text)),
+                            reply_markup = None,
+                            parse_mode="HTML")
 
 
 # ------------------------------------------------------------------- Активация бота -------------------------------------------------------

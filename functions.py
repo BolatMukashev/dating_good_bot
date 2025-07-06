@@ -6,36 +6,6 @@ import aiohttp
 from messages import supported_languages
 
 
-# получать id сообщения в бд Кэш по параметру
-# Пример:
-# start_message_id = await get_cached_message_id(user_id, "start_message_id")
-async def get_cached_message_id(user_id: int, parameter: str) -> int | None:
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(Cache).where(
-                Cache.telegram_id == user_id,
-                Cache.parameter == parameter
-            )
-        )
-        cache_entry = result.scalar_one_or_none()
-        return cache_entry.message_id if cache_entry else None
-
-
-# получать текст в бд Кэш по параметру
-# Пример:
-# city_local = await get_cached_data(user_id, "city_local")
-async def get_cached_data(user_id: int, parameter: str) -> str | None:
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(Cache).where(
-                Cache.telegram_id == user_id,
-                Cache.parameter == parameter
-            )
-        )
-        cache_entry = result.scalar_one_or_none()
-        return cache_entry.data if cache_entry else None
-
-
 # сохранить любое значение Кэш с параметром
 # Пример:
 # await save_to_cache(user_id, "start_message_id", starting_message.message_id)
@@ -69,6 +39,34 @@ async def save_to_cache(user_id: int, parameter: str, message_id: int = None, da
         await session.commit()
 
 
+# получать id сообщения в бд Кэш по параметру
+# Пример:
+# start_message_id = await get_cached_message_id(user_id, "start_message_id")
+async def get_cached_message_id(user_id: int, parameter: str) -> int | None:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(Cache).where(
+                Cache.telegram_id == user_id,
+                Cache.parameter == parameter
+            )
+        )
+        cache_entry = result.scalar_one_or_none()
+        return cache_entry.message_id if cache_entry else None
+
+
+# получать текст в бд Кэш по параметру
+# Пример:
+# city_local = await get_cached_data(user_id, "city_local")
+async def get_cached_data(user_id: int, parameter: str) -> str | None:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(Cache).where(
+                Cache.telegram_id == user_id,
+                Cache.parameter == parameter
+            )
+        )
+        cache_entry = result.scalar_one_or_none()
+        return cache_entry.data if cache_entry else None
 
 # Функция для создания или обновления пользователя
 # Пример:
@@ -125,6 +123,17 @@ async def update_user_fields(user_id: int, **fields: Any) -> bool:
             await session.commit()
 
         return updated
+
+
+# Получение информации о пользователе
+async def get_user_info(user_id: int) -> User | None:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(User).where(User.telegram_id == user_id)
+        )
+        user = result.scalar_one_or_none()
+        return user
+
 
 
 # Добавление реакции в базу
