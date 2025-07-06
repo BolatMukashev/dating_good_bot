@@ -14,6 +14,7 @@ from buttons import get_18yes_buttons, get_random_user, get_matches_menu_buttons
 from functions import get_cached_message_id, save_to_cache, create_or_update_user, update_user_fields, add_reaction, add_payment, get_location_info, get_user_language
 from messages import text
 
+
 # ------------------------------------------------------------------- Настройка и активация бота -------------------------------------------------------
 
 # TODO Supabase - SQL bd Postgres
@@ -29,21 +30,7 @@ storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
 
-# ------------------------------------------------------------------- Команды -------------------------------------------------------
-
-
-# Команда поиск
-@dp.message(Command("search"))
-async def cmd_search(message: types.Message, state: FSMContext):
-    photo_id, caption, markup = await get_random_user()
-    await message.answer_photo(photo=photo_id, caption=caption, parse_mode="HTML", reply_markup=markup)
-
-
-# Команда Совпадения
-@dp.message(Command("match"))
-async def cmd_match(message: types.Message, state: FSMContext):
-    menu_picture, markup = await get_matches_menu_buttons()
-    await message.answer_photo(photo=menu_picture, parse_mode="HTML", reply_markup=markup)
+# ------------------------------------------------------------------- Анкета пользователя -------------------------------------------------------
 
 
 # Команда Старт
@@ -65,9 +52,6 @@ async def cmd_start(message: types.Message, state: FSMContext):
     
     # запись в базу
     await save_to_cache(user_id, "start_message_id", starting_message.message_id)
-
-
-# ------------------------------------------------------------------- Колбеки -------------------------------------------------------
 
 
 # подтверждение 18 лет
@@ -170,6 +154,17 @@ async def handle_photo(message: types.Message):
     await message.answer(text[user_lang]['user_profile']['step_6'], parse_mode="HTML")
 
 
+
+# ------------------------------------------------------------------ ПОИСК ----------------------------------------------------------
+
+
+# Команда поиск
+@dp.message(Command("search"))
+async def cmd_search(message: types.Message, state: FSMContext):
+    photo_id, caption, markup = await get_random_user()
+    await message.answer_photo(photo=photo_id, caption=caption, parse_mode="HTML", reply_markup=markup)
+
+
 # обработка колбека поиска
 @dp.callback_query(lambda c: c.data.startswith("reaction"))
 async def handle_reaction(callback: types.CallbackQuery):
@@ -191,6 +186,16 @@ async def handle_reaction(callback: types.CallbackQuery):
     photo_id, caption, markup = await get_random_user()
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
     await callback.message.edit_caption(caption=caption, reply_markup=markup, parse_mode="HTML")
+
+
+# ------------------------------------------------------------------ СОВПАДЕНИЯ ----------------------------------------------------------
+
+
+# Команда Совпадения
+@dp.message(Command("match"))
+async def cmd_match(message: types.Message, state: FSMContext):
+    menu_picture, markup = await get_matches_menu_buttons()
+    await message.answer_photo(photo=menu_picture, parse_mode="HTML", reply_markup=markup)
 
 
 @dp.callback_query(F.data == "matches")
@@ -286,7 +291,7 @@ async def on_successful_payment(message: types.Message):
     await bot.delete_message(chat_id=message.chat.id, message_id=invoice_message_id)
 
 
-# ------------------------------------------------------------------- Текст -------------------------------------------------------
+# ------------------------------------------------------------------- Текст (Последний шаг в Анкете)-------------------------------------------------------
 
 
 # обработка текста - добавляет или изменяет описание "о себе"
@@ -322,6 +327,7 @@ async def main():
         await conn.run_sync(Base.metadata.create_all)
 
     await dp.start_polling(bot)
+
 
 if __name__ == '__main__':
     import asyncio
