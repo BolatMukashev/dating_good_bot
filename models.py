@@ -23,6 +23,7 @@ class User(Base):
     about_me = Column(String)
     photo_id = Column(String)
     eighteen_years_old = Column(Boolean)
+    incognito = Column(Boolean, default=False, nullable=False)
 
     # Обратные связи
     reactions_sent = relationship('Reaction', foreign_keys='Reaction.telegram_id', back_populates='sender')

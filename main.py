@@ -42,22 +42,51 @@ async def cmd_start(message: types.Message, state: FSMContext):
     username = message.from_user.username
     user_lang = await get_user_language(message)
 
+    await message.delete() #удалить сообщение пользователя /start
+
     if not username:
-        await message.answer(text[user_lang]['user_profile']['username_error'],
-                             parse_mode="HTML",
-                             reply_markup=await get_retry_registration_button())
+        starting_message = await message.answer_photo(photo=NO_USERNAME_PICTURE,
+                                   caption=text[user_lang]['user_profile']['username_error'],
+                                   parse_mode="HTML",
+                                   reply_markup=await get_retry_registration_button())
+    else:
+        # запись в базу
+        await create_or_update_user(user_id, first_name, username)
+
+        starting_message = await message.answer_photo(photo=USER_PROFILE_PICTURE,
+                                                    caption=text[user_lang]['user_profile']['step_1'].format(first_name=first_name),
+                                                    parse_mode="HTML",
+                                                    reply_markup=await get_18yes_buttons())
+    # запись в базу
+    await save_to_cache(user_id, "start_message_id", message_id = starting_message.message_id)
+
+
+# повторная регистрация, если нет username
+@dp.callback_query(F.data == "retry_registration")
+async def query_retry_registration(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    first_name = callback.from_user.first_name
+    username = callback.from_user.username
+    user_lang = await get_user_language(callback)
+
+    if not username:
         return
     
     # запись в базу
     await create_or_update_user(user_id, first_name, username)
-    await message.delete() #удалить сообщение пользователя /start
+    
+    # изменяем стартовую запись
+    start_message_id = await get_cached_message_id(user_id, "start_message_id")
 
-    starting_message = await message.answer_photo(photo=USER_PROFILE_PICTURE,
-                                                  caption=text[user_lang]['user_profile']['step_1'].format(first_name=first_name),
-                                                  parse_mode="HTML",
-                                                  reply_markup=await get_18yes_buttons())
-    # запись в базу
-    await save_to_cache(user_id, "start_message_id", message_id = starting_message.message_id)
+    await bot.edit_message_media(chat_id=callback.message.chat.id,
+                                     message_id=int(start_message_id),
+                                     media=InputMediaPhoto(media=USER_PROFILE_PICTURE))
+
+    await bot.edit_message_caption(chat_id=callback.message.chat.id,
+                                   message_id=int(start_message_id),
+                                   caption=text[user_lang]['user_profile']['step_1'].format(first_name=first_name),
+                                   reply_markup = await get_18yes_buttons(),
+                                   parse_mode="HTML")
 
 
 # подтверждение 18 лет
@@ -182,6 +211,15 @@ async def query_profile_edit(callback: types.CallbackQuery):
     first_name = callback.from_user.first_name
     username = callback.from_user.username
     user_lang = await get_user_language(callback)
+
+    # получаем id из Кэш и удаляем сообщение
+    search_menu_message_id = await get_cached_message_id(user_id, "search_menu_message_id")
+    await bot.delete_message(chat_id=callback.message.chat.id, message_id=search_menu_message_id)
+
+    # получаем id из Кэш и удаляем сообщение
+    match_menu_message_id = await get_cached_message_id(user_id, "match_menu_message_id")
+    await bot.delete_message(chat_id=callback.message.chat.id, message_id=match_menu_message_id)
+
     start_message_id = await get_cached_message_id(user_id, "start_message_id")
 
     if not username:
@@ -203,6 +241,9 @@ async def query_profile_edit(callback: types.CallbackQuery):
                                 caption = text[user_lang]['user_profile']['step_1'].format(first_name=first_name),
                                 parse_mode = "HTML",
                                 reply_markup = await get_18yes_buttons())
+
+
+# ------------------------------------------------------------------ Оплата Режим Инкогнито ----------------------------------------------------------
 
 
 # ------------------------------------------------------------------ ПОИСК ----------------------------------------------------------

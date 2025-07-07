@@ -136,7 +136,7 @@ async def get_profile_edit_buttons():
 
 async def get_retry_registration_button():
     # Кнопки повтора регистрации, если нет username
-    button1 = InlineKeyboardButton(text="Изменить анкету ✏", callback_data="retry_registration")
+    button1 = InlineKeyboardButton(text="Повторить регистрацию 🔄", callback_data="retry_registration")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1]])
     return markup
 
