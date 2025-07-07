@@ -6,8 +6,7 @@ from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
-from config import BOT_API_KEY, ADMIN_ID, MONGO_DB_PASSWORD, MONGO_DB_USERNAME, MIN_COUNT_SYMBOLS, MAX_COUNT_SYMBOLS, USER_PROFILE_PICTURE, MATCH_MENU_PICTURE, SEARCH_MENU_PICTURE
-from sqlalchemy.exc import NoResultFound
+from config import *
 from models import ReactionType, gender, gender_search, gender_search_db
 from buttons import *
 from functions import *
@@ -15,6 +14,7 @@ from messages import text
 
 
 # ------------------------------------------------------------------- Настройка бота -------------------------------------------------------
+
 
 # TODO Supabase - SQL bd Postgres
 # TODO Больше инфы в анкете, кнопки под описанием
@@ -377,17 +377,17 @@ async def handle_text(message: types.Message):
                                                                                                  gender_search=gender.get(user.gender_search),
                                                                                                  about_me=user.about_me))
 
-        match_menu = await message.answer_photo(photo=USER_PROFILE_PICTURE,
+        match_menu = await message.answer_photo(photo=MATCH_MENU_PICTURE,
                                                 caption=text[user_lang]['match_menu']['start'],
                                                 parse_mode="HTML",
-                                                reply_markup=None)
+                                                reply_markup=await get_start_match_menu_button())
         # запись в базу
         await save_to_cache(user_id, "match_menu_message_id", message_id = match_menu.message_id)
 
-        search_menu = await message.answer_photo(photo=USER_PROFILE_PICTURE,
+        search_menu = await message.answer_photo(photo=SEARCH_MENU_PICTURE,
                                                 caption=text[user_lang]['search_menu']['start'],
                                                 parse_mode="HTML",
-                                                reply_markup=None)
+                                                reply_markup=await get_start_search_menu_button())
         # запись в базу
         await save_to_cache(user_id, "search_menu_message_id", message_id = search_menu.message_id)
 

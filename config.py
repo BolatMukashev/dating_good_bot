@@ -1,12 +1,23 @@
 from dotenv import dotenv_values
 
+
+__all__ = ['BOT_API_KEY',
+           'ADMIN_ID',
+           'MONGO_DB_USERNAME',
+           'MONGO_DB_PASSWORD',
+           'MIN_COUNT_SYMBOLS',
+           'MAX_COUNT_SYMBOLS',
+           'USER_PROFILE_PICTURE',
+           'MATCH_MENU_PICTURE',
+           'SEARCH_MENU_PICTURE']
+
+
 config = dotenv_values(".env")
 
 BOT_API_KEY = config.get("BOT_API_KEY")
 ADMIN_ID = config.get("ADMIN_ID")
 MONGO_DB_USERNAME = config.get("MONGO_DB_USERNAME")
 MONGO_DB_PASSWORD = config.get("MONGO_DB_PASSWORD")
-
 
 MIN_COUNT_SYMBOLS = 15
 MAX_COUNT_SYMBOLS = 100
