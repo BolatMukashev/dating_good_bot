@@ -9,8 +9,8 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from config import BOT_API_KEY, ADMIN_ID, MONGO_DB_PASSWORD, MONGO_DB_USERNAME, MIN_COUNT_SYMBOLS, MAX_COUNT_SYMBOLS, USER_PROFILE_PICTURE, MATCH_MENU_PICTURE, SEARCH_MENU_PICTURE
 from sqlalchemy.exc import NoResultFound
 from models import ReactionType, gender, gender_search, gender_search_db
-from buttons import get_18yes_buttons, get_random_user, get_matches_menu_buttons, get_matches_user, get_wants_user, get_gender_buttons, get_gender_search_buttons, get_location_button, get_profile_edit_buttons, get_retry_registration_button
-from functions import get_user_info, get_cached_message_id, get_cached_data, save_to_cache, create_or_update_user, update_user_fields, add_reaction, add_payment, get_location_info, get_user_language
+from buttons import *
+from functions import *
 from messages import text
 
 
@@ -51,9 +51,11 @@ async def cmd_start(message: types.Message, state: FSMContext):
     # запись в базу
     await create_or_update_user(user_id, first_name, username)
     await message.delete() #удалить сообщение пользователя /start
-    caption=text[user_lang]['user_profile']['step_1'].format(first_name=first_name)
-    starting_message = await message.answer_photo(photo=USER_PROFILE_PICTURE, caption=caption, parse_mode="HTML", reply_markup=await get_18yes_buttons())
-    
+
+    starting_message = await message.answer_photo(photo=USER_PROFILE_PICTURE,
+                                                  caption=text[user_lang]['user_profile']['step_1'].format(first_name=first_name),
+                                                  parse_mode="HTML",
+                                                  reply_markup=await get_18yes_buttons())
     # запись в базу
     await save_to_cache(user_id, "start_message_id", message_id = starting_message.message_id)
 
@@ -375,10 +377,21 @@ async def handle_text(message: types.Message):
                                                                                                  gender_search=gender.get(user.gender_search),
                                                                                                  about_me=user.about_me))
 
-        
-        await message.answer( "\n💘 Совпадения (match) - /match")
-        await message.answer("🔍 Найти партнера - /search")
-        
+        match_menu = await message.answer_photo(photo=USER_PROFILE_PICTURE,
+                                                caption=text[user_lang]['match_menu']['start'],
+                                                parse_mode="HTML",
+                                                reply_markup=None)
+        # запись в базу
+        await save_to_cache(user_id, "match_menu_message_id", message_id = match_menu.message_id)
+
+        search_menu = await message.answer_photo(photo=USER_PROFILE_PICTURE,
+                                                caption=text[user_lang]['search_menu']['start'],
+                                                parse_mode="HTML",
+                                                reply_markup=None)
+        # запись в базу
+        await save_to_cache(user_id, "search_menu_message_id", message_id = search_menu.message_id)
+
+
     elif len(user_text) < MIN_COUNT_SYMBOLS:
         await bot.edit_message_caption(chat_id=message.chat.id,
                             message_id=int(start_message_id),

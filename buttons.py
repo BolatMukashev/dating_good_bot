@@ -5,6 +5,20 @@ from models import ReactionType
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 
 
+__all__ = ['get_18yes_buttons',
+           'get_random_user',
+           'get_matches_menu_buttons',
+           'get_wants_user',
+           'get_matches_user',
+           'get_gender_buttons',
+           'get_gender_search_buttons',
+           'get_profile_edit_buttons',
+           'get_retry_registration_button',
+           'get_location_button',
+           'get_start_match_menu_button',
+           'get_start_search_menu_button']
+
+
 async def get_18yes_buttons():
     # Кнопка 18+
     button = InlineKeyboardButton(text="Мне больше 18 лет", callback_data="18yes")
@@ -127,7 +141,6 @@ async def get_retry_registration_button():
     return markup
 
 
-
 async def get_location_button():
     # Кнопка отправки геолокации (не инлайн)
     kb = [[KeyboardButton(text="📍 Отправить местоположение", request_location=True)]]
@@ -139,4 +152,15 @@ async def get_location_button():
     return keyboard
 
 
+async def get_start_match_menu_button():
+    # Кнопка старт у меню Совпадений
+    button = InlineKeyboardButton(text="Посмотреть Совпадения", callback_data="start_match_menu")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
+    return markup
 
+
+async def get_start_search_menu_button():
+    # Кнопка старт у меню Совпадений
+    button = InlineKeyboardButton(text="Начать поиск", callback_data="start_search_menu")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
+    return markup

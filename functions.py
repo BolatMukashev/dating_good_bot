@@ -6,6 +6,18 @@ import aiohttp
 from messages import supported_languages
 
 
+__all__ = ['save_to_cache',
+           'get_cached_message_id',
+           'get_cached_data',
+           'create_or_update_user',
+           'update_user_fields',
+           'get_user_info',
+           'add_reaction',
+           'add_payment',
+           'get_location_info',
+           'get_user_language']
+
+
 # сохранить любое значение Кэш с параметром
 # Пример:
 # await save_to_cache(user_id, "start_message_id", starting_message.message_id)

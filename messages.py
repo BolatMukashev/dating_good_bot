@@ -56,6 +56,9 @@ text = {"ru":{"user_profile":{"step_1": "🔘 ⚪ ⚪ ⚪ ⚪ ⚪\n\n"
                              "gender": "Отлично! Ты указал: {user_gender}",
                              "gender_search": "Отлично! Ты указал: {gender_search}",
                              },
-            "match_menu":{"start": "Меню Совпадений"},
-            "search_menu":{}}}
+            "match_menu":{"start": "💘 Совпадения (match)"},
+            "search_menu":{"start": "🔍 Найти партнера"}}}
+
+
+buttons_text = {}
 
