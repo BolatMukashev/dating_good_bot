@@ -112,7 +112,24 @@ async def get_gender_search_buttons():
     return markup
 
 
+async def get_profile_edit_buttons():
+    # Кнопки выбора поиска пола
+    button1 = InlineKeyboardButton(text="Изменить анкету ✏", callback_data="profile_edit")
+    button2 = InlineKeyboardButton(text="Стать Инкогнито 🫥", callback_data="incognito_on")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2]])
+    return markup
+
+
+async def get_retry_registration_button():
+    # Кнопки повтора регистрации, если нет username
+    button1 = InlineKeyboardButton(text="Изменить анкету ✏", callback_data="retry_registration")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button1]])
+    return markup
+
+
+
 async def get_location_button():
+    # Кнопка отправки геолокации (не инлайн)
     kb = [[KeyboardButton(text="📍 Отправить местоположение", request_location=True)]]
     keyboard = ReplyKeyboardMarkup(
         keyboard=kb,

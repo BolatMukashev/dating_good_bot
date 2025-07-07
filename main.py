@@ -9,7 +9,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from config import BOT_API_KEY, ADMIN_ID, MONGO_DB_PASSWORD, MONGO_DB_USERNAME, MIN_COUNT_SYMBOLS, MAX_COUNT_SYMBOLS, USER_PROFILE_PICTURE, MATCH_MENU_PICTURE, SEARCH_MENU_PICTURE
 from sqlalchemy.exc import NoResultFound
 from models import ReactionType, gender, gender_search, gender_search_db
-from buttons import get_18yes_buttons, get_random_user, get_matches_menu_buttons, get_matches_user, get_wants_user, get_gender_buttons, get_gender_search_buttons, get_location_button
+from buttons import get_18yes_buttons, get_random_user, get_matches_menu_buttons, get_matches_user, get_wants_user, get_gender_buttons, get_gender_search_buttons, get_location_button, get_profile_edit_buttons, get_retry_registration_button
 from functions import get_user_info, get_cached_message_id, get_cached_data, save_to_cache, create_or_update_user, update_user_fields, add_reaction, add_payment, get_location_info, get_user_language
 from messages import text
 
@@ -43,7 +43,9 @@ async def cmd_start(message: types.Message, state: FSMContext):
     user_lang = await get_user_language(message)
 
     if not username:
-        await message.answer(text[user_lang]['user_profile']['username_error'])
+        await message.answer(text[user_lang]['user_profile']['username_error'],
+                             parse_mode="HTML",
+                             reply_markup=await get_retry_registration_button())
         return
     
     # запись в базу
@@ -167,8 +169,38 @@ async def handle_photo(message: types.Message):
     start_message_id = await get_cached_message_id(user_id, "start_message_id")
     await bot.edit_message_caption(chat_id=message.chat.id,
                                    message_id=int(start_message_id),
-                                   caption= text[user_lang]['user_profile']['step_6'],
+                                   caption=text[user_lang]['user_profile']['step_6'],
                                    parse_mode="HTML")
+
+
+# изменить анкету
+@dp.callback_query(F.data == "profile_edit")
+async def query_profile_edit(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    first_name = callback.from_user.first_name
+    username = callback.from_user.username
+    user_lang = await get_user_language(callback)
+    start_message_id = await get_cached_message_id(user_id, "start_message_id")
+
+    if not username:
+        await bot.edit_message_caption(chat_id = callback.message.chat.id,
+                                       message_id = int(start_message_id),
+                                       caption = text[user_lang]['user_profile']['username_error'],
+                                       parse_mode ="HTML",
+                                       reply_markup = await get_retry_registration_button())
+        return
+    
+    # запись в базу
+    await create_or_update_user(user_id, first_name, username)
+
+    await bot.edit_message_media(chat_id = callback.message.chat.id,
+                                message_id = int(start_message_id),
+                                media = InputMediaPhoto(media=USER_PROFILE_PICTURE))
+    await bot.edit_message_caption(chat_id = callback.message.chat.id,
+                                message_id = int(start_message_id),
+                                caption = text[user_lang]['user_profile']['step_1'].format(first_name=first_name),
+                                parse_mode = "HTML",
+                                reply_markup = await get_18yes_buttons())
 
 
 # ------------------------------------------------------------------ ПОИСК ----------------------------------------------------------
@@ -334,7 +366,7 @@ async def handle_text(message: types.Message):
                                      media=InputMediaPhoto(media=user.photo_id))
         await bot.edit_message_caption(chat_id=message.chat.id,
                                        message_id=int(start_message_id),
-                                       reply_markup = None,
+                                       reply_markup = await get_profile_edit_buttons(),
                                        parse_mode="HTML",
                                        caption=text[user_lang]["user_profile"]["profile"].format(first_name=user.first_name,
                                                                                                  country_local=country_local,
