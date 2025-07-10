@@ -317,7 +317,7 @@ async def query_reload_matches_menu(callback: types.CallbackQuery):
 async def handle_who_wants(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     _, reaction = callback.data.split("|", 1)
-    photo_id, caption, markup = await get_wants_user(reaction, 1)
+    photo_id, caption, markup = await get_wants_user(reaction, PRICE_ADD_TO_MATCHES)
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
     await callback.message.edit_caption(caption=caption, reply_markup=markup, parse_mode="HTML")
 
@@ -374,7 +374,7 @@ async def on_successful_payment(message: types.Message):
         await add_payment(user_id, target_id, price)
     
     # изменяем запись
-    markup = await get_wants_user(reaction, 1, priced=True, user_info=user_info)
+    markup = await get_wants_user(reaction, PRICE_ADD_TO_MATCHES, priced=True, user_info=user_info)
     await bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=int(message_id), reply_markup=markup)
     
     # получаем id из Кэш и удаляем сообщение
