@@ -129,12 +129,8 @@ async def handle_location(message: types.Message):
     country_en, city_en = await get_location_info(latitude, longitude, lang='en')
 
     # запись в базу
-    await update_user_fields(user_id, country=country_en, city=city_en)
+    await update_user_fields(user_id, country=country_en, city=city_en, country_local=country_local, city_local=city_local)
     
-    # запись в базу
-    await save_to_cache(user_id, "country_local", data = country_local)
-    await save_to_cache(user_id, "city_local", data = city_local)
-
     await message.delete() #удалить сообщение пользователя с локацией
 
     # получаем id из Кэш и удаляем сообщение
@@ -243,7 +239,35 @@ async def query_profile_edit(callback: types.CallbackQuery):
                                 reply_markup = await get_18yes_buttons())
 
 
-# ------------------------------------------------------------------ Оплата Режим Инкогнито ----------------------------------------------------------
+# ------------------------------------------------------------------ Режим Инкогнито ----------------------------------------------------------
+
+
+@dp.callback_query(F.data.startswith("incognito|"))
+async def handle_incognito_toggle(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    user_lang = await get_user_language(callback)
+    _, action, _ = callback.data.split("|")
+
+    user = await get_user_info(user_id)
+    start_message_id = await get_cached_message_id(user_id, "start_message_id")
+
+    if action == "NOT_PAYED":
+        await update_user_fields(user_id, incognito_pay=True)
+    else:
+        if action == "ON":
+            await update_user_fields(user_id, incognito_switch=False)
+        else:
+            await update_user_fields(user_id, incognito_switch=True)
+
+    await bot.edit_message_reply_markup(
+        chat_id=callback.message.chat.id,
+        message_id=callback.message.message_id,
+        reply_markup=await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch))
+    
+    # двойное нажатие ??? но работает
+
+
+
 
 
 # ------------------------------------------------------------------ ПОИСК ----------------------------------------------------------
@@ -400,8 +424,6 @@ async def handle_text(message: types.Message):
         await update_user_fields(user_id, about_me = user_text) # запись в базу
 
         user = await get_user_info(user_id) # получение инфо о пользователе
-        country_local = await get_cached_data(user_id, "country_local")
-        city_local = await get_cached_data(user_id, "city_local")
 
         # изменяем запись
         await bot.edit_message_media(chat_id=message.chat.id,
@@ -409,11 +431,11 @@ async def handle_text(message: types.Message):
                                      media=InputMediaPhoto(media=user.photo_id))
         await bot.edit_message_caption(chat_id=message.chat.id,
                                        message_id=int(start_message_id),
-                                       reply_markup = await get_profile_edit_buttons(),
+                                       reply_markup = await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch),
                                        parse_mode="HTML",
                                        caption=text[user_lang]["user_profile"]["profile"].format(first_name=user.first_name,
-                                                                                                 country_local=country_local,
-                                                                                                 city_local=city_local,
+                                                                                                 country_local=user.country_local,
+                                                                                                 city_local=user.city_local,
                                                                                                  gender=gender.get(user.gender),
                                                                                                  gender_search=gender.get(user.gender_search),
                                                                                                  about_me=user.about_me))

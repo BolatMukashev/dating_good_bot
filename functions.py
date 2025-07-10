@@ -8,7 +8,6 @@ from messages import supported_languages
 
 __all__ = ['save_to_cache',
            'get_cached_message_id',
-           'get_cached_data',
            'create_or_update_user',
            'update_user_fields',
            'get_user_info',
@@ -22,7 +21,7 @@ __all__ = ['save_to_cache',
 # Пример:
 # await save_to_cache(user_id, "start_message_id", starting_message.message_id)
 # await save_to_cache(callback.from_user.id, "invoice_message_id", sent_invoice.message_id)
-async def save_to_cache(user_id: int, parameter: str, message_id: int = None, data: str = None) -> None:
+async def save_to_cache(user_id: int, parameter: str, message_id: int = None) -> None:
     async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(Cache).where(
@@ -35,16 +34,11 @@ async def save_to_cache(user_id: int, parameter: str, message_id: int = None, da
         if existing_cache:
             if message_id is not None:
                 existing_cache.message_id = message_id
-                existing_cache.data = None  # очищаем data
-            elif data is not None:
-                existing_cache.data = data
-                existing_cache.message_id = None  # очищаем message_id
         else:
             new_cache = Cache(
                 telegram_id=user_id,
                 parameter=parameter,
-                message_id=message_id if message_id is not None else None,
-                data=data if data is not None else None
+                message_id=message_id
             )
             session.add(new_cache)
 
@@ -65,20 +59,6 @@ async def get_cached_message_id(user_id: int, parameter: str) -> int | None:
         cache_entry = result.scalar_one_or_none()
         return cache_entry.message_id if cache_entry else None
 
-
-# получать текст в бд Кэш по параметру
-# Пример:
-# city_local = await get_cached_data(user_id, "city_local")
-async def get_cached_data(user_id: int, parameter: str) -> str | None:
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(Cache).where(
-                Cache.telegram_id == user_id,
-                Cache.parameter == parameter
-            )
-        )
-        cache_entry = result.scalar_one_or_none()
-        return cache_entry.data if cache_entry else None
 
 # Функция для создания или обновления пользователя
 # Пример:
@@ -188,6 +168,3 @@ async def get_user_language(message):
     if user_lang not in supported_languages:
         user_lang = 'en'
     return user_lang
-
-
-

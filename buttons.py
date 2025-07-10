@@ -3,6 +3,7 @@ import random
 from test_db import test_db
 from models import ReactionType
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
+from uuid import uuid4
 
 
 __all__ = ['get_18yes_buttons',
@@ -109,7 +110,7 @@ async def get_matches_user():
 
 
 async def get_gender_buttons():
-    # Кнопки выбора пола
+    # Выбора пола
     button1 = InlineKeyboardButton(text="Мужчина", callback_data="MAN")
     button2 = InlineKeyboardButton(text="Женщина", callback_data="WOMAN")
     button3 = InlineKeyboardButton(text="Другое", callback_data="ANY")
@@ -118,7 +119,7 @@ async def get_gender_buttons():
 
 
 async def get_gender_search_buttons():
-    # Кнопки выбора поиска пола
+    # Выбора поиска пола
     button1 = InlineKeyboardButton(text="Ищу Мужчину", callback_data="search_man")
     button2 = InlineKeyboardButton(text="Ищу Женщину", callback_data="search_woman")
     button3 = InlineKeyboardButton(text="Пол не имеет значения", callback_data="search_any")
@@ -126,10 +127,22 @@ async def get_gender_search_buttons():
     return markup
 
 
-async def get_profile_edit_buttons():
-    # Кнопки выбора поиска пола
+async def get_profile_edit_buttons(pay_status: bool, incognito_switch: bool):
+    # Изменение профиля и статуса инкогнито
+    if not pay_status:
+        status = 'NOT_PAYED'
+        btn_text = "Стать Инкогнито 🫥"
+    else:
+        if incognito_switch:
+            status = 'ON'
+            btn_text = "Инкогнито включено ✅"
+        else:
+            status = 'OFF'
+            btn_text = "Инкогнито выключено 🚫"
+    
+    unique_suffix = uuid4().hex[:4]
     button1 = InlineKeyboardButton(text="Изменить анкету ✏", callback_data="profile_edit")
-    button2 = InlineKeyboardButton(text="Стать Инкогнито 🫥", callback_data="incognito_on")
+    button2 = InlineKeyboardButton(text=btn_text, callback_data=f"incognito|{status}|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2]])
     return markup
 
@@ -142,7 +155,7 @@ async def get_retry_registration_button():
 
 
 async def get_location_button():
-    # Кнопка отправки геолокации (не инлайн)
+    # Отправка геолокации (не инлайн)
     kb = [[KeyboardButton(text="📍 Отправить местоположение", request_location=True)]]
     keyboard = ReplyKeyboardMarkup(
         keyboard=kb,
@@ -153,14 +166,14 @@ async def get_location_button():
 
 
 async def get_start_match_menu_button():
-    # Кнопка старт у меню Совпадений
+    # Кнопка Старт у меню Совпадений
     button = InlineKeyboardButton(text="Посмотреть Совпадения", callback_data="start_match_menu")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
     return markup
 
 
 async def get_start_search_menu_button():
-    # Кнопка старт у меню Совпадений
+    # Кнопка Старт у меню Поиска
     button = InlineKeyboardButton(text="Начать поиск", callback_data="start_search_menu")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
     return markup

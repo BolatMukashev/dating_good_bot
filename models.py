@@ -20,6 +20,8 @@ class User(Base):
     gender_search = Column(String)
     country = Column(String)
     city = Column(String)
+    country_local = Column(String)
+    city_local = Column(String)
     about_me = Column(String)
     photo_id = Column(String)
     eighteen_years_old = Column(Boolean)
@@ -68,7 +70,6 @@ class Cache(Base):
     telegram_id = Column(Integer, ForeignKey('users.telegram_id'), nullable=False)
     parameter = Column(String)
     message_id = Column(Integer)
-    data = Column(Text)
 
     user = relationship('User', foreign_keys=[telegram_id], back_populates='caches')
 
