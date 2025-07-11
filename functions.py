@@ -10,7 +10,7 @@ __all__ = ['save_to_cache',
            'get_cached_message_id',
            'create_or_update_user',
            'update_user_fields',
-           'get_user_info',
+           'get_user_by_id',
            'add_reaction',
            'add_payment',
            'get_location_info',
@@ -118,14 +118,13 @@ async def update_user_fields(user_id: int, **fields: Any) -> bool:
 
 
 # Получение информации о пользователе
-async def get_user_info(user_id: int) -> User | None:
+async def get_user_by_id(user_id: int) -> User | None:
     async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(User).where(User.telegram_id == user_id)
         )
         user = result.scalar_one_or_none()
         return user
-
 
 
 # Добавление реакции в базу

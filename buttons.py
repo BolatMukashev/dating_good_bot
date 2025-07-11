@@ -3,6 +3,7 @@ import random
 from test_db import test_db
 from models import ReactionType
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from uuid import uuid4
 
 
@@ -17,7 +18,8 @@ __all__ = ['get_18yes_buttons',
            'get_retry_registration_button',
            'get_location_button',
            'get_start_match_menu_button',
-           'get_start_search_menu_button']
+           'get_start_search_menu_button',
+           'payment_keyboard']
 
 
 async def get_18yes_buttons():
@@ -177,3 +179,9 @@ async def get_start_search_menu_button():
     button = InlineKeyboardButton(text="Начать поиск", callback_data="start_search_menu")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
     return markup
+
+
+def payment_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.button(text="Оплатить через Telegram Stars ⭐️", pay=True)
+    return builder.as_markup()

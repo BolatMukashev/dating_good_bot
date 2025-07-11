@@ -1,7 +1,6 @@
 import logging
 from db_connect import async_engine, Base
 from aiogram.types import InputMediaPhoto, LabeledPrice
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
 from aiogram import Bot, Dispatcher, types, F
@@ -79,8 +78,8 @@ async def query_retry_registration(callback: types.CallbackQuery):
     start_message_id = await get_cached_message_id(user_id, "start_message_id")
 
     await bot.edit_message_media(chat_id=callback.message.chat.id,
-                                     message_id=int(start_message_id),
-                                     media=InputMediaPhoto(media=USER_PROFILE_PICTURE))
+                                 message_id=int(start_message_id),
+                                 media=InputMediaPhoto(media=USER_PROFILE_PICTURE))
 
     await bot.edit_message_caption(chat_id=callback.message.chat.id,
                                    message_id=int(start_message_id),
@@ -248,11 +247,27 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
     user_lang = await get_user_language(callback)
     _, action, _ = callback.data.split("|")
 
-    user = await get_user_info(user_id)
-    start_message_id = await get_cached_message_id(user_id, "start_message_id")
+    user = await get_user_by_id(user_id)
 
     if action == "NOT_PAYED":
-        await update_user_fields(user_id, incognito_pay=True)
+
+        prices = [LabeledPrice(label=f"Активировать режим Инкогнито", amount=PRICE_INCOGNITO)]
+
+        sent_invoice = await callback.message.answer_invoice(
+            title=f"Активировать режим Инкогнито",
+            description=f"Купи один раз — и включай/выключай, когда хочешь!"
+            "\nВ этом режиме тебя не видно в поиске, но ты можешь сам просматривать анкеты других.",
+            payload=f"incognito_payment_ok|{PRICE_INCOGNITO}",
+            provider_token="",
+            currency="XTR",
+            prices=prices,
+            reply_markup=payment_keyboard()
+        )
+
+        # сохраняем в Кэш
+        await save_to_cache(callback.from_user.id, "incognito_pay_message_id", message_id = sent_invoice.message_id)
+
+        await callback.answer()
     else:
         if action == "ON":
             await update_user_fields(user_id, incognito_switch=False)
@@ -265,9 +280,6 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
         reply_markup=await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch))
     
     # двойное нажатие ??? но работает
-
-
-
 
 
 # ------------------------------------------------------------------ ПОИСК ----------------------------------------------------------
@@ -349,12 +361,6 @@ async def handle_who_wants(callback: types.CallbackQuery):
 # ------------------------------------------------------------------- Оплата -------------------------------------------------------
 
 
-def payment_keyboard():
-    builder = InlineKeyboardBuilder()
-    builder.button(text="Оплатить через Telegram Stars ⭐️", pay=True)
-    return builder.as_markup()
-
-
 # обработка колбека оплаты
 @dp.callback_query(lambda c: c.data.startswith("wants_pay"))
 async def handle_wants_pay(callback: types.CallbackQuery):
@@ -366,7 +372,7 @@ async def handle_wants_pay(callback: types.CallbackQuery):
     sent_invoice = await callback.message.answer_invoice(
         title=f"Добавить в Совпадения {target_name}",
         description=f"При добавлении в Совпадения, вы получите доступ к профилю {target_name} и сможете ей/ему написать",
-        payload=f"payment_ok|{target_tg_id}|{price}|{callback.message.message_id}|{target_name}|{caption}|{photo_id}|{reaction}",
+        payload=f"payment_ok|{target_tg_id}|{price}|{reaction}",
         provider_token="",
         currency="XTR",
         prices=prices,
@@ -377,6 +383,9 @@ async def handle_wants_pay(callback: types.CallbackQuery):
     await save_to_cache(callback.from_user.id, "invoice_message_id", message_id = sent_invoice.message_id)
 
     await callback.answer()
+
+
+# ------------------------------------------------------------------- Оплата -------------------------------------------------------
 
 
 @dp.pre_checkout_query()
@@ -391,19 +400,28 @@ async def on_successful_payment(message: types.Message):
 
     # Пример обработки payload:
     if payload.startswith("payment_ok"):
-        _, target_id, price, message_id, target_name, caption, photo_id, reaction = payload.split("|")
-        user_info = {"target_name": target_name, "caption": caption, "photo_id": photo_id}
+        _, target_id, price, reaction = payload.split("|")
+        await add_payment(user_id, target_id, price) # запись в базу
+        payment_message_id = await get_cached_message_id(user_id, "invoice_message_id")
+    
+        # изменяем запись
+        user = await get_user_by_id(user_id)
+        user_info = {"target_name": user.first_name, "caption": user.about_me, "photo_id": user.photo_id}
+        markup = await get_wants_user(reaction, PRICE_ADD_TO_MATCHES, priced=True, user_info=user_info)
 
-        # запись в базу
-        await add_payment(user_id, target_id, price)
-    
-    # изменяем запись
-    markup = await get_wants_user(reaction, PRICE_ADD_TO_MATCHES, priced=True, user_info=user_info)
-    await bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=int(message_id), reply_markup=markup)
-    
+        match_menu_message_id = await get_cached_message_id(user_id, "match_menu_message_id")
+        await bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=int(match_menu_message_id), reply_markup=markup)
+
+    elif payload.startswith("incognito_payment_ok"):
+        # _, price = payload.split("|")
+        await update_user_fields(user_id, incognito_pay=True, incognito_switch=True)
+        payment_message_id = await get_cached_message_id(user_id, "incognito_pay_message_id")
+
+        start_message_id = await get_cached_message_id(user_id, "start_message_id")
+        await bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=int(start_message_id), reply_markup=await get_profile_edit_buttons(True, True))
+
     # получаем id из Кэш и удаляем сообщение
-    invoice_message_id = await get_cached_message_id(user_id, "invoice_message_id")
-    await bot.delete_message(chat_id=message.chat.id, message_id=invoice_message_id)
+    await bot.delete_message(chat_id=message.chat.id, message_id=payment_message_id)
 
 
 # ------------------------------------------------------------------- Текст (Последний шаг в Анкете)-------------------------------------------------------
@@ -423,7 +441,7 @@ async def handle_text(message: types.Message):
 
         await update_user_fields(user_id, about_me = user_text) # запись в базу
 
-        user = await get_user_info(user_id) # получение инфо о пользователе
+        user = await get_user_by_id(user_id) # получение инфо о пользователе
 
         # изменяем запись
         await bot.edit_message_media(chat_id=message.chat.id,
