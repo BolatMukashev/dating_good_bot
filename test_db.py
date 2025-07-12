@@ -15,17 +15,22 @@ fake = Faker("ru_RU")
 async_engine = create_async_engine("sqlite+aiosqlite:///my_database.db")
 AsyncSessionLocal = sessionmaker(bind=async_engine, class_=AsyncSession, expire_on_commit=False)
 
+WOMAN_PHOTO = 'AgACAgIAAxkBAAIEXWhyM6aDeihjOMGDRT4wm2zQlBVnAAJ_AjIbE9uYS_5EbII1p1GkAQADAgADeQADNgQ'
+MAN_PHOTO = 'AgACAgIAAxkBAAIEZmhyNMfHJtQKJTEpyBvnzSn78uxBAALc8jEbht2QSwgCthHAoX1JAQADAgADeQADNgQ'
+
 
 async def add_new_fake_user(gender: Gender, gender_search=True, random_location=False):
     async with AsyncSessionLocal() as session:
         if gender == Gender.MAN:
             first_name=fake.first_name_male()
+            photo_id = MAN_PHOTO
             if gender_search:
                 gender_search = Gender.WOMAN
             else:
                 gender_search = Gender.MAN
         else:
             first_name=fake.first_name_female()
+            photo_id = WOMAN_PHOTO
             if gender_search:
                 gender_search = Gender.MAN
             else:
@@ -44,9 +49,11 @@ async def add_new_fake_user(gender: Gender, gender_search=True, random_location=
                         gender = gender,
                         gender_search = gender_search,
                         country = country,
+                        country_local = country,
                         city = city,
+                        city_local = city,
                         about_me = fake.sentence(nb_words=6),
-                        photo_id = "AgACAgIAAxkBAAIBJ2hWQly3TGgc6wUgWzTCjx70IsUBAAIv8TEbxFq4ShT9pZ0qhTdgAQADAgADeQADNgQ",
+                        photo_id = photo_id,
                         eighteen_years_old = True)
         session.add(new_user)
         await session.commit()
@@ -63,7 +70,8 @@ async def get_user_by_id(user_id):
 
 
 if __name__ == "__main__":
-    asyncio.run(add_new_fake_user("WOMAN", gender_search=True, random_location=True))
+    for el in range(5):
+        asyncio.run(add_new_fake_user(Gender.WOMAN, gender_search=True, random_location=False))
     # user = asyncio.run(get_user_by_id(930353927))
     # if user:
     #     print(f"Найден пользователь: {user}")
