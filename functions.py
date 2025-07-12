@@ -1,9 +1,11 @@
-from sqlalchemy import select, update
-from models import Base, User, Reaction, Payment, Cache
-from typing import Any
+from sqlalchemy import select, update, or_
+from sqlalchemy.orm import aliased
+from models import Base, User, Reaction, Payment, Cache, Gender
+from typing import Any, Optional
 from db_connect import AsyncSessionLocal
 import aiohttp
-from messages import supported_languages
+from messages import supported_languages, GENDER_LABELS, GENDER_SEARCH_LABELS
+from sqlalchemy.orm import aliased
 
 
 __all__ = ['save_to_cache',
@@ -14,7 +16,103 @@ __all__ = ['save_to_cache',
            'add_reaction',
            'add_payment',
            'get_location_info',
-           'get_user_language']
+           'get_user_language',
+           'find_first_matching_user',
+           'get_caption',
+           'get_gender_label',
+           'get_gender_search_label']
+
+
+async def find_first_matching_user(current_user_id: int) -> Optional[User]:
+    async with AsyncSessionLocal() as session:
+        # Получаем текущего пользователя
+        result = await session.execute(
+            select(User).where(User.telegram_id == current_user_id)
+        )
+        current_user = result.scalar_one_or_none()
+        if not current_user:
+            return None
+
+        gender = current_user.gender
+        gender_search = current_user.gender_search
+
+        # Кого ты ищешь
+        gender_condition = or_(
+            User.gender == gender_search,
+            gender_search == Gender.ANY
+        )
+
+        # Подходишь ли ты им
+        if gender == Gender.ANY:
+            search_condition = User.gender_search == Gender.ANY
+        else:
+            search_condition = or_(
+                User.gender_search == gender,
+                User.gender_search == Gender.ANY
+            )
+
+        # Исключаем инкогнито
+        not_incognito_condition = or_(
+            User.incognito_switch == False,
+            User.incognito_pay == False
+        )
+
+        # Исключаем тех, на кого уже реагировал
+        ReactionAlias = aliased(Reaction)
+        subquery = select(ReactionAlias.target_tg_id).where(
+            ReactionAlias.telegram_id == current_user_id
+        ).subquery()
+
+        # Общие условия
+        base_conditions = [
+            User.telegram_id != current_user_id,
+            gender_condition,
+            search_condition,
+            not_incognito_condition,
+            User.telegram_id.not_in(subquery)
+        ]
+
+        # 👉 Шаг 1: сначала ищем по стране и городу
+        query_city = select(User).where(
+            *base_conditions,
+            User.city == current_user.city,
+            User.country == current_user.country
+        ).limit(1)
+
+        result = await session.execute(query_city)
+        match = result.scalar_one_or_none()
+        if match:
+            return match
+
+        # 👉 Шаг 2: если не нашли в городе — ищем по стране
+        query_country = select(User).where(
+            *base_conditions,
+            User.country == current_user.country
+        ).limit(1)
+
+        result = await session.execute(query_country)
+        match = result.scalar_one_or_none()
+        if match:
+            return match
+
+        # 👉 Шаг 3: совсем никого
+        return None
+
+
+async def get_caption(target_name, country_local, city_local, about_me):
+    # получить описание для пользователя
+    caption=f"<b>{target_name}</b>"
+    f"\n📌 {country_local}, {city_local}"
+    f"\n<i>{about_me}</i>"
+    return caption
+
+
+async def get_gender_label(gender: Gender, lang: str = "ru") -> str:
+    return GENDER_LABELS[lang][gender]
+
+
+async def get_gender_search_label(gender: Gender, lang: str = "ru") -> str:
+    return GENDER_SEARCH_LABELS[lang][gender]
 
 
 # сохранить любое значение Кэш с параметром

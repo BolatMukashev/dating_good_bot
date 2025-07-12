@@ -1,6 +1,10 @@
+from models import Gender
+
+
 supported_languages = ['ru', 'en']
 
-text = {"ru":{"user_profile":{"step_1": "🔘 ⚪ ⚪ ⚪ ⚪ ⚪\n\n"
+
+TEXT = {"ru":{"user_profile":{"step_1": "🔘 ⚪ ⚪ ⚪ ⚪ ⚪\n\n"
                               "Привет, <b>{first_name}</b>!\n"
                               "Готов к новым знакомствам?\n\n"
                               "Чтобы начать нужно выполнить несколько простых шагов:"
@@ -44,7 +48,7 @@ text = {"ru":{"user_profile":{"step_1": "🔘 ⚪ ⚪ ⚪ ⚪ ⚪\n\n"
                               "Ваш текст содержит {text_length} символов.\n"
                               "Попробуй сократить описание и отправь еще раз",
                               
-                              "profile": "<b>{first_name}</b>"
+                              "profile": "Имя: <b>{first_name}</b>"
                               "\n📌 {country_local}, {city_local}"
                               "\nПол: {gender}"
                               "\nВ поиске: {gender_search}"
@@ -60,5 +64,43 @@ text = {"ru":{"user_profile":{"step_1": "🔘 ⚪ ⚪ ⚪ ⚪ ⚪\n\n"
             "search_menu":{"start": "🔍 Найти партнера"}}}
 
 
-buttons_text = {}
+BUTTONS_TEXT = {}
+
+
+GENDER_LABELS = {
+    "ru": {
+        Gender.MAN: "Мужчина",
+        Gender.WOMAN: "Женщина",
+        Gender.ANY: "Другое",
+    },
+    "kz": {
+        Gender.MAN: "Ер адам",
+        Gender.WOMAN: "Әйел адам",
+        Gender.ANY: "Маңызы жоқ",
+    },
+    "en": {
+        Gender.MAN: "Man",
+        Gender.WOMAN: "Woman",
+        Gender.ANY: "Any",
+    }
+}
+
+GENDER_SEARCH_LABELS = {
+    "ru": {
+        Gender.MAN: "Ищу Мужчину",
+        Gender.WOMAN: "Ищу Женщину",
+        Gender.ANY: "Пол не имеет значения",
+    },
+    "kz": {
+        Gender.MAN: "Ер адам іздеймін",
+        Gender.WOMAN: "Әйел іздеймін",
+        Gender.ANY: "Жынысы маңызды емес",
+    },
+    "en": {
+        Gender.MAN: "Looking for a Man",
+        Gender.WOMAN: "Looking for a Woman",
+        Gender.ANY: "Gender doesn't matter",
+    }
+}
+
 

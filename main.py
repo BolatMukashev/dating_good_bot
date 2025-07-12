@@ -6,10 +6,10 @@ from aiogram.fsm.context import FSMContext
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
 from config import *
-from models import ReactionType, gender, gender_search, gender_search_db
+from models import ReactionType, Gender
 from buttons import *
 from functions import *
-from messages import text
+from messages import TEXT, GENDER_LABELS, GENDER_SEARCH_LABELS
 
 
 # ------------------------------------------------------------------- Настройка бота -------------------------------------------------------
@@ -45,7 +45,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
 
     if not username:
         starting_message = await message.answer_photo(photo=NO_USERNAME_PICTURE,
-                                   caption=text[user_lang]['user_profile']['username_error'],
+                                   caption=TEXT[user_lang]['user_profile']['username_error'],
                                    parse_mode="HTML",
                                    reply_markup=await get_retry_registration_button())
     else:
@@ -53,7 +53,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
         await create_or_update_user(user_id, first_name, username)
 
         starting_message = await message.answer_photo(photo=USER_PROFILE_PICTURE,
-                                                    caption=text[user_lang]['user_profile']['step_1'].format(first_name=first_name),
+                                                    caption=TEXT[user_lang]['user_profile']['step_1'].format(first_name=first_name),
                                                     parse_mode="HTML",
                                                     reply_markup=await get_18yes_buttons())
     # запись в базу
@@ -83,7 +83,7 @@ async def query_retry_registration(callback: types.CallbackQuery):
 
     await bot.edit_message_caption(chat_id=callback.message.chat.id,
                                    message_id=int(start_message_id),
-                                   caption=text[user_lang]['user_profile']['step_1'].format(first_name=first_name),
+                                   caption=TEXT[user_lang]['user_profile']['step_1'].format(first_name=first_name),
                                    reply_markup = await get_18yes_buttons(),
                                    parse_mode="HTML")
 
@@ -98,13 +98,13 @@ async def query_18years(callback: types.CallbackQuery):
     await update_user_fields(user_id, eighteen_years_old=True)
 
     # уведомление сверху
-    await callback.answer(text=text[user_lang]['notifications']['18year'])
+    await callback.answer(text=TEXT[user_lang]['notifications']['18year'])
 
     # 1. Меняем текст сообщения и убираем inline-кнопки
-    await callback.message.edit_caption(caption=text[user_lang]['user_profile']['step_2'], parse_mode="HTML", reply_markup=None)
+    await callback.message.edit_caption(caption=TEXT[user_lang]['user_profile']['step_2'], parse_mode="HTML", reply_markup=None)
 
     # 2. Отдельно отправляем сообщение с обычной клавиатурой для геолокации
-    location_message = await callback.message.answer(text[user_lang]['user_profile']['get_location_message'],
+    location_message = await callback.message.answer(TEXT[user_lang]['user_profile']['get_location_message'],
                                                      reply_markup= await get_location_button(), parse_mode="HTML")
     
     # запись в базу
@@ -140,41 +140,69 @@ async def handle_location(message: types.Message):
     start_message_id = await get_cached_message_id(user_id, "start_message_id")
     await bot.edit_message_caption(chat_id=message.chat.id,
                                    message_id=int(start_message_id),
-                                   caption= text[user_lang]['user_profile']['step_3'],
+                                   caption= TEXT[user_lang]['user_profile']['step_3'],
                                    reply_markup = await get_gender_buttons(),
                                    parse_mode="HTML")
 
 
-@dp.callback_query(F.data.in_(["MAN", "WOMAN", "ANY"]))
+@dp.callback_query(F.data.in_([gender.value for gender in Gender]))
 async def query_gender(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = await get_user_language(callback)
 
-    # запись в базу
-    await update_user_fields(user_id, gender=callback.data)
-    
-    # уведомление сверху
-    await callback.answer(text=text[user_lang]['notifications']['gender'].format(user_gender=gender.get(callback.data)))
+    # Преобразуем строку в Enum
+    selected_gender = Gender(callback.data)
 
-    await callback.message.edit_caption(caption=text[user_lang]['user_profile']['step_4'],
-                                        reply_markup = await get_gender_search_buttons(),
-                                        parse_mode="HTML")
+    # Сохраняем в базу (если update_user_fields поддерживает Enum)
+    await update_user_fields(user_id, gender=selected_gender)
+
+    # Получаем локализованную подпись
+    gender_label = GENDER_LABELS[user_lang][selected_gender]
+
+    # Уведомление
+    await callback.answer(
+        text=TEXT[user_lang]['notifications']['gender'].format(user_gender=gender_label)
+    )
+
+    # Переход к следующему шагу
+    await callback.message.edit_caption(
+        caption=TEXT[user_lang]['user_profile']['step_4'],
+        reply_markup=await get_gender_search_buttons(),
+        parse_mode="HTML"
+    )
 
 
+# Обработка выбора: "Ищу Мужчину / Женщину / Пол не важен"
 @dp.callback_query(F.data.in_(["search_man", "search_woman", "search_any"]))
 async def query_gender_search(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = await get_user_language(callback)
-    
-    # запись в базу
-    await update_user_fields(user_id, gender_search=gender_search_db.get(callback.data))
 
-    # уведомление сверху
-    await callback.answer(text=text[user_lang]['notifications']['gender_search'].format(gender_search=gender_search.get(callback.data)))
+    # Преобразуем в Gender Enum
+    search_map = {
+        "search_man": Gender.MAN,
+        "search_woman": Gender.WOMAN,
+        "search_any": Gender.ANY,
+    }
+    selected_gender_search = search_map[callback.data]
 
-    await callback.message.edit_caption(caption=text[user_lang]['user_profile']['step_5'],
-                                        reply_markup = None,
-                                        parse_mode="HTML")
+    # Обновляем в базе
+    await update_user_fields(user_id, gender_search=selected_gender_search)
+
+    # Получаем локализованную подпись
+    label = GENDER_SEARCH_LABELS[user_lang][selected_gender_search]
+
+    # Уведомление
+    await callback.answer(
+        text=TEXT[user_lang]['notifications']['gender_search'].format(gender_search=label)
+    )
+
+    # Переход к следующему шагу
+    await callback.message.edit_caption(
+        caption=TEXT[user_lang]['user_profile']['step_5'],
+        reply_markup=None,
+        parse_mode="HTML"
+    )
 
 
 @dp.message(F.photo)
@@ -195,7 +223,7 @@ async def handle_photo(message: types.Message):
     start_message_id = await get_cached_message_id(user_id, "start_message_id")
     await bot.edit_message_caption(chat_id=message.chat.id,
                                    message_id=int(start_message_id),
-                                   caption=text[user_lang]['user_profile']['step_6'],
+                                   caption=TEXT[user_lang]['user_profile']['step_6'],
                                    parse_mode="HTML")
 
 
@@ -220,7 +248,7 @@ async def query_profile_edit(callback: types.CallbackQuery):
     if not username:
         await bot.edit_message_caption(chat_id = callback.message.chat.id,
                                        message_id = int(start_message_id),
-                                       caption = text[user_lang]['user_profile']['username_error'],
+                                       caption = TEXT[user_lang]['user_profile']['username_error'],
                                        parse_mode ="HTML",
                                        reply_markup = await get_retry_registration_button())
         return
@@ -233,7 +261,7 @@ async def query_profile_edit(callback: types.CallbackQuery):
                                 media = InputMediaPhoto(media=USER_PROFILE_PICTURE))
     await bot.edit_message_caption(chat_id = callback.message.chat.id,
                                 message_id = int(start_message_id),
-                                caption = text[user_lang]['user_profile']['step_1'].format(first_name=first_name),
+                                caption = TEXT[user_lang]['user_profile']['step_1'].format(first_name=first_name),
                                 parse_mode = "HTML",
                                 reply_markup = await get_18yes_buttons())
 
@@ -285,12 +313,21 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
 # ------------------------------------------------------------------ ПОИСК ----------------------------------------------------------
 
 
-# Команда поиск
-@dp.message(Command("search"))
-async def cmd_search(message: types.Message, state: FSMContext):
-    photo_id, caption, markup = await get_random_user()
-    await message.answer_photo(photo=photo_id, caption=caption, parse_mode="HTML", reply_markup=markup)
+# Колбек поиск вход
+@dp.callback_query(F.data == "start_btn_search_menu")
+async def btn_start_search(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    match = await find_first_matching_user(user_id)
+    caption = await get_caption(match.first_name, match.country_local, match.city_local, match.about_me)
 
+    if match:
+        await callback.message.edit_media(
+            media=types.InputMediaPhoto(media=match.photo_id, caption=caption, parse_mode = "HTML"),
+            reply_markup= await get_btn_to_search(match.first_name, match.telegram_id))
+        await callback.answer()
+    else:
+        await bot.send_message(user_id, "Пока никого не нашлось в вашем регионе 😔")
+    
 
 # обработка колбека поиска
 @dp.callback_query(lambda c: c.data.startswith("reaction"))
@@ -310,7 +347,7 @@ async def handle_reaction(callback: types.CallbackQuery):
     # уведомление сверху
     await callback.answer(reaction.message_template.format(name=target_name))
 
-    photo_id, caption, markup = await get_random_user()
+    photo_id, caption, markup = await get_btn_to_search()
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
     await callback.message.edit_caption(caption=caption, reply_markup=markup, parse_mode="HTML")
 
@@ -451,24 +488,24 @@ async def handle_text(message: types.Message):
                                        message_id=int(start_message_id),
                                        reply_markup = await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch),
                                        parse_mode="HTML",
-                                       caption=text[user_lang]["user_profile"]["profile"].format(first_name=user.first_name,
+                                       caption=TEXT[user_lang]["user_profile"]["profile"].format(first_name=user.first_name,
                                                                                                  country_local=user.country_local,
                                                                                                  city_local=user.city_local,
-                                                                                                 gender=gender.get(user.gender),
-                                                                                                 gender_search=gender.get(user.gender_search),
+                                                                                                 gender=GENDER_LABELS[user_lang][user.gender],
+                                                                                                 gender_search=GENDER_SEARCH_LABELS[user_lang][user.gender_search],
                                                                                                  about_me=user.about_me))
 
         match_menu = await message.answer_photo(photo=MATCH_MENU_PICTURE,
-                                                caption=text[user_lang]['match_menu']['start'],
+                                                caption=TEXT[user_lang]['match_menu']['start'],
                                                 parse_mode="HTML",
-                                                reply_markup=await get_start_match_menu_button())
+                                                reply_markup=await get_start_button_match_menu())
         # запись в базу
         await save_to_cache(user_id, "match_menu_message_id", message_id = match_menu.message_id)
 
         search_menu = await message.answer_photo(photo=SEARCH_MENU_PICTURE,
-                                                caption=text[user_lang]['search_menu']['start'],
+                                                caption=TEXT[user_lang]['search_menu']['start'],
                                                 parse_mode="HTML",
-                                                reply_markup=await get_start_search_menu_button())
+                                                reply_markup=await get_start_button_search_menu())
         # запись в базу
         await save_to_cache(user_id, "search_menu_message_id", message_id = search_menu.message_id)
 
@@ -476,13 +513,13 @@ async def handle_text(message: types.Message):
     elif len(user_text) < MIN_COUNT_SYMBOLS:
         await bot.edit_message_caption(chat_id=message.chat.id,
                             message_id=int(start_message_id),
-                            caption=text[user_lang]['user_profile']['min_count_symbols_error'].format(MIN_COUNT_SYMBOLS=MIN_COUNT_SYMBOLS, text_length=len(user_text)),
+                            caption=TEXT[user_lang]['user_profile']['min_count_symbols_error'].format(MIN_COUNT_SYMBOLS=MIN_COUNT_SYMBOLS, text_length=len(user_text)),
                             reply_markup = None,
                             parse_mode="HTML")
     elif len(user_text) > MAX_COUNT_SYMBOLS:
         await bot.edit_message_caption(chat_id=message.chat.id,
                             message_id=int(start_message_id),
-                            caption=text[user_lang]['user_profile']['max_count_symbols_error'].format(MAX_COUNT_SYMBOLS=MAX_COUNT_SYMBOLS, text_length=len(user_text)),
+                            caption=TEXT[user_lang]['user_profile']['max_count_symbols_error'].format(MAX_COUNT_SYMBOLS=MAX_COUNT_SYMBOLS, text_length=len(user_text)),
                             reply_markup = None,
                             parse_mode="HTML")
 

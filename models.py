@@ -3,6 +3,12 @@ from sqlalchemy.orm import relationship, DeclarativeBase
 from enum import Enum
 
 
+class Gender(str, Enum):
+    MAN = "MAN"
+    WOMAN = "WOMAN"
+    ANY = "ANY"
+
+
 # Новый стиль декларативной базы для современного SQLAlchemy
 class Base(DeclarativeBase):
     pass
@@ -16,8 +22,8 @@ class User(Base):
     telegram_id = Column(Integer, unique=True, nullable=False)
     first_name = Column(String)
     username = Column(String)
-    gender = Column(String)
-    gender_search = Column(String)
+    gender = Column(Enum(Gender), nullable=True)
+    gender_search = Column(Enum(Gender), nullable=True)
     country = Column(String)
     city = Column(String)
     country_local = Column(String)
@@ -101,8 +107,4 @@ class ReactionType(str, Enum):
             self.CHAT: "Ты лайкнул {name}",
             self.SKIP: "Ты пропустил {name}",
         }[self]
-    
 
-gender = {"MAN": "Мужчина", "WOMAN": "Женщина", "ANY": "Другое"}
-gender_search = {"search_man": "Ищу Мужчину", "search_woman": "Ищу Женщину", "search_any": "Пол не имеет значения"}
-gender_search_db = {"search_man": "MAN", "search_woman": "WOMAN", "search_any": "ANY"}

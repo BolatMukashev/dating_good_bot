@@ -8,7 +8,7 @@ from uuid import uuid4
 
 
 __all__ = ['get_18yes_buttons',
-           'get_random_user',
+           'get_btn_to_search',
            'get_matches_menu_buttons',
            'get_wants_user',
            'get_matches_user',
@@ -17,8 +17,8 @@ __all__ = ['get_18yes_buttons',
            'get_profile_edit_buttons',
            'get_retry_registration_button',
            'get_location_button',
-           'get_start_match_menu_button',
-           'get_start_search_menu_button',
+           'get_start_button_match_menu',
+           'get_start_button_search_menu',
            'payment_keyboard']
 
 
@@ -29,22 +29,15 @@ async def get_18yes_buttons():
     return markup
 
 
-async def get_random_user():
-    # получить случайного тест пользователя
-    random_user = random.choice(test_db)
-    target_tg_id = random_user.get('tg_id', 0)
-    target_name = random_user.get('name', '')
-    description = random_user.get('description', '')
-    photo_id = random_user.get('photo_id', '')
-    caption=f"<b>{target_name}</b>\n<i>{description}</i>"
-
+async def get_btn_to_search(target_name, target_tg_id):
+    # получить кнопки для поиска
     button1 = InlineKeyboardButton(text="☕ Свидание", callback_data=f"reaction|LOVE|{target_name}|{target_tg_id}")
     button2 = InlineKeyboardButton(text="👩‍❤️‍💋‍👨 Постель", callback_data=f"reaction|SEX|{target_name}|{target_tg_id}")
     button3 = InlineKeyboardButton(text="💬 Общение", callback_data=f"reaction|CHAT|{target_name}|{target_tg_id}")
     button4 = InlineKeyboardButton(text="Пропустить ⏩", callback_data=f"reaction|SKIP|{target_name}|{target_tg_id}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1, button2, button3], [button4]])
     
-    return photo_id, caption, markup
+    return markup
 
 
 async def get_matches_menu_buttons():
@@ -167,16 +160,16 @@ async def get_location_button():
     return keyboard
 
 
-async def get_start_match_menu_button():
-    # Кнопка Старт у меню Совпадений
-    button = InlineKeyboardButton(text="Посмотреть Совпадения", callback_data="start_match_menu")
+async def get_start_button_match_menu():
+    # Кнопка Старт Посмотреть Совпадения
+    button = InlineKeyboardButton(text="Посмотреть Совпадения", callback_data="start_btn_match_menu")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
     return markup
 
 
-async def get_start_search_menu_button():
-    # Кнопка Старт у меню Поиска
-    button = InlineKeyboardButton(text="Начать поиск", callback_data="start_search_menu")
+async def get_start_button_search_menu():
+    # Кнопка Старт Поиска
+    button = InlineKeyboardButton(text="Начать поиск", callback_data="start_btn_search_menu")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
     return markup
 
