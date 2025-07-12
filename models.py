@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text
 from sqlalchemy.orm import relationship, DeclarativeBase
 from enum import Enum
+from sqlalchemy import Enum as SQLEnum
 
 
 class Gender(str, Enum):
@@ -22,8 +23,8 @@ class User(Base):
     telegram_id = Column(Integer, unique=True, nullable=False)
     first_name = Column(String)
     username = Column(String)
-    gender = Column(Enum(Gender), nullable=True)
-    gender_search = Column(Enum(Gender), nullable=True)
+    gender = Column(SQLEnum(Gender, name="gender_enum", native_enum=False), nullable=True)
+    gender_search = Column(SQLEnum(Gender, name="gender_search_enum", native_enum=False), nullable=True)
     country = Column(String)
     city = Column(String)
     country_local = Column(String)

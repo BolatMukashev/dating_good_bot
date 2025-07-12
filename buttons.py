@@ -1,6 +1,5 @@
 from aiogram.types import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 import random
-from test_db import test_db
 from models import ReactionType
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -87,7 +86,7 @@ async def get_wants_user(reaction: ReactionType, price: int, priced: bool = Fals
 
 
 async def get_matches_user():
-    random_user = random.choice(test_db)
+    random_user = None
     target_tg_id = random_user.get('tg_id', 0)
     target_name = random_user.get('name', '')
     target_username = random_user.get('username', '')

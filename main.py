@@ -1,12 +1,12 @@
 import logging
-from db_connect import async_engine, Base
+from db_connect import async_engine
 from aiogram.types import InputMediaPhoto, LabeledPrice
 from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
 from config import *
-from models import ReactionType, Gender
+from models import ReactionType, Gender, Base
 from buttons import *
 from functions import *
 from messages import TEXT, GENDER_LABELS, GENDER_SEARCH_LABELS
