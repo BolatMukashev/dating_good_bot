@@ -99,10 +99,11 @@ async def find_first_matching_user(current_user_id: int) -> Optional[User]:
         return None
 
 
-async def get_caption(target_name, country_local, city_local, about_me):
+async def get_caption(target_name, country_local, city_local, about_me, gender, gender_search):
     # получить описание для пользователя
     caption=f"<b>{target_name}</b>"
     f"\n📌 {country_local}, {city_local}"
+    f"\n⚤ {gender}, {gender_search}"
     f"\n<i>{about_me}</i>"
     return caption
 

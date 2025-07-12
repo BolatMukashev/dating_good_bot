@@ -318,7 +318,7 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
 async def btn_start_search(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     match = await find_first_matching_user(user_id)
-    caption = await get_caption(match.first_name, match.country_local, match.city_local, match.about_me)
+    caption = await get_caption(match.first_name, match.country_local, match.city_local, match.about_me, match.gender, match.gender_search)
 
     if match:
         await callback.message.edit_media(
@@ -326,8 +326,9 @@ async def btn_start_search(callback: types.CallbackQuery):
             reply_markup= await get_btn_to_search(match.first_name, match.telegram_id))
         await callback.answer()
     else:
+        # TODO правильный ответ (изменить сообщение) + новая кнопка обновить
         await bot.send_message(user_id, "Пока никого не нашлось в вашем регионе 😔")
-    
+
 
 # обработка колбека поиска
 @dp.callback_query(lambda c: c.data.startswith("reaction"))
