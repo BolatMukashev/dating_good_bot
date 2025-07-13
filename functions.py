@@ -61,7 +61,7 @@ async def find_first_matching_user(current_user_id: int) -> Optional[User]:
         ReactionAlias = aliased(Reaction)
         subquery = select(ReactionAlias.target_tg_id).where(
             ReactionAlias.telegram_id == current_user_id
-        ).subquery()
+        )
 
         # Общие условия
         base_conditions = [
@@ -99,12 +99,12 @@ async def find_first_matching_user(current_user_id: int) -> Optional[User]:
         return None
 
 
-async def get_caption(target_name, country_local, city_local, about_me, gender, gender_search):
+async def get_caption(user: User) -> str:
     # получить описание для пользователя
-    caption=f"<b>{target_name}</b>"
-    f"\n📌 {country_local}, {city_local}"
-    f"\n⚤ {gender}, {gender_search}"
-    f"\n<i>{about_me}</i>"
+    caption=(f"<b>{user.first_name}</b>"
+    f"\n📌 {user.country_local}, {user.city_local}"
+    f"\n⚤ {user.gender.value}, {user.gender_search.value}"
+    f"\n<i>{user.about_me}</i>")
     return caption
 
 

@@ -107,15 +107,14 @@ async def query_retry_registration(callback: types.CallbackQuery):
     # изменяем стартовую запись
     start_message_id = await get_cached_message_id(user_id, "start_message_id")
 
-    await bot.edit_message_media(chat_id=callback.message.chat.id,
-                                 message_id=int(start_message_id),
-                                 media=InputMediaPhoto(media=USER_PROFILE_PICTURE))
-
-    await bot.edit_message_caption(chat_id=callback.message.chat.id,
-                                   message_id=int(start_message_id),
-                                   caption=TEXT[user_lang]['user_profile']['step_1'].format(first_name=first_name),
-                                   reply_markup = await get_18yes_buttons(),
-                                   parse_mode="HTML")
+    await bot.edit_message_media(
+        chat_id=callback.message.chat.id,
+        message_id=int(start_message_id),
+        media=InputMediaPhoto(
+            media=USER_PROFILE_PICTURE,
+            caption=TEXT[user_lang]['user_profile']['step_1'].format(first_name=first_name),
+            parse_mode="HTML"),
+        reply_markup=await get_18yes_buttons())
 
 
 # подтверждение 18 лет
@@ -141,6 +140,7 @@ async def query_18years(callback: types.CallbackQuery):
     await save_to_cache(user_id, "location_message_id", message_id = location_message.message_id)
 
 
+# TODO - тормозит
 # подтверждение локации
 @dp.message(F.location)
 async def handle_location(message: types.Message):
@@ -301,14 +301,14 @@ async def query_profile_edit(callback: types.CallbackQuery):
     await create_or_update_user(user_id, first_name, username)
     await update_user_fields(user_id, gender = None, gender_seach = None, country = None, country_local = None, city = None, city_local = None, photo_id = None, about_me = None)
 
-    await bot.edit_message_media(chat_id = callback.message.chat.id,
-                                message_id = int(start_message_id),
-                                media = InputMediaPhoto(media=USER_PROFILE_PICTURE))
-    await bot.edit_message_caption(chat_id = callback.message.chat.id,
-                                message_id = int(start_message_id),
-                                caption = TEXT[user_lang]['user_profile']['step_1'].format(first_name=first_name),
-                                parse_mode = "HTML",
-                                reply_markup = await get_18yes_buttons())
+    await bot.edit_message_media(
+        chat_id=callback.message.chat.id,
+        message_id=int(start_message_id),
+        media=InputMediaPhoto(
+            media=USER_PROFILE_PICTURE,
+            caption=TEXT[user_lang]['user_profile']['step_1'].format(first_name=first_name),
+            parse_mode="HTML"),
+        reply_markup=await get_18yes_buttons())
 
 
 # ------------------------------------------------------------------ Режим Инкогнито ----------------------------------------------------------
@@ -361,44 +361,74 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
 # ------------------------------------------------------------------ ПОИСК ----------------------------------------------------------
 
 
-# Колбек поиск вход
+# колбек поиск вход
 @dp.callback_query(F.data == "start_btn_search_menu")
 async def btn_start_search(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    match = await find_first_matching_user(user_id)
-    caption = await get_caption(match.first_name, match.country_local, match.city_local, match.about_me, match.gender, match.gender_search)
+    user_lang = await get_user_language(callback)
 
-    if match:
+    target_user = await find_first_matching_user(user_id) # поиск
+    
+    if target_user:
+        caption = await get_caption(target_user)
         await callback.message.edit_media(
-            media=types.InputMediaPhoto(media=match.photo_id, caption=caption, parse_mode = "HTML"),
-            reply_markup= await get_btn_to_search(match.first_name, match.telegram_id))
-        await callback.answer()
+            media=types.InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
+            reply_markup = await get_btn_to_search(target_user.first_name, target_user.telegram_id))
     else:
-        # TODO правильный ответ (изменить сообщение) + новая кнопка обновить
-        await bot.send_message(user_id, "Пока никого не нашлось в вашем регионе 😔")
+        caption = TEXT[user_lang]["search"]["not_found"]
+        notification = TEXT[user_lang]["notifications"]["not_found"]
+        await callback.message.edit_media(
+            media=types.InputMediaPhoto(media=NOT_FOUND_PICTURE, caption=caption, parse_mode = "HTML"),
+            reply_markup = await reload_search())
+        await callback.answer(notification) # уведомление сверху
 
 
-# обработка колбека поиска
+# обработка колбека реакции
 @dp.callback_query(lambda c: c.data.startswith("reaction"))
 async def handle_reaction(callback: types.CallbackQuery):
     user_id = callback.from_user.id
+    user_lang = await get_user_language(callback)
+
     _, reaction_str, target_name, target_tg_id = callback.data.split("|", 3)
 
-    try:
-        reaction = ReactionType(reaction_str)
-    except ValueError:
-        await callback.answer("Неизвестная реакция")
-        return
+    await add_reaction(user_id, target_tg_id, reaction_str) # запись в базу
+    
+    reaction = ReactionType(reaction_str)
+    await callback.answer(reaction.message_template.format(name=target_name)) # уведомление сверху
 
-    # запись в базу
-    await add_reaction(user_id, target_tg_id, reaction_str)
+    target_user = await find_first_matching_user(user_id) # поиск
 
-    # уведомление сверху
-    await callback.answer(reaction.message_template.format(name=target_name))
+    if target_user:
+        caption = await get_caption(target_user)
+        markup = await get_btn_to_search(target_user.first_name, target_user.telegram_id)
+        await callback.message.edit_media(
+            media=types.InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
+            reply_markup = markup)
+    else:
+        caption = TEXT[user_lang]["search"]["not_found"]
+        notification = TEXT[user_lang]["notifications"]["not_found"]
+        await callback.message.edit_media(
+            media=types.InputMediaPhoto(media=NOT_FOUND_PICTURE, caption=caption, parse_mode = "HTML"),
+            reply_markup = await reload_search())
+        await callback.answer(notification) # уведомление сверху
 
-    photo_id, caption, markup = await get_btn_to_search()
-    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
-    await callback.message.edit_caption(caption=caption, reply_markup=markup, parse_mode="HTML")
+
+# колбек повторить поиск
+@dp.callback_query(F.data == "reload_search")
+async def btn_reload_search(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    user_lang = await get_user_language(callback)
+
+    target_user = await find_first_matching_user(user_id) # поиск
+    
+    if target_user:
+        caption = await get_caption(target_user)
+        await callback.message.edit_media(
+            media=types.InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
+            reply_markup = await get_btn_to_search(target_user.first_name, target_user.telegram_id))
+    else:
+        notification = TEXT[user_lang]["notifications"]["not_found"]
+        await callback.answer(notification) # уведомление сверху
 
 
 # ------------------------------------------------------------------ СОВПАДЕНИЯ ----------------------------------------------------------

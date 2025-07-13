@@ -18,13 +18,23 @@ __all__ = ['get_18yes_buttons',
            'get_location_button',
            'get_start_button_match_menu',
            'get_start_button_search_menu',
-           'payment_keyboard']
+           'payment_keyboard',
+           'reload_search']
 
 
 async def get_18yes_buttons():
     # Кнопка 18+
     button = InlineKeyboardButton(text="Мне больше 18 лет", callback_data="18yes")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
+    
+    return markup
+
+
+async def reload_search():
+    # Кнопка обновить поиск
+    button = InlineKeyboardButton(text="Обновить 🔄", callback_data="reload_search")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
+    
     return markup
 
 
@@ -109,6 +119,7 @@ async def get_gender_buttons():
     button2 = InlineKeyboardButton(text="Женщина", callback_data="WOMAN")
     button3 = InlineKeyboardButton(text="Другое", callback_data="ANY")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2], [button3]])
+    
     return markup
 
 
@@ -118,6 +129,7 @@ async def get_gender_search_buttons():
     button2 = InlineKeyboardButton(text="Ищу Женщину", callback_data="search_woman")
     button3 = InlineKeyboardButton(text="Пол не имеет значения", callback_data="search_any")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2], [button3]])
+    
     return markup
 
 
@@ -138,6 +150,7 @@ async def get_profile_edit_buttons(pay_status: bool, incognito_switch: bool):
     button1 = InlineKeyboardButton(text="Изменить анкету ✏", callback_data="profile_edit")
     button2 = InlineKeyboardButton(text=btn_text, callback_data=f"incognito|{status}|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2]])
+    
     return markup
 
 
@@ -145,6 +158,7 @@ async def get_retry_registration_button():
     # Кнопки повтора регистрации, если нет username
     button1 = InlineKeyboardButton(text="Повторить регистрацию 🔄", callback_data="retry_registration")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1]])
+    
     return markup
 
 
@@ -154,8 +168,8 @@ async def get_location_button():
     keyboard = ReplyKeyboardMarkup(
         keyboard=kb,
         resize_keyboard=True,
-        input_field_placeholder="Нажми на кнопку"
-    )
+        input_field_placeholder="Нажми на кнопку")
+    
     return keyboard
 
 
@@ -163,6 +177,7 @@ async def get_start_button_match_menu():
     # Кнопка Старт Посмотреть Совпадения
     button = InlineKeyboardButton(text="Посмотреть Совпадения", callback_data="start_btn_match_menu")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
+    
     return markup
 
 
@@ -170,10 +185,12 @@ async def get_start_button_search_menu():
     # Кнопка Старт Поиска
     button = InlineKeyboardButton(text="Начать поиск", callback_data="start_btn_search_menu")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
+    
     return markup
 
 
 def payment_keyboard():
     builder = InlineKeyboardBuilder()
     builder.button(text="Оплатить через Telegram Stars ⭐️", pay=True)
+    
     return builder.as_markup()
