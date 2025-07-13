@@ -16,8 +16,6 @@ from messages import TEXT, GENDER_LABELS, GENDER_SEARCH_LABELS
 
 
 # TODO Supabase - SQL bd Postgres
-# TODO Больше инфы в анкете, кнопки под описанием
-# TODO 2 сообщения после заполнения анкеты
 
 
 # Настройка логирования
@@ -83,9 +81,9 @@ async def cmd_start(message: types.Message, state: FSMContext):
 
     else:
         starting_message = await message.answer_photo(photo=USER_PROFILE_PICTURE,
-                                                      caption=TEXT[user_lang]['user_profile']['step_1'].format(first_name=first_name),
+                                                      caption=TEXT[user_lang]['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
                                                       parse_mode="HTML",
-                                                      reply_markup=await get_18yes_buttons())
+                                                      reply_markup=await get_approval_button())
     # запись в базу
     await save_to_cache(user_id, "start_message_id", message_id = starting_message.message_id)
 
@@ -114,17 +112,17 @@ async def query_retry_registration(callback: types.CallbackQuery):
             media=USER_PROFILE_PICTURE,
             caption=TEXT[user_lang]['user_profile']['step_1'].format(first_name=first_name),
             parse_mode="HTML"),
-        reply_markup=await get_18yes_buttons())
+        reply_markup=await get_approval_button())
 
 
 # подтверждение 18 лет
-@dp.callback_query(F.data == "18yes")
+@dp.callback_query(F.data == "18yes_and_approval")
 async def query_18years(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = await get_user_language(callback)
 
     # запись в базу
-    await update_user_fields(user_id, eighteen_years_old=True)
+    await update_user_fields(user_id, eighteen_years_and_approval=True)
 
     # уведомление сверху
     await callback.answer(text=TEXT[user_lang]['notifications']['18year'])
@@ -299,16 +297,16 @@ async def query_profile_edit(callback: types.CallbackQuery):
     
     # запись в базу
     await create_or_update_user(user_id, first_name, username)
-    await update_user_fields(user_id, gender = None, gender_seach = None, country = None, country_local = None, city = None, city_local = None, photo_id = None, about_me = None)
+    await update_user_fields(user_id, **{k: None for k in ["gender", "gender_seach", "country", "country_local", "city", "city_local", "photo_id", "about_me"]})
 
     await bot.edit_message_media(
         chat_id=callback.message.chat.id,
         message_id=int(start_message_id),
         media=InputMediaPhoto(
             media=USER_PROFILE_PICTURE,
-            caption=TEXT[user_lang]['user_profile']['step_1'].format(first_name=first_name),
+            caption=TEXT[user_lang]['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
             parse_mode="HTML"),
-        reply_markup=await get_18yes_buttons())
+        reply_markup=await get_approval_button())
 
 
 # ------------------------------------------------------------------ Режим Инкогнито ----------------------------------------------------------
@@ -356,6 +354,31 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
         reply_markup=await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch))
     
     # двойное нажатие ??? но работает
+
+
+# ------------------------------------------------------------------- Удаление аккаунта -------------------------------------------------------
+
+
+# Команда Удаление
+@dp.message(Command("delete_profile"))
+async def cmd_delete_profile(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    
+    search_menu_message_id = await get_cached_message_id(user_id, "search_menu_message_id")
+    await bot.delete_message(chat_id=message.chat.id, message_id=int(search_menu_message_id))
+
+    match_menu_message_id = await get_cached_message_id(user_id, "match_menu_message_id")
+    await bot.delete_message(chat_id=message.chat.id, message_id=int(match_menu_message_id))
+
+    start_message_id = await get_cached_message_id(user_id, "start_message_id")
+    await bot.delete_message(chat_id=message.chat.id, message_id=int(start_message_id))
+
+    await message.delete()
+
+    await delete_user_by_id(user_id)
+
+
+# ------------------------------------------------------------------- Бан аккаунта -------------------------------------------------------
 
 
 # ------------------------------------------------------------------ ПОИСК ----------------------------------------------------------

@@ -6,7 +6,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from uuid import uuid4
 
 
-__all__ = ['get_18yes_buttons',
+__all__ = ['get_approval_button',
            'get_btn_to_search',
            'get_matches_menu_buttons',
            'get_wants_user',
@@ -22,9 +22,9 @@ __all__ = ['get_18yes_buttons',
            'reload_search']
 
 
-async def get_18yes_buttons():
-    # Кнопка 18+
-    button = InlineKeyboardButton(text="Мне больше 18 лет", callback_data="18yes")
+async def get_approval_button():
+    # Кнопка 18+ и согласие с политикой и соглашением
+    button = InlineKeyboardButton(text="Начать регистрацию", callback_data="18yes_and_approval")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
     
     return markup

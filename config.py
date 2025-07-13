@@ -13,8 +13,10 @@ __all__ = ['BOT_API_KEY',
            'NO_USERNAME_PICTURE',
            'PRICE_INCOGNITO',
            'PRICE_ADD_TO_MATCHES',
-           'NOT_FOUND_PICTURE']
+           'NOT_FOUND_PICTURE',
+           'NOTION_SITE']
 
+NOTION_SITE = "https://www.notion.so/bolat-mukashev/dating_good_bot-22fa2ae3a2a3806c8b5cc903786b7336?source=copy_link"
 
 config = dotenv_values(".env")
 

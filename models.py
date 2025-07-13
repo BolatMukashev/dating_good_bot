@@ -31,9 +31,10 @@ class User(Base):
     city_local = Column(String)
     photo_id = Column(String)
     about_me = Column(String)
-    eighteen_years_old = Column(Boolean)
+    eighteen_years_and_approval = Column(Boolean)
     incognito_pay = Column(Boolean, default=False, nullable=False)
     incognito_switch = Column(Boolean, default=False, nullable=False)
+    banned = Column(Boolean, default=False, nullable=False)
 
     # Обратные связи
     reactions_sent = relationship('Reaction', foreign_keys='Reaction.telegram_id', back_populates='sender')

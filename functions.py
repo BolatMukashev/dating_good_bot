@@ -1,4 +1,4 @@
-from sqlalchemy import select, update, or_
+from sqlalchemy import select, update, or_, delete
 from sqlalchemy.orm import aliased
 from models import User, Reaction, Payment, Cache, Gender
 from typing import Any, Optional
@@ -6,6 +6,9 @@ from db_connect import AsyncSessionLocal
 import aiohttp
 from messages import supported_languages, GENDER_LABELS, GENDER_SEARCH_LABELS
 from sqlalchemy.orm import aliased
+
+
+# TODO бан пользователя
 
 
 __all__ = ['save_to_cache',
@@ -20,7 +23,8 @@ __all__ = ['save_to_cache',
            'find_first_matching_user',
            'get_caption',
            'get_gender_label',
-           'get_gender_search_label']
+           'get_gender_search_label',
+           'delete_user_by_id']
 
 
 async def find_first_matching_user(current_user_id: int) -> Optional[User]:
@@ -224,6 +228,28 @@ async def get_user_by_id(user_id: int) -> User | None:
         )
         user = result.scalar_one_or_none()
         return user
+
+
+# Удаление пользователя по telegram_id
+async def delete_user_by_id(user_id: int) -> bool:
+    async with AsyncSessionLocal() as session:
+        # Удаляем связанные записи в кэше
+        await session.execute(delete(Cache).where(Cache.telegram_id == user_id))
+        await session.execute(delete(Reaction).where(Reaction.telegram_id == user_id))
+        await session.execute(delete(Payment).where(Payment.telegram_id == user_id))
+        
+        # Удаляем самого пользователя
+        result = await session.execute(
+            select(User).where(User.telegram_id == user_id)
+        )
+        user = result.scalar_one_or_none()
+
+        if not user:
+            return False
+
+        await session.delete(user)
+        await session.commit()
+        return True
 
 
 # Добавление реакции в базу
