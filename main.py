@@ -48,14 +48,44 @@ async def cmd_start(message: types.Message, state: FSMContext):
                                    caption=TEXT[user_lang]['user_profile']['username_error'],
                                    parse_mode="HTML",
                                    reply_markup=await get_retry_registration_button())
-    else:
-        # запись в базу
-        await create_or_update_user(user_id, first_name, username)
+        
+        await save_to_cache(user_id, "start_message_id", message_id = starting_message.message_id) # запись в базу
+        return
+               
+    await create_or_update_user(user_id, first_name, username)  # запись в базу
 
+    user = await get_user_by_id(user_id)
+
+    if user.about_me:
+        starting_message = await message.answer_photo(photo=user.photo_id,
+                                                      parse_mode="HTML",
+                                                      reply_markup=await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch),
+                                                      caption=TEXT[user_lang]["user_profile"]["profile"].format(first_name=user.first_name,
+                                                                                                                country_local=user.country_local,
+                                                                                                                city_local=user.city_local,
+                                                                                                                gender=GENDER_LABELS[user_lang][user.gender],
+                                                                                                                gender_search=GENDER_SEARCH_LABELS[user_lang][user.gender_search],
+                                                                                                                about_me=user.about_me))
+                                                                                                                
+        match_menu = await message.answer_photo(photo=MATCH_MENU_PICTURE,
+                                                caption=TEXT[user_lang]['match_menu']['start'],
+                                                parse_mode="HTML",
+                                                reply_markup=await get_start_button_match_menu())
+        
+        await save_to_cache(user_id, "match_menu_message_id", message_id = match_menu.message_id) # запись в базу
+
+        search_menu = await message.answer_photo(photo=SEARCH_MENU_PICTURE,
+                                                caption=TEXT[user_lang]['search_menu']['start'],
+                                                parse_mode="HTML",
+                                                reply_markup=await get_start_button_search_menu())
+        
+        await save_to_cache(user_id, "search_menu_message_id", message_id = search_menu.message_id) # запись в базу
+
+    else:
         starting_message = await message.answer_photo(photo=USER_PROFILE_PICTURE,
-                                                    caption=TEXT[user_lang]['user_profile']['step_1'].format(first_name=first_name),
-                                                    parse_mode="HTML",
-                                                    reply_markup=await get_18yes_buttons())
+                                                      caption=TEXT[user_lang]['user_profile']['step_1'].format(first_name=first_name),
+                                                      parse_mode="HTML",
+                                                      reply_markup=await get_18yes_buttons())
     # запись в базу
     await save_to_cache(user_id, "start_message_id", message_id = starting_message.message_id)
 
@@ -117,6 +147,14 @@ async def handle_location(message: types.Message):
     user_id = message.from_user.id
     user_lang = await get_user_language(message)
 
+    user = await get_user_by_id(user_id)
+
+    await message.delete() #удалить сообщение пользователя с локацией
+
+    #защита от повторного ввода, удаление сообщения с локацией
+    if user.city or user.country:
+        return
+
     latitude = message.location.latitude
     longitude = message.location.longitude
 
@@ -129,8 +167,6 @@ async def handle_location(message: types.Message):
 
     # запись в базу
     await update_user_fields(user_id, country=country_en, city=city_en, country_local=country_local, city_local=city_local)
-    
-    await message.delete() #удалить сообщение пользователя с локацией
 
     # получаем id из Кэш и удаляем сообщение
     location_message_id = await get_cached_message_id(user_id, "location_message_id")
@@ -217,17 +253,20 @@ async def handle_photo(message: types.Message):
     
     user = await get_user_by_id(user_id)
 
-    if not user.photo_id:
-        await update_user_fields(user_id, photo_id = file_id) # запись в базу
-        
-        # изменяем запись
-        start_message_id = await get_cached_message_id(user_id, "start_message_id")
-        await bot.edit_message_caption(chat_id=message.chat.id,
-                                    message_id=int(start_message_id),
-                                    caption=TEXT[user_lang]['user_profile']['step_6'],
-                                    parse_mode="HTML")
-    else:
+    # защита от повторов, удаляем фото
+    if user.photo_id:
         print(file_id)
+        await message.delete()
+        return
+
+    await update_user_fields(user_id, photo_id = file_id) # запись в базу
+    
+    # изменяем запись
+    start_message_id = await get_cached_message_id(user_id, "start_message_id")
+    await bot.edit_message_caption(chat_id=message.chat.id,
+                                message_id=int(start_message_id),
+                                caption=TEXT[user_lang]['user_profile']['step_6'],
+                                parse_mode="HTML")
 
     await message.delete() # удаляем фото отправленное пользователем
 
@@ -260,7 +299,7 @@ async def query_profile_edit(callback: types.CallbackQuery):
     
     # запись в базу
     await create_or_update_user(user_id, first_name, username)
-    await update_user_fields(user_id, photo_id = None, about_me = None)
+    await update_user_fields(user_id, gender = None, gender_seach = None, country = None, country_local = None, city = None, city_local = None, photo_id = None, about_me = None)
 
     await bot.edit_message_media(chat_id = callback.message.chat.id,
                                 message_id = int(start_message_id),
@@ -283,14 +322,17 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
 
     user = await get_user_by_id(user_id)
 
+    label = TEXT[user_lang]["user_profile"]["incognito_pay_lable"]
+    title = TEXT[user_lang]["user_profile"]["incognito_pay_title"]
+    description = TEXT[user_lang]["user_profile"]["incognito_pay_description"]
+
     if action == "NOT_PAYED":
 
-        prices = [LabeledPrice(label=f"Активировать режим Инкогнито", amount=PRICE_INCOGNITO)]
+        prices = [LabeledPrice(label=label, amount=PRICE_INCOGNITO)]
 
         sent_invoice = await callback.message.answer_invoice(
-            title=f"Активировать режим Инкогнито",
-            description=f"Купи один раз — и включай/выключай, когда хочешь!"
-            "\nВ этом режиме тебя не видно в поиске, но ты можешь сам просматривать анкеты других.",
+            title=title,
+            description=description,
             payload=f"incognito_payment_ok|{PRICE_INCOGNITO}",
             provider_token="",
             currency="XTR",
@@ -480,55 +522,58 @@ async def handle_text(message: types.Message):
 
     user = await get_user_by_id(user_id) # получение инфо о пользователе
 
-    if not user.about_me:
+    # защита от повторов, удаление текста
+    if user.about_me:
+        await message.delete() 
+        return
 
-        user_text = message.text
-        if len(user_text) >= MIN_COUNT_SYMBOLS and len(user_text) <= MAX_COUNT_SYMBOLS:
+    user_text = message.text
+    if len(user_text) >= MIN_COUNT_SYMBOLS and len(user_text) <= MAX_COUNT_SYMBOLS:
 
-            await update_user_fields(user_id, about_me = user_text) # запись в базу
+        await update_user_fields(user_id, about_me = user_text) # запись в базу
 
-            # изменяем запись
-            await bot.edit_message_media(chat_id=message.chat.id,
-                                        message_id=int(start_message_id),
-                                        media=InputMediaPhoto(media=user.photo_id))
-            await bot.edit_message_caption(chat_id=message.chat.id,
-                                        message_id=int(start_message_id),
-                                        reply_markup = await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch),
-                                        parse_mode="HTML",
-                                        caption=TEXT[user_lang]["user_profile"]["profile"].format(first_name=user.first_name,
-                                                                                                    country_local=user.country_local,
-                                                                                                    city_local=user.city_local,
-                                                                                                    gender=GENDER_LABELS[user_lang][user.gender],
-                                                                                                    gender_search=GENDER_SEARCH_LABELS[user_lang][user.gender_search],
-                                                                                                    about_me=user_text))
+        # изменяем запись
+        await bot.edit_message_media(chat_id=message.chat.id,
+                                    message_id=int(start_message_id),
+                                    media=InputMediaPhoto(media=user.photo_id))
+        await bot.edit_message_caption(chat_id=message.chat.id,
+                                    message_id=int(start_message_id),
+                                    reply_markup = await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch),
+                                    parse_mode="HTML",
+                                    caption=TEXT[user_lang]["user_profile"]["profile"].format(first_name=user.first_name,
+                                                                                                country_local=user.country_local,
+                                                                                                city_local=user.city_local,
+                                                                                                gender=GENDER_LABELS[user_lang][user.gender],
+                                                                                                gender_search=GENDER_SEARCH_LABELS[user_lang][user.gender_search],
+                                                                                                about_me=user_text))
 
-            match_menu = await message.answer_photo(photo=MATCH_MENU_PICTURE,
-                                                    caption=TEXT[user_lang]['match_menu']['start'],
-                                                    parse_mode="HTML",
-                                                    reply_markup=await get_start_button_match_menu())
-            # запись в базу
-            await save_to_cache(user_id, "match_menu_message_id", message_id = match_menu.message_id)
+        match_menu = await message.answer_photo(photo=MATCH_MENU_PICTURE,
+                                                caption=TEXT[user_lang]['match_menu']['start'],
+                                                parse_mode="HTML",
+                                                reply_markup=await get_start_button_match_menu())
+        # запись в базу
+        await save_to_cache(user_id, "match_menu_message_id", message_id = match_menu.message_id)
 
-            search_menu = await message.answer_photo(photo=SEARCH_MENU_PICTURE,
-                                                    caption=TEXT[user_lang]['search_menu']['start'],
-                                                    parse_mode="HTML",
-                                                    reply_markup=await get_start_button_search_menu())
-            # запись в базу
-            await save_to_cache(user_id, "search_menu_message_id", message_id = search_menu.message_id)
+        search_menu = await message.answer_photo(photo=SEARCH_MENU_PICTURE,
+                                                caption=TEXT[user_lang]['search_menu']['start'],
+                                                parse_mode="HTML",
+                                                reply_markup=await get_start_button_search_menu())
+        # запись в базу
+        await save_to_cache(user_id, "search_menu_message_id", message_id = search_menu.message_id)
 
 
-        elif len(user_text) < MIN_COUNT_SYMBOLS:
-            await bot.edit_message_caption(chat_id=message.chat.id,
-                                message_id=int(start_message_id),
-                                caption=TEXT[user_lang]['user_profile']['min_count_symbols_error'].format(MIN_COUNT_SYMBOLS=MIN_COUNT_SYMBOLS, text_length=len(user_text)),
-                                reply_markup = None,
-                                parse_mode="HTML")
-        elif len(user_text) > MAX_COUNT_SYMBOLS:
-            await bot.edit_message_caption(chat_id=message.chat.id,
-                                message_id=int(start_message_id),
-                                caption=TEXT[user_lang]['user_profile']['max_count_symbols_error'].format(MAX_COUNT_SYMBOLS=MAX_COUNT_SYMBOLS, text_length=len(user_text)),
-                                reply_markup = None,
-                                parse_mode="HTML")
+    elif len(user_text) < MIN_COUNT_SYMBOLS:
+        await bot.edit_message_caption(chat_id=message.chat.id,
+                            message_id=int(start_message_id),
+                            caption=TEXT[user_lang]['user_profile']['min_count_symbols_error'].format(MIN_COUNT_SYMBOLS=MIN_COUNT_SYMBOLS, text_length=len(user_text)),
+                            reply_markup = None,
+                            parse_mode="HTML")
+    elif len(user_text) > MAX_COUNT_SYMBOLS:
+        await bot.edit_message_caption(chat_id=message.chat.id,
+                            message_id=int(start_message_id),
+                            caption=TEXT[user_lang]['user_profile']['max_count_symbols_error'].format(MAX_COUNT_SYMBOLS=MAX_COUNT_SYMBOLS, text_length=len(user_text)),
+                            reply_markup = None,
+                            parse_mode="HTML")
     
     await message.delete() # удаляем сообщение пользователя
 
