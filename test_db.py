@@ -1,7 +1,7 @@
 import asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from models import Base, User
+from models import User
 import random
 from faker import Faker
 from sqlalchemy import select, update

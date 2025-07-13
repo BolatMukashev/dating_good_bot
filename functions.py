@@ -1,6 +1,6 @@
 from sqlalchemy import select, update, or_
 from sqlalchemy.orm import aliased
-from models import Base, User, Reaction, Payment, Cache, Gender
+from models import User, Reaction, Payment, Cache, Gender
 from typing import Any, Optional
 from db_connect import AsyncSessionLocal
 import aiohttp
