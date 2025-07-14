@@ -4,7 +4,7 @@ from models import User, Reaction, Payment, Cache, Gender
 from typing import Any, Optional
 from db_connect import AsyncSessionLocal
 import aiohttp
-from messages import supported_languages, GENDER_LABELS, GENDER_SEARCH_LABELS
+from languages import get_texts
 from sqlalchemy.orm import aliased
 
 
@@ -19,7 +19,6 @@ __all__ = ['save_to_cache',
            'add_reaction',
            'add_payment',
            'get_location_info',
-           'get_user_language',
            'find_first_matching_user',
            'get_caption',
            'get_gender_label',
@@ -113,11 +112,13 @@ async def get_caption(user: User) -> str:
 
 
 async def get_gender_label(gender: Gender, lang: str = "ru") -> str:
-    return GENDER_LABELS[lang][gender]
+    texts = await get_texts(lang)
+    return texts['GENDER_LABELS'][gender]
 
 
 async def get_gender_search_label(gender: Gender, lang: str = "ru") -> str:
-    return GENDER_SEARCH_LABELS[lang][gender]
+    texts = await get_texts(lang)
+    return texts['GENDER_SEARCH_LABELS'][gender]
 
 
 # сохранить любое значение Кэш с параметром
@@ -284,11 +285,3 @@ async def get_location_info(latitude, longitude, lang='en'):
             country = address.get("country")
             city = address.get("city") or address.get("town") or address.get("village")
             return country, city
-        
-
-async def get_user_language(message):
-    # получить язык пользователя, иначе - английский
-    user_lang = message.from_user.language_code
-    if user_lang not in supported_languages:
-        user_lang = 'en'
-    return user_lang

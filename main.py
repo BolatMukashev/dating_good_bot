@@ -9,13 +9,15 @@ from config import *
 from models import ReactionType, Gender, Base
 from buttons import *
 from functions import *
-from messages import TEXT, GENDER_LABELS, GENDER_SEARCH_LABELS
+from languages import get_texts
 
 
 # ------------------------------------------------------------------- Настройка бота -------------------------------------------------------
 
 
 # TODO Supabase - SQL bd Postgres
+# Локализация
+# Меню совпадений
 
 
 # Настройка логирования
@@ -37,13 +39,14 @@ async def cmd_start(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     first_name = message.from_user.first_name
     username = message.from_user.username
-    user_lang = await get_user_language(message)
+    user_lang = message.from_user.language_code
+    texts = await get_texts(user_lang)
 
     await message.delete() #удалить сообщение пользователя /start
 
     if not username:
         starting_message = await message.answer_photo(photo=NO_USERNAME_PICTURE,
-                                   caption=TEXT[user_lang]['user_profile']['username_error'],
+                                   caption=texts["TEXT"]['user_profile']['username_error'],
                                    parse_mode="HTML",
                                    reply_markup=await get_retry_registration_button())
         
@@ -58,22 +61,22 @@ async def cmd_start(message: types.Message, state: FSMContext):
         starting_message = await message.answer_photo(photo=user.photo_id,
                                                       parse_mode="HTML",
                                                       reply_markup=await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch),
-                                                      caption=TEXT[user_lang]["user_profile"]["profile"].format(first_name=user.first_name,
+                                                      caption=texts["TEXT"]["user_profile"]["profile"].format(first_name=user.first_name,
                                                                                                                 country_local=user.country_local,
                                                                                                                 city_local=user.city_local,
-                                                                                                                gender=GENDER_LABELS[user_lang][user.gender],
-                                                                                                                gender_search=GENDER_SEARCH_LABELS[user_lang][user.gender_search],
+                                                                                                                gender=texts['GENDER_LABELS'][user.gender],
+                                                                                                                gender_search=texts['GENDER_SEARCH_LABELS'][user.gender_search],
                                                                                                                 about_me=user.about_me))
                                                                                                                 
         match_menu = await message.answer_photo(photo=MATCH_MENU_PICTURE,
-                                                caption=TEXT[user_lang]['match_menu']['start'],
+                                                caption=texts['TEXT']['match_menu']['start'],
                                                 parse_mode="HTML",
                                                 reply_markup=await get_start_button_match_menu())
         
         await save_to_cache(user_id, "match_menu_message_id", message_id = match_menu.message_id) # запись в базу
 
         search_menu = await message.answer_photo(photo=SEARCH_MENU_PICTURE,
-                                                caption=TEXT[user_lang]['search_menu']['start'],
+                                                caption=texts['TEXT']['search_menu']['start'],
                                                 parse_mode="HTML",
                                                 reply_markup=await get_start_button_search_menu())
         
@@ -81,7 +84,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
 
     else:
         starting_message = await message.answer_photo(photo=USER_PROFILE_PICTURE,
-                                                      caption=TEXT[user_lang]['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
+                                                      caption=texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
                                                       parse_mode="HTML",
                                                       reply_markup=await get_approval_button())
     # запись в базу
@@ -94,7 +97,8 @@ async def query_retry_registration(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     first_name = callback.from_user.first_name
     username = callback.from_user.username
-    user_lang = await get_user_language(callback)
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
 
     if not username:
         return
@@ -110,7 +114,7 @@ async def query_retry_registration(callback: types.CallbackQuery):
         message_id=int(start_message_id),
         media=InputMediaPhoto(
             media=USER_PROFILE_PICTURE,
-            caption=TEXT[user_lang]['user_profile']['step_1'].format(first_name=first_name),
+            caption=texts['TEXT']['user_profile']['step_1'].format(first_name=first_name),
             parse_mode="HTML"),
         reply_markup=await get_approval_button())
 
@@ -119,19 +123,20 @@ async def query_retry_registration(callback: types.CallbackQuery):
 @dp.callback_query(F.data == "18yes_and_approval")
 async def query_18years(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    user_lang = await get_user_language(callback)
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
 
     # запись в базу
     await update_user_fields(user_id, eighteen_years_and_approval=True)
 
     # уведомление сверху
-    await callback.answer(text=TEXT[user_lang]['notifications']['18year'])
+    await callback.answer(text=texts['TEXT']['notifications']['18year'])
 
     # 1. Меняем текст сообщения и убираем inline-кнопки
-    await callback.message.edit_caption(caption=TEXT[user_lang]['user_profile']['step_2'], parse_mode="HTML", reply_markup=None)
+    await callback.message.edit_caption(caption=texts['TEXT']['user_profile']['step_2'], parse_mode="HTML", reply_markup=None)
 
     # 2. Отдельно отправляем сообщение с обычной клавиатурой для геолокации
-    location_message = await callback.message.answer(TEXT[user_lang]['user_profile']['get_location_message'],
+    location_message = await callback.message.answer(texts['TEXT']['user_profile']['get_location_message'],
                                                      reply_markup= await get_location_button(), parse_mode="HTML")
     
     # запись в базу
@@ -143,7 +148,8 @@ async def query_18years(callback: types.CallbackQuery):
 @dp.message(F.location)
 async def handle_location(message: types.Message):
     user_id = message.from_user.id
-    user_lang = await get_user_language(message)
+    user_lang = message.from_user.language_code
+    texts = await get_texts(user_lang)
 
     user = await get_user_by_id(user_id)
 
@@ -174,7 +180,7 @@ async def handle_location(message: types.Message):
     start_message_id = await get_cached_message_id(user_id, "start_message_id")
     await bot.edit_message_caption(chat_id=message.chat.id,
                                    message_id=int(start_message_id),
-                                   caption= TEXT[user_lang]['user_profile']['step_3'],
+                                   caption= texts['TEXT']['user_profile']['step_3'],
                                    reply_markup = await get_gender_buttons(),
                                    parse_mode="HTML")
 
@@ -183,7 +189,8 @@ async def handle_location(message: types.Message):
 @dp.callback_query(F.data.in_([gender.value for gender in Gender]))
 async def query_gender(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    user_lang = await get_user_language(callback)
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
 
     # Преобразуем строку в Enum
     selected_gender = Gender(callback.data)
@@ -192,16 +199,16 @@ async def query_gender(callback: types.CallbackQuery):
     await update_user_fields(user_id, gender=selected_gender)
 
     # Получаем локализованную подпись
-    gender_label = GENDER_LABELS[user_lang][selected_gender]
+    gender_label = texts['GENDER_LABELS'][selected_gender]
 
     # Уведомление
     await callback.answer(
-        text=TEXT[user_lang]['notifications']['gender'].format(user_gender=gender_label)
+        text=texts['TEXT']['notifications']['gender'].format(user_gender=gender_label)
     )
 
     # Переход к следующему шагу
     await callback.message.edit_caption(
-        caption=TEXT[user_lang]['user_profile']['step_4'],
+        caption=texts['TEXT']['user_profile']['step_4'],
         reply_markup=await get_gender_search_buttons(),
         parse_mode="HTML"
     )
@@ -211,7 +218,8 @@ async def query_gender(callback: types.CallbackQuery):
 @dp.callback_query(F.data.in_(["search_man", "search_woman", "search_any"]))
 async def query_gender_search(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    user_lang = await get_user_language(callback)
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
 
     # Преобразуем в Gender Enum
     search_map = {
@@ -225,16 +233,16 @@ async def query_gender_search(callback: types.CallbackQuery):
     await update_user_fields(user_id, gender_search=selected_gender_search)
 
     # Получаем локализованную подпись
-    label = GENDER_SEARCH_LABELS[user_lang][selected_gender_search]
+    label = texts['GENDER_SEARCH_LABELS'][selected_gender_search]
 
     # Уведомление
     await callback.answer(
-        text=TEXT[user_lang]['notifications']['gender_search'].format(gender_search=label)
+        text=texts['TEXT']['notifications']['gender_search'].format(gender_search=label)
     )
 
     # Переход к следующему шагу
     await callback.message.edit_caption(
-        caption=TEXT[user_lang]['user_profile']['step_5'],
+        caption=texts['TEXT']['user_profile']['step_5'],
         reply_markup=None,
         parse_mode="HTML"
     )
@@ -244,7 +252,8 @@ async def query_gender_search(callback: types.CallbackQuery):
 @dp.message(F.photo)
 async def handle_photo(message: types.Message):
     user_id = message.from_user.id
-    user_lang = await get_user_language(message)
+    user_lang = message.from_user.language_code
+    texts = await get_texts(user_lang)
 
     photo = message.photo[-1]
     file_id = photo.file_id
@@ -263,7 +272,7 @@ async def handle_photo(message: types.Message):
     start_message_id = await get_cached_message_id(user_id, "start_message_id")
     await bot.edit_message_caption(chat_id=message.chat.id,
                                 message_id=int(start_message_id),
-                                caption=TEXT[user_lang]['user_profile']['step_6'],
+                                caption=texts['TEXT']['user_profile']['step_6'],
                                 parse_mode="HTML")
 
     await message.delete() # удаляем фото отправленное пользователем
@@ -275,7 +284,8 @@ async def query_profile_edit(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     first_name = callback.from_user.first_name
     username = callback.from_user.username
-    user_lang = await get_user_language(callback)
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
 
     # получаем id из Кэш и удаляем сообщение
     search_menu_message_id = await get_cached_message_id(user_id, "search_menu_message_id")
@@ -290,7 +300,7 @@ async def query_profile_edit(callback: types.CallbackQuery):
     if not username:
         await bot.edit_message_caption(chat_id = callback.message.chat.id,
                                        message_id = int(start_message_id),
-                                       caption = TEXT[user_lang]['user_profile']['username_error'],
+                                       caption = texts['TEXT']['user_profile']['username_error'],
                                        parse_mode ="HTML",
                                        reply_markup = await get_retry_registration_button())
         return
@@ -304,7 +314,7 @@ async def query_profile_edit(callback: types.CallbackQuery):
         message_id=int(start_message_id),
         media=InputMediaPhoto(
             media=USER_PROFILE_PICTURE,
-            caption=TEXT[user_lang]['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
+            caption=texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
             parse_mode="HTML"),
         reply_markup=await get_approval_button())
 
@@ -315,14 +325,15 @@ async def query_profile_edit(callback: types.CallbackQuery):
 @dp.callback_query(F.data.startswith("incognito|"))
 async def handle_incognito_toggle(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    user_lang = await get_user_language(callback)
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
     _, action, _ = callback.data.split("|")
 
     user = await get_user_by_id(user_id)
 
-    label = TEXT[user_lang]["user_profile"]["incognito_pay_lable"]
-    title = TEXT[user_lang]["user_profile"]["incognito_pay_title"]
-    description = TEXT[user_lang]["user_profile"]["incognito_pay_description"]
+    label = texts['TEXT']["payment"]["incognito"]["lable"]
+    title = texts['TEXT']["payment"]["incognito"]["title"]
+    description = texts['TEXT']["payment"]["incognito"]["description"]
 
     if action == "NOT_PAYED":
 
@@ -388,7 +399,8 @@ async def cmd_delete_profile(message: types.Message, state: FSMContext):
 @dp.callback_query(F.data == "start_btn_search_menu")
 async def btn_start_search(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    user_lang = await get_user_language(callback)
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
 
     target_user = await find_first_matching_user(user_id) # поиск
     
@@ -398,8 +410,8 @@ async def btn_start_search(callback: types.CallbackQuery):
             media=types.InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
             reply_markup = await get_btn_to_search(target_user.first_name, target_user.telegram_id))
     else:
-        caption = TEXT[user_lang]["search"]["not_found"]
-        notification = TEXT[user_lang]["notifications"]["not_found"]
+        caption = texts['TEXT']["search"]["not_found"]
+        notification = texts['TEXT']["notifications"]["not_found"]
         await callback.message.edit_media(
             media=types.InputMediaPhoto(media=NOT_FOUND_PICTURE, caption=caption, parse_mode = "HTML"),
             reply_markup = await reload_search())
@@ -410,7 +422,8 @@ async def btn_start_search(callback: types.CallbackQuery):
 @dp.callback_query(lambda c: c.data.startswith("reaction"))
 async def handle_reaction(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    user_lang = await get_user_language(callback)
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
 
     _, reaction_str, target_name, target_tg_id = callback.data.split("|", 3)
 
@@ -428,8 +441,8 @@ async def handle_reaction(callback: types.CallbackQuery):
             media=types.InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
             reply_markup = markup)
     else:
-        caption = TEXT[user_lang]["search"]["not_found"]
-        notification = TEXT[user_lang]["notifications"]["not_found"]
+        caption = texts['TEXT']["search"]["not_found"]
+        notification = texts['TEXT']["notifications"]["not_found"]
         await callback.message.edit_media(
             media=types.InputMediaPhoto(media=NOT_FOUND_PICTURE, caption=caption, parse_mode = "HTML"),
             reply_markup = await reload_search())
@@ -440,7 +453,8 @@ async def handle_reaction(callback: types.CallbackQuery):
 @dp.callback_query(F.data == "reload_search")
 async def btn_reload_search(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    user_lang = await get_user_language(callback)
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
 
     target_user = await find_first_matching_user(user_id) # поиск
     
@@ -450,7 +464,7 @@ async def btn_reload_search(callback: types.CallbackQuery):
             media=types.InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
             reply_markup = await get_btn_to_search(target_user.first_name, target_user.telegram_id))
     else:
-        notification = TEXT[user_lang]["notifications"]["not_found"]
+        notification = texts['TEXT']["notifications"]["not_found"]
         await callback.answer(notification) # уведомление сверху
 
 
@@ -503,14 +517,22 @@ async def handle_who_wants(callback: types.CallbackQuery):
 # обработка колбека оплаты
 @dp.callback_query(lambda c: c.data.startswith("wants_pay"))
 async def handle_wants_pay(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
+
     _, target_tg_id, target_name, caption, photo_id, price_str, reaction = callback.data.split("|")
     price = int(price_str)
 
-    prices = [LabeledPrice(label=f"Добавить {target_name} в Совпадения", amount=price)]
+    label = texts["TEXT"]["payment"]["collection"]["label"]
+    title = texts["TEXT"]["payment"]["collection"]["title"]
+    description = texts["TEXT"]["payment"]["collection"]["description"]
+
+    prices = [LabeledPrice(label=label.format(target_name=target_name), amount=price)] #🏆 💫 ⭐ Избранное
 
     sent_invoice = await callback.message.answer_invoice(
-        title=f"Добавить в Совпадения {target_name}",
-        description=f"При добавлении в Совпадения, вы получите доступ к профилю {target_name} и сможете ей/ему написать",
+        title=title.format(target_name=target_name),
+        description=description.format(target_name=target_name),
         payload=f"payment_ok|{target_tg_id}|{price}|{reaction}",
         provider_token="",
         currency="XTR",
@@ -570,7 +592,9 @@ async def on_successful_payment(message: types.Message):
 @dp.message(F.text)
 async def handle_text(message: types.Message):
     user_id = message.from_user.id
-    user_lang = await get_user_language(message)
+    user_lang = message.from_user.language_code
+    texts = await get_texts(user_lang)
+
     start_message_id = await get_cached_message_id(user_id, "start_message_id")
 
     user = await get_user_by_id(user_id) # получение инфо о пользователе
@@ -593,22 +617,22 @@ async def handle_text(message: types.Message):
                                     message_id=int(start_message_id),
                                     reply_markup = await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch),
                                     parse_mode="HTML",
-                                    caption=TEXT[user_lang]["user_profile"]["profile"].format(first_name=user.first_name,
+                                    caption=texts['TEXT']["user_profile"]["profile"].format(first_name=user.first_name,
                                                                                                 country_local=user.country_local,
                                                                                                 city_local=user.city_local,
-                                                                                                gender=GENDER_LABELS[user_lang][user.gender],
-                                                                                                gender_search=GENDER_SEARCH_LABELS[user_lang][user.gender_search],
+                                                                                                gender=texts['GENDER_LABELS'][user.gender],
+                                                                                                gender_search=texts['GENDER_SEARCH_LABELS'][user.gender_search],
                                                                                                 about_me=user_text))
 
         match_menu = await message.answer_photo(photo=MATCH_MENU_PICTURE,
-                                                caption=TEXT[user_lang]['match_menu']['start'],
+                                                caption=texts['TEXT']['match_menu']['start'],
                                                 parse_mode="HTML",
                                                 reply_markup=await get_start_button_match_menu())
         # запись в базу
         await save_to_cache(user_id, "match_menu_message_id", message_id = match_menu.message_id)
 
         search_menu = await message.answer_photo(photo=SEARCH_MENU_PICTURE,
-                                                caption=TEXT[user_lang]['search_menu']['start'],
+                                                caption=texts['TEXT']['search_menu']['start'],
                                                 parse_mode="HTML",
                                                 reply_markup=await get_start_button_search_menu())
         # запись в базу
@@ -618,13 +642,13 @@ async def handle_text(message: types.Message):
     elif len(user_text) < MIN_COUNT_SYMBOLS:
         await bot.edit_message_caption(chat_id=message.chat.id,
                             message_id=int(start_message_id),
-                            caption=TEXT[user_lang]['user_profile']['min_count_symbols_error'].format(MIN_COUNT_SYMBOLS=MIN_COUNT_SYMBOLS, text_length=len(user_text)),
+                            caption=texts['TEXT']['user_profile']['min_count_symbols_error'].format(MIN_COUNT_SYMBOLS=MIN_COUNT_SYMBOLS, text_length=len(user_text)),
                             reply_markup = None,
                             parse_mode="HTML")
     elif len(user_text) > MAX_COUNT_SYMBOLS:
         await bot.edit_message_caption(chat_id=message.chat.id,
                             message_id=int(start_message_id),
-                            caption=TEXT[user_lang]['user_profile']['max_count_symbols_error'].format(MAX_COUNT_SYMBOLS=MAX_COUNT_SYMBOLS, text_length=len(user_text)),
+                            caption=texts['TEXT']['user_profile']['max_count_symbols_error'].format(MAX_COUNT_SYMBOLS=MAX_COUNT_SYMBOLS, text_length=len(user_text)),
                             reply_markup = None,
                             parse_mode="HTML")
     
@@ -634,7 +658,6 @@ async def handle_text(message: types.Message):
 # ------------------------------------------------------------------- Обработка других форматов -------------------------------------------------------
 
 
-# TODO обработка других типов и форматов, удалять все из чата
 @dp.message(~(F.text | F.photo | F.location))
 async def delete_unwanted(message: types.Message):
     try:
