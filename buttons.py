@@ -51,16 +51,15 @@ async def get_btn_to_search(target_name, target_tg_id):
 
 async def get_matches_menu_buttons():
     # Кнопки match меню
-    menu_picture = "AgACAgIAAxkBAAICVmhbrdh8xXXGx6Xy1tr0ouQN0sjFAAIZ8DEbBk3hSoeHxcGbNuBQAQADAgADeQADNgQ"
-
     button0 = InlineKeyboardButton(text=f"💘 Совпадения [{random.randint(0, 1000)}]", callback_data=f"matches")
-    button1 = InlineKeyboardButton(text=f"Свидание [{random.randint(0, 1000)}]", callback_data=f"who_wants|LOVE")
-    button2 = InlineKeyboardButton(text=f"Постель [{random.randint(0, 1000)}]", callback_data=f"who_wants|SEX")
-    button3 = InlineKeyboardButton(text=f"Общение [{random.randint(0, 1000)}]", callback_data=f"who_wants|CHAT")
-    button4 = InlineKeyboardButton(text=f"Обновить 🔄", callback_data=f"reload_matches_menu")
-    markup = InlineKeyboardMarkup(inline_keyboard=[[button0], [button1, button2, button3], [button4],])
+    button1 = InlineKeyboardButton(text=f"✨ Коллекция [{random.randint(0, 1000)}]", callback_data=f"collection")
+    button2 = InlineKeyboardButton(text=f"Свидание [{random.randint(0, 1000)}]", callback_data=f"who_wants|LOVE")
+    button3 = InlineKeyboardButton(text=f"Постель [{random.randint(0, 1000)}]", callback_data=f"who_wants|SEX")
+    button4 = InlineKeyboardButton(text=f"Общение [{random.randint(0, 1000)}]", callback_data=f"who_wants|CHAT")
+    button5 = InlineKeyboardButton(text=f"Обновить 🔄", callback_data=f"reload_matches_menu")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button0], [button1], [button2, button3, button4], [button5]])
     
-    return menu_picture, markup
+    return markup
 
 
 async def get_wants_user(reaction: ReactionType, price: int, priced: bool = False, user_info: dict=None, id_in_cache: int=0):

@@ -54,7 +54,7 @@ async def add_new_fake_user(gender: Gender, gender_search=True, random_location=
                         city_local = city,
                         about_me = fake.sentence(nb_words=6),
                         photo_id = photo_id,
-                        eighteen_years_old = True)
+                        eighteen_years_and_approval = True)
         session.add(new_user)
         await session.commit()
         print("✅ Пользователи успешно добавлены в базу")

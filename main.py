@@ -464,18 +464,30 @@ async def btn_reload_search(callback: types.CallbackQuery):
             media=types.InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
             reply_markup = await get_btn_to_search(target_user.first_name, target_user.telegram_id))
     else:
-        notification = texts['TEXT']["notifications"]["not_found"]
-        await callback.answer(notification) # уведомление сверху
+        await callback.answer(texts['TEXT']["notifications"]["not_found"]) # уведомление сверху
 
 
 # ------------------------------------------------------------------ СОВПАДЕНИЯ ----------------------------------------------------------
 
 
-# Команда Совпадения
-@dp.message(Command("match"))
-async def cmd_match(message: types.Message, state: FSMContext):
-    menu_picture, markup = await get_matches_menu_buttons()
-    await message.answer_photo(photo=menu_picture, parse_mode="HTML", reply_markup=markup)
+@dp.callback_query(F.data == "start_btn_match_menu")
+async def query_start_btn_match_menu(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
+
+    markup = await get_matches_menu_buttons()
+    await callback.message.edit_reply_markup(reply_markup=markup)
+
+
+@dp.callback_query(F.data == "reload_matches_menu")
+async def query_reload_matches_menu(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
+
+    await callback.message.edit_reply_markup(reply_markup=await get_matches_menu_buttons())
+    await callback.answer(texts['TEXT']["notifications"]["reloaded"]) # уведомление сверху
 
 
 @dp.callback_query(F.data == "matches")
@@ -484,21 +496,6 @@ async def query_matches(callback: types.CallbackQuery):
     photo_id, caption, markup = await get_matches_user()
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
     await callback.message.edit_caption(caption=caption, reply_markup=markup, parse_mode="HTML")
-
-
-@dp.callback_query(F.data == "matches_menu")
-async def query_matches_menu(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    menu_picture, markup = await get_matches_menu_buttons()
-    await callback.message.edit_media(media=InputMediaPhoto(media=menu_picture))
-    await callback.message.edit_reply_markup(reply_markup=markup)
-
-
-@dp.callback_query(F.data == "reload_matches_menu")
-async def query_reload_matches_menu(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    _, markup = await get_matches_menu_buttons()
-    await callback.message.edit_reply_markup(reply_markup=markup)
 
 
 # обработка колбека кому нравишься
