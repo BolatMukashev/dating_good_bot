@@ -1,6 +1,6 @@
 from sqlalchemy import select, update, or_, delete
 from sqlalchemy.orm import aliased
-from models import User, Reaction, Payment, Cache, Gender
+from models import User, Reaction, Payment, Cache, Gender, PaymentType
 from typing import Any, Optional
 from db_connect import AsyncSessionLocal
 import aiohttp
@@ -55,10 +55,7 @@ async def find_first_matching_user(current_user_id: int) -> Optional[User]:
             )
 
         # Исключаем инкогнито
-        not_incognito_condition = or_(
-            User.incognito_switch == False,
-            User.incognito_pay == False
-        )
+        not_incognito_condition = User.incognito_switch == False
 
         # Исключаем тех, на кого уже реагировал
         ReactionAlias = aliased(Reaction)
@@ -262,15 +259,20 @@ async def add_reaction(user_id: int, target_tg_id: int, reaction_str: str):
 
 
 # Добавление платежа в базу
-async def add_payment(user_id: int, target_tg_id: int, price: int):
+async def add_payment(user_id: int, amount: int, payment_type: PaymentType, target_tg_id: int | None = None):
     async with AsyncSessionLocal() as session:
-        payment = Payment(telegram_id=user_id, target_tg_id=target_tg_id, price=price)
+        payment = Payment(
+            telegram_id=user_id,
+            target_tg_id=target_tg_id,
+            amount=amount,
+            type=payment_type
+        )
         session.add(payment)
         await session.commit()
 
 
+# Получить данные о местоположении с указанным языком
 async def get_location_info(latitude, longitude, lang='en'):
-    # Получить данные о местоположении с указанным языком
     url = "https://nominatim.openstreetmap.org/reverse"
     params = {
         "lat": latitude,
@@ -285,3 +287,4 @@ async def get_location_info(latitude, longitude, lang='en'):
             country = address.get("country")
             city = address.get("city") or address.get("town") or address.get("village")
             return country, city
+

@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
 from config import *
-from models import ReactionType, Gender, Base
+from models import ReactionType, Gender, Base, PaymentType
 from buttons import *
 from functions import *
 from languages import get_texts
@@ -342,7 +342,7 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
         sent_invoice = await callback.message.answer_invoice(
             title=title,
             description=description,
-            payload=f"incognito_payment_ok|{PRICE_INCOGNITO}",
+            payload=f"payment_incognito|{PRICE_INCOGNITO}",
             provider_token="",
             currency="XTR",
             prices=prices,
@@ -470,6 +470,7 @@ async def btn_reload_search(callback: types.CallbackQuery):
 # ------------------------------------------------------------------ СОВПАДЕНИЯ ----------------------------------------------------------
 
 
+# колбек кнопка старт у меню совпадений
 @dp.callback_query(F.data == "start_btn_match_menu")
 async def query_start_btn_match_menu(callback: types.CallbackQuery):
     user_id = callback.from_user.id
@@ -480,6 +481,7 @@ async def query_start_btn_match_menu(callback: types.CallbackQuery):
     await callback.message.edit_reply_markup(reply_markup=markup)
 
 
+# колбек обновить меню совпадений
 @dp.callback_query(F.data == "reload_matches_menu")
 async def query_reload_matches_menu(callback: types.CallbackQuery):
     user_id = callback.from_user.id
@@ -498,7 +500,7 @@ async def query_matches(callback: types.CallbackQuery):
     await callback.message.edit_caption(caption=caption, reply_markup=markup, parse_mode="HTML")
 
 
-# обработка колбека кому нравишься
+# колбека кому нравишься
 @dp.callback_query(lambda c: c.data.startswith("who_wants"))
 async def handle_who_wants(callback: types.CallbackQuery):
     user_id = callback.from_user.id
@@ -506,9 +508,6 @@ async def handle_who_wants(callback: types.CallbackQuery):
     photo_id, caption, markup = await get_wants_user(reaction, PRICE_ADD_TO_MATCHES)
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
     await callback.message.edit_caption(caption=caption, reply_markup=markup, parse_mode="HTML")
-
-
-# ------------------------------------------------------------------- Оплата -------------------------------------------------------
 
 
 # обработка колбека оплаты
@@ -530,7 +529,7 @@ async def handle_wants_pay(callback: types.CallbackQuery):
     sent_invoice = await callback.message.answer_invoice(
         title=title.format(target_name=target_name),
         description=description.format(target_name=target_name),
-        payload=f"payment_ok|{target_tg_id}|{price}|{reaction}",
+        payload=f"payment_add_to_collection|{target_tg_id}|{price}|{reaction}",
         provider_token="",
         currency="XTR",
         prices=prices,
@@ -556,23 +555,27 @@ async def on_successful_payment(message: types.Message):
     payload = message.successful_payment.invoice_payload
     user_id = message.from_user.id
 
-    # Пример обработки payload:
-    if payload.startswith("payment_ok"):
-        _, target_id, price, reaction = payload.split("|")
-        await add_payment(user_id, target_id, price) # запись в базу
+    if payload.startswith("payment_add_to_collection"):
+        _, target_id, amount, reaction = payload.split("|")
+
+        await add_payment(user_id, amount, PaymentType.COLLECTION, target_id) # запись в базу
+
         payment_message_id = await get_cached_message_id(user_id, "invoice_message_id")
     
         # изменяем запись
-        user = await get_user_by_id(user_id)
-        user_info = {"target_name": user.first_name, "caption": user.about_me, "photo_id": user.photo_id}
+        target_id = await get_user_by_id(target_id)
+        user_info = {"target_name": target_id.first_name, "caption": target_id.about_me, "photo_id": target_id.photo_id}
         markup = await get_wants_user(reaction, PRICE_ADD_TO_MATCHES, priced=True, user_info=user_info)
 
         match_menu_message_id = await get_cached_message_id(user_id, "match_menu_message_id")
         await bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=int(match_menu_message_id), reply_markup=markup)
 
-    elif payload.startswith("incognito_payment_ok"):
-        # _, price = payload.split("|")
-        await update_user_fields(user_id, incognito_pay=True, incognito_switch=True)
+    elif payload.startswith("payment_incognito"):
+        _, amount = payload.split("|")
+        await add_payment(user_id, amount, PaymentType.INCOGNITO) # запись в базу
+
+        await update_user_fields(user_id, incognito_pay=True, incognito_switch=True) # запись в базу
+
         payment_message_id = await get_cached_message_id(user_id, "incognito_pay_message_id")
 
         start_message_id = await get_cached_message_id(user_id, "start_message_id")

@@ -1,7 +1,13 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import relationship, DeclarativeBase
 from enum import Enum
 from sqlalchemy import Enum as SQLEnum
+from datetime import datetime, timezone
+
+
+class PaymentType(str, Enum):
+    INCOGNITO = "incognito"
+    COLLECTION = "collection"
 
 
 class Gender(str, Enum):
@@ -63,11 +69,14 @@ class Payment(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     telegram_id = Column(Integer, ForeignKey('users.telegram_id'), nullable=False)
-    target_tg_id = Column(Integer, ForeignKey('users.telegram_id'), nullable=False)
-    price = Column(Integer)
+    target_tg_id = Column(Integer, ForeignKey('users.telegram_id'), nullable=True)
+    amount = Column(Integer, nullable=False)
+    type = Column(SQLEnum(PaymentType, name="payment_type_enum", native_enum=False), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     buyer = relationship('User', foreign_keys=[telegram_id], back_populates='payments_made')
     target = relationship('User', foreign_keys=[target_tg_id], back_populates='payments_received')
+
 
 
 # Таблица кэш
