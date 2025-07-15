@@ -6,6 +6,7 @@ import random
 from faker import Faker
 from sqlalchemy import select, update
 from models import Gender
+from config import YANDEX_GEOCODER_API_KEY
 
 
 fake = Faker("ru_RU")
@@ -67,11 +68,44 @@ async def get_user_by_id(user_id):
         user = result.scalar_one_or_none()
         if user:
             return user
+        
+    
+import aiohttp
 
+async def get_location_name(latitude: float, longitude: float) -> str:
+    api_key = YANDEX_GEOCODER_API_KEY
+    url = "https://geocode-maps.yandex.ru/1.x"
+    params = {
+        "apikey": api_key,
+        "geocode": f"{longitude},{latitude}",  # Яндекс сначала долготу, потом широту
+        "format": "json",
+        "lang": "en_US"  # Результат на английском
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, params=params) as response:
+            if response.status != 200:
+                return f"Error: {response.status}"
+            data = await response.json()
+            try:
+                location = data["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]["metaDataProperty"]["GeocoderMetaData"]["text"]
+                return location
+            except (IndexError, KeyError):
+                return "Location not found"
+
+async def main():
+    latitude = 51.245041
+    longitude = 51.425177
+
+    res = await get_location_name(latitude, longitude)
+    print(res)
 
 if __name__ == "__main__":
-    for el in range(5):
-        asyncio.run(add_new_fake_user(Gender.WOMAN, gender_search=True, random_location=False))
+
+    asyncio.run(main())
+
+    # for el in range(5):
+    #     asyncio.run(add_new_fake_user(Gender.WOMAN, gender_search=True, random_location=False))
     # user = asyncio.run(get_user_by_id(930353927))
     # if user:
     #     print(f"Найден пользователь: {user}")

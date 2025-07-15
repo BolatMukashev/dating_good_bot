@@ -1,4 +1,6 @@
 import logging
+import aiohttp
+import asyncio
 from db_connect import async_engine
 from aiogram.types import InputMediaPhoto, LabeledPrice
 from aiogram.filters.command import Command
@@ -143,7 +145,8 @@ async def query_18years(callback: types.CallbackQuery):
     await save_to_cache(user_id, "location_message_id", message_id = location_message.message_id)
 
 
-# TODO - тормозит
+# TODO - тормозит await asyncio.gather(*tasks)
+
 # подтверждение локации
 @dp.message(F.location)
 async def handle_location(message: types.Message):
@@ -162,12 +165,17 @@ async def handle_location(message: types.Message):
     latitude = message.location.latitude
     longitude = message.location.longitude
 
-    # 1. Получаем название на языке пользователя (по языку Telegram)
-    user_language_code = message.from_user.language_code or 'ru'
-    country_local, city_local = await get_location_info(latitude, longitude, lang=user_language_code)
+    user_language_code = message.from_user.language_code or 'en'
 
-    # 2. Получаем название на английском для записи в базу
-    country_en, city_en = await get_location_info(latitude, longitude, lang='en')
+    if user_language_code == 'en':
+        country_en, city_en = await get_location_opencage(latitude, longitude, lang='en')
+        country_local, city_local = country_en, city_en
+    else:
+        # Запускаем сразу два запроса параллельно
+        (country_local, city_local), (country_en, city_en) = await asyncio.gather(
+            get_location_opencage(latitude, longitude, lang=user_language_code),
+            get_location_opencage(latitude, longitude, lang='en')
+        )
 
     # запись в базу
     await update_user_fields(user_id, country=country_en, city=city_en, country_local=country_local, city_local=city_local)

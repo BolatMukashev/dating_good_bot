@@ -6,6 +6,9 @@ from db_connect import AsyncSessionLocal
 import aiohttp
 from languages import get_texts
 from sqlalchemy.orm import aliased
+from config import *
+import asyncio
+import aiohttp
 
 
 # TODO бан пользователя
@@ -23,7 +26,9 @@ __all__ = ['save_to_cache',
            'get_caption',
            'get_gender_label',
            'get_gender_search_label',
-           'delete_user_by_id']
+           'delete_user_by_id',
+           'get_location_opencage'
+           ]
 
 
 async def find_first_matching_user(current_user_id: int) -> Optional[User]:
@@ -288,3 +293,26 @@ async def get_location_info(latitude, longitude, lang='en'):
             city = address.get("city") or address.get("town") or address.get("village")
             return country, city
 
+
+# -----------------------------------------------------------------геолокация ------------------------------------------------------
+
+
+async def get_location_opencage(latitude: float, longitude: float, lang: str = 'en') -> str:
+    api_key = opencagedata_API_KEY
+    url = "https://api.opencagedata.com/geocode/v1/json"
+    params = {
+        "q": f"{latitude},{longitude}",
+        "key": api_key,
+        "language": lang
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, params=params) as response:
+            data = await response.json()
+            try:
+                components = data["results"][0]["components"]
+                city = components.get("city") or components.get("town") or components.get("village") or "Unknown city"
+                country = components.get("country", "Unknown country")
+                return country, city
+            except (IndexError, KeyError):
+                return "Location not found"

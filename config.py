@@ -14,7 +14,10 @@ __all__ = ['BOT_API_KEY',
            'PRICE_INCOGNITO',
            'PRICE_ADD_TO_MATCHES',
            'NOT_FOUND_PICTURE',
-           'NOTION_SITE']
+           'NOTION_SITE',
+           'opencagedata_API_KEY'
+           ]
+
 
 NOTION_SITE = "https://www.notion.so/bolat-mukashev/dating_good_bot-22fa2ae3a2a3806c8b5cc903786b7336?source=copy_link"
 
@@ -22,8 +25,11 @@ config = dotenv_values(".env")
 
 BOT_API_KEY = config.get("BOT_API_KEY")
 ADMIN_ID = config.get("ADMIN_ID")
+
 MONGO_DB_USERNAME = config.get("MONGO_DB_USERNAME")
 MONGO_DB_PASSWORD = config.get("MONGO_DB_PASSWORD")
+
+opencagedata_API_KEY = config.get("opencagedata_API_KEY")
 
 MIN_COUNT_SYMBOLS = 15
 MAX_COUNT_SYMBOLS = 100
