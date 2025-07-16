@@ -485,24 +485,45 @@ async def query_start_btn_match_menu(callback: types.CallbackQuery):
     user_lang = callback.from_user.language_code
     texts = await get_texts(user_lang)
 
-    match_count = None
-    collection_count = None
-    love_count = None
-    sex_count = None
-    chat_count = None
+    # Параллельный запуск всех функций
+    results = await asyncio.gather(
+        get_match_targets(user_id),
+        get_collection_targets(user_id),
+        get_intent_targets(user_id, "LOVE"),
+        get_intent_targets(user_id, "SEX"),
+        get_intent_targets(user_id, "CHAT"),
+    )
+
+    # Распаковка результатов
+    (_, match_count), (_, collection_count), (_, love_count), (_, sex_count), (_, chat_count) = results
 
     markup = await get_matches_menu_buttons(match_count, collection_count, love_count, sex_count, chat_count)
+
     await callback.message.edit_reply_markup(reply_markup=markup)
 
 
 # колбек обновить меню совпадений
-@dp.callback_query(F.data == "reload_matches_menu")
+@dp.callback_query(lambda c: c.data.startswith("reload_matches_menu"))
 async def query_reload_matches_menu(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
     texts = await get_texts(user_lang)
 
-    await callback.message.edit_reply_markup(reply_markup=await get_matches_menu_buttons())
+    # Параллельный запуск всех функций
+    results = await asyncio.gather(
+        get_match_targets(user_id),
+        get_collection_targets(user_id),
+        get_intent_targets(user_id, "LOVE"),
+        get_intent_targets(user_id, "SEX"),
+        get_intent_targets(user_id, "CHAT"),
+    )
+
+    # Распаковка результатов
+    (_, match_count), (_, collection_count), (_, love_count), (_, sex_count), (_, chat_count) = results
+
+    markup = await get_matches_menu_buttons(match_count, collection_count, love_count, sex_count, chat_count)
+
+    await callback.message.edit_reply_markup(reply_markup=markup)
     await callback.answer(texts['TEXT']["notifications"]["reloaded"]) # уведомление сверху
 
 

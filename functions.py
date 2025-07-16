@@ -9,6 +9,7 @@ from sqlalchemy.orm import aliased
 from config import *
 import asyncio
 import aiohttp
+from sqlalchemy.orm import aliased
 
 
 # TODO бан пользователя
@@ -27,7 +28,10 @@ __all__ = ['save_to_cache',
            'get_gender_label',
            'get_gender_search_label',
            'delete_user_by_id',
-           'get_location_opencage'
+           'get_location_opencage',
+           'get_match_targets',
+           'get_collection_targets',
+           'get_intent_targets'
            ]
 
 
@@ -316,3 +320,51 @@ async def get_location_opencage(latitude: float, longitude: float, lang: str = '
                 return country, city
             except (IndexError, KeyError):
                 return "Location not found"
+
+
+# ----------------------------------------------------------------- совпадения ------------------------------------------------------
+
+# Найти Совпадения match
+async def get_match_targets(user_id: int) -> tuple[list[int], int]:
+    async with AsyncSessionLocal() as session:
+        user_reactions = aliased(Reaction)
+        target_reactions = aliased(Reaction)
+
+        result = await session.execute(
+            select(user_reactions.target_tg_id)
+            .join(
+                target_reactions,
+                (user_reactions.target_tg_id == target_reactions.telegram_id) &
+                (user_reactions.telegram_id == target_reactions.target_tg_id) &
+                (user_reactions.reaction == target_reactions.reaction)
+            )
+            .where(user_reactions.telegram_id == user_id)
+        )
+
+        ids = result.scalars().unique().all()
+        return ids, len(ids)
+
+
+# Получить из Коллекции
+async def get_collection_targets(user_id: int) -> tuple[list[int], int]:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(Payment.target_tg_id)
+            .where(Payment.telegram_id == user_id, Payment.target_tg_id != None)
+        )
+        ids = result.scalars().unique().all()
+        return ids, len(ids)
+
+
+# Найти по намерениям
+async def get_intent_targets(user_id: int, intent: str) -> tuple[list[int], int]:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(Reaction.telegram_id)
+            .where(
+                Reaction.target_tg_id == user_id,
+                Reaction.reaction == intent.upper()  # Предполагается, что reaction: str ('LOVE', 'SEX', 'CHAT')
+            )
+        )
+        ids = result.scalars().unique().all()
+        return ids, len(ids)

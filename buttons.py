@@ -51,12 +51,14 @@ async def get_btn_to_search(target_name, target_tg_id):
 
 async def get_matches_menu_buttons(match_count: int, collection_count: int, love_count: int, sex_count: int, chat_count: int):
     # Кнопки match меню
+
+    unique_suffix = uuid4().hex[:4]
     button0 = InlineKeyboardButton(text=f"💘 Совпадения [{match_count}]", callback_data=f"matches")
     button1 = InlineKeyboardButton(text=f"✨ Коллекция [{collection_count}]", callback_data=f"collection")
     button2 = InlineKeyboardButton(text=f"Свидание [{love_count}]", callback_data=f"who_wants|LOVE")
     button3 = InlineKeyboardButton(text=f"Постель [{sex_count}]", callback_data=f"who_wants|SEX")
     button4 = InlineKeyboardButton(text=f"Общение [{chat_count}]", callback_data=f"who_wants|CHAT")
-    button5 = InlineKeyboardButton(text=f"Обновить 🔄", callback_data=f"reload_matches_menu")
+    button5 = InlineKeyboardButton(text=f"Обновить 🔄", callback_data=f"reload_matches_menu|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button0], [button1], [button2, button3, button4], [button5]])
     
     return markup
