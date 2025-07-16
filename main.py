@@ -485,7 +485,13 @@ async def query_start_btn_match_menu(callback: types.CallbackQuery):
     user_lang = callback.from_user.language_code
     texts = await get_texts(user_lang)
 
-    markup = await get_matches_menu_buttons()
+    match_count = None
+    collection_count = None
+    love_count = None
+    sex_count = None
+    chat_count = None
+
+    markup = await get_matches_menu_buttons(match_count, collection_count, love_count, sex_count, chat_count)
     await callback.message.edit_reply_markup(reply_markup=markup)
 
 
