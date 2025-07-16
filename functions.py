@@ -359,12 +359,21 @@ async def get_collection_targets(user_id: int) -> tuple[list[int], int]:
 # Найти по намерениям
 async def get_intent_targets(user_id: int, intent: str) -> tuple[list[int], int]:
     async with AsyncSessionLocal() as session:
+        # Подзапрос: выбираем id всех, кому user_id поставил такую же реакцию
+        subq = select(Reaction.target_tg_id).where(
+            Reaction.telegram_id == user_id,
+            Reaction.reaction == intent.upper()
+        )
+
+        # Основной запрос: все, кто поставил user_id такую реакцию, НО исключаем взаимных
         result = await session.execute(
             select(Reaction.telegram_id)
             .where(
                 Reaction.target_tg_id == user_id,
-                Reaction.reaction == intent.upper()  # Предполагается, что reaction: str ('LOVE', 'SEX', 'CHAT')
+                Reaction.reaction == intent.upper(),
+                ~Reaction.telegram_id.in_(subq)  # теперь всё ок
             )
         )
         ids = result.scalars().unique().all()
         return ids, len(ids)
+
