@@ -118,8 +118,8 @@ async def get_matches_user(user: User, ids: list):
 
     unique_suffix = uuid4().hex[:4]
     button1 = InlineKeyboardButton(text="✉️ Начать знакомство", callback_data=f"pass", url=f"https://t.me/{username}")
-    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"matches_back|{back_id}")
-    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"matches_next|{next_id}")
+    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"matches_navigation|{back_id}")
+    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"matches_navigation|{next_id}")
     button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"start_btn_match_menu|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
     

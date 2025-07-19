@@ -81,5 +81,5 @@ if __name__ == "__main__":
     # for el in range(5):
     #     asyncio.run(add_new_fake_user(Gender.WOMAN, gender_search=True, random_location=False))
 
-    user_id = 244863412
-    asyncio.run(test_add(user_id, ADMIN_ID, "SKIP"))
+    user_id = 195321245
+    asyncio.run(test_add(user_id, ADMIN_ID, "SEX"))

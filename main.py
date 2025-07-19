@@ -517,17 +517,43 @@ async def query_matches(callback: types.CallbackQuery):
     texts = await get_texts(user_lang)
 
     target_users_ids, _ = await get_match_targets(user_id)
-    target_user = await get_user_by_id(target_users_ids[0])
-    prev_id, next_id = await get_prev_next_ids(target_users_ids[0], target_users_ids)
 
-    if len(target_users_ids) > 0:
-            photo_id = target_user.photo_id
-            caption = await get_caption(target_user)
-            markup = await get_matches_user(target_user, [prev_id, next_id])
-    else:
+    if not target_users_ids:
         photo_id = MATCH_MENU_PICTURE
-        caption=texts['TEXT']['match_menu']['start']
+        caption = texts['TEXT']['match_menu']['start']
         markup = await empty_category_buttons()
+    else:
+        target_user = await get_user_by_id(target_users_ids[0])
+        prev_id, next_id = await get_prev_next_ids(target_users_ids[0], target_users_ids)
+        photo_id = target_user.photo_id
+        caption = await get_caption(target_user)
+        markup = await get_matches_user(target_user, [prev_id, next_id])
+
+    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
+                                      reply_markup = markup)
+
+
+# вперед/назад при навигации у меню Совпадений
+@dp.callback_query(lambda c: c.data.startswith("matches_navigation"))
+async def query_matches_navigation(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
+
+    _, target_id = callback.data.split("|", 1)
+
+    if target_id == 'pass':
+        await callback.answer(texts['TEXT']["notifications"]["empty"]) # уведомление сверху
+        return
+
+    target_id = int(target_id)
+    target_users_ids, _ = await get_match_targets(user_id)
+    prev_id, next_id = await get_prev_next_ids(target_id, target_users_ids)
+
+    target_user = await get_user_by_id(target_id)
+    photo_id = target_user.photo_id
+    caption = await get_caption(target_user)
+    markup = await get_matches_user(target_user, [prev_id, next_id])
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
                                       reply_markup = markup)
