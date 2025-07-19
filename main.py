@@ -20,6 +20,7 @@ from languages import get_texts
 # TODO Supabase - SQL bd Postgres
 # Локализация
 # Меню совпадений
+# intent - Название? dating_good_bot Twint - Twin + Intent — совпадение намерений Intendy	Intent + -y = дружелюбно
 
 
 # Настройка логирования
@@ -116,7 +117,7 @@ async def query_retry_registration(callback: types.CallbackQuery):
         message_id=int(start_message_id),
         media=InputMediaPhoto(
             media=USER_PROFILE_PICTURE,
-            caption=texts['TEXT']['user_profile']['step_1'].format(first_name=first_name),
+            caption=texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
             parse_mode="HTML"),
         reply_markup=await get_approval_button())
 
@@ -479,8 +480,8 @@ async def btn_reload_search(callback: types.CallbackQuery):
 
 
 # колбек кнопка старт у меню совпадений
-@dp.callback_query(F.data == "start_btn_match_menu")
-async def query_start_btn_match_menu(callback: types.CallbackQuery):
+@dp.callback_query(lambda c: c.data.startswith("start_btn_match_menu"))
+async def query_start__reload_btn_match_menu(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
     texts = await get_texts(user_lang)
@@ -499,40 +500,37 @@ async def query_start_btn_match_menu(callback: types.CallbackQuery):
 
     markup = await get_matches_menu_buttons(match_count, collection_count, love_count, sex_count, chat_count)
 
-    await callback.message.edit_reply_markup(reply_markup=markup)
+    await callback.message.edit_media(media=InputMediaPhoto(media=MATCH_MENU_PICTURE,
+                                                            caption=texts['TEXT']['match_menu']['start'],
+                                                            parse_mode = "HTML"),
+                                    reply_markup = markup)
 
-
-# колбек обновить меню совпадений
-@dp.callback_query(lambda c: c.data.startswith("reload_matches_menu"))
-async def query_reload_matches_menu(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    user_lang = callback.from_user.language_code
-    texts = await get_texts(user_lang)
-
-    # Параллельный запуск всех функций
-    results = await asyncio.gather(
-        get_match_targets(user_id),
-        get_collection_targets(user_id),
-        get_intent_targets(user_id, "LOVE"),
-        get_intent_targets(user_id, "SEX"),
-        get_intent_targets(user_id, "CHAT"),
-    )
-
-    # Распаковка результатов
-    (_, match_count), (_, collection_count), (_, love_count), (_, sex_count), (_, chat_count) = results
-
-    markup = await get_matches_menu_buttons(match_count, collection_count, love_count, sex_count, chat_count)
-
-    await callback.message.edit_reply_markup(reply_markup=markup)
+    # await callback.message.edit_reply_markup(reply_markup=markup)
     await callback.answer(texts['TEXT']["notifications"]["reloaded"]) # уведомление сверху
 
 
+# колбек кнопка мэтчи в меню Совпадений
 @dp.callback_query(F.data == "matches")
 async def query_matches(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    photo_id, caption, markup = await get_matches_user()
-    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
-    await callback.message.edit_caption(caption=caption, reply_markup=markup, parse_mode="HTML")
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
+
+    target_users_ids, _ = await get_match_targets(user_id)
+    target_user = await get_user_by_id(target_users_ids[0])
+    prev_id, next_id = await get_prev_next_ids(target_users_ids[0], target_users_ids)
+
+    if len(target_users_ids) > 0:
+            photo_id = target_user.photo_id
+            caption = await get_caption(target_user)
+            markup = await get_matches_user(target_user, [prev_id, next_id])
+    else:
+        photo_id = MATCH_MENU_PICTURE
+        caption=texts['TEXT']['match_menu']['start']
+        markup = await empty_category_buttons()
+
+    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
+                                      reply_markup = markup)
 
 
 # колбека кому нравишься

@@ -20,6 +20,7 @@ AsyncSessionLocal = sessionmaker(bind=async_engine, class_=AsyncSession, expire_
 WOMAN_PHOTO = 'AgACAgIAAxkBAAIEXWhyM6aDeihjOMGDRT4wm2zQlBVnAAJ_AjIbE9uYS_5EbII1p1GkAQADAgADeQADNgQ'
 MAN_PHOTO = 'AgACAgIAAxkBAAIEZmhyNMfHJtQKJTEpyBvnzSn78uxBAALc8jEbht2QSwgCthHAoX1JAQADAgADeQADNgQ'
 
+# TODO добавить ANY
 
 async def add_new_fake_user(gender: Gender, gender_search=True, random_location=False):
     async with AsyncSessionLocal() as session:
@@ -71,15 +72,14 @@ async def get_user_by_id(user_id):
             return user
 
 
-
 async def test_add(user_id, target_id, reaction):
     await add_reaction(user_id, target_id, reaction)
 
 
 if __name__ == "__main__":
-    user_id = 638002250
-    target_id = ADMIN_ID
 
-    asyncio.run(test_add(target_id, user_id, "LOVE"))
     # for el in range(5):
-    #     asyncio.run(add_new_fake_user(Gender.WOMAN, gender_search=True, random_location=True))
+    #     asyncio.run(add_new_fake_user(Gender.WOMAN, gender_search=True, random_location=False))
+
+    user_id = 244863412
+    asyncio.run(test_add(user_id, ADMIN_ID, "SKIP"))

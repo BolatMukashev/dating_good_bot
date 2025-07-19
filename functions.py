@@ -31,7 +31,8 @@ __all__ = ['save_to_cache',
            'get_location_opencage',
            'get_match_targets',
            'get_collection_targets',
-           'get_intent_targets'
+           'get_intent_targets',
+           'get_prev_next_ids'
            ]
 
 
@@ -342,7 +343,8 @@ async def get_match_targets(user_id: int) -> tuple[list[int], int]:
         )
 
         ids = result.scalars().unique().all()
-        return ids, len(ids)
+        sorted_ids = sorted(ids)
+        return sorted_ids, len(ids)
 
 
 # Получить из Коллекции
@@ -353,7 +355,8 @@ async def get_collection_targets(user_id: int) -> tuple[list[int], int]:
             .where(Payment.telegram_id == user_id, Payment.target_tg_id != None)
         )
         ids = result.scalars().unique().all()
-        return ids, len(ids)
+        sorted_ids = sorted(ids)
+        return sorted_ids, len(ids)
 
 
 # Найти по намерениям
@@ -375,5 +378,16 @@ async def get_intent_targets(user_id: int, intent: str) -> tuple[list[int], int]
             )
         )
         ids = result.scalars().unique().all()
-        return ids, len(ids)
+        sorted_ids = sorted(ids)
+        return sorted_ids, len(ids)
 
+
+# Найти id-до и id-после в списке
+async def get_prev_next_ids(current_id: int, ids: list[int]) -> tuple[int | None, int | None]:
+    try:
+        index = ids.index(current_id)
+        prev_id = ids[index - 1] if index > 0 else None
+        next_id = ids[index + 1] if index < len(ids) - 1 else None
+        return prev_id, next_id
+    except ValueError:
+        return None, None
