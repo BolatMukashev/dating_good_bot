@@ -103,8 +103,8 @@ async def get_match_user(user: User, ids: list):
 
     unique_suffix = uuid4().hex[:4]
     button1 = InlineKeyboardButton(text="✉️ Начать знакомство", callback_data=f"pass", url=f"https://t.me/{user.username}")
-    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"matches_navigation|{back_id}")
-    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"matches_navigation|{next_id}")
+    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"navigation_matches|{back_id}")
+    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"navigation_matches|{next_id}")
     button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"match_menu_start_btn|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
     
@@ -121,8 +121,8 @@ async def get_collection_user(user: User, ids: list):
 
     unique_suffix = uuid4().hex[:4]
     button1 = InlineKeyboardButton(text="✉️ Начать знакомство", callback_data=f"pass", url=f"https://t.me/{user.username}")
-    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"collection_navigation|{back_id}")
-    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"collection_navigation|{next_id}")
+    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"navigation_collection|{back_id}")
+    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"navigation_collection|{next_id}")
     button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"match_menu_start_btn|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
     

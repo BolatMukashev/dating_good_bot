@@ -18,9 +18,15 @@ from languages import get_texts
 
 
 # TODO Supabase - SQL bd Postgres
+# оптимизация
 # Локализация
-# Меню совпадений
-# intent - Название? dating_good_bot Twint - Twin + Intent — совпадение намерений Intendy	Intent + -y = дружелюбно
+
+
+# dating_good_bot
+# Twint - Twin + Intent — совпадение намерений
+# Intendy	Intent + -y = дружелюбно
+# FeelMatch
+# Fibly – лёгкое, запоминающееся (feel + match) 
 
 
 # Настройка логирования
@@ -38,20 +44,21 @@ dp = Dispatcher(storage=storage)
 
 # Команда Старт
 @dp.message(Command("start"))
-async def cmd_start(message: types.Message, state: FSMContext):
+async def cmd_start(message: types.Message):
+    await message.delete() #удалить сообщение пользователя /start
+
     user_id = message.from_user.id
-    first_name = message.from_user.first_name
-    username = message.from_user.username
     user_lang = message.from_user.language_code
     texts = await get_texts(user_lang)
 
-    await message.delete() #удалить сообщение пользователя /start
+    first_name = message.from_user.first_name
+    username = message.from_user.username
 
     if not username:
         starting_message = await message.answer_photo(photo=NO_USERNAME_PICTURE,
-                                   caption=texts["TEXT"]['user_profile']['username_error'],
-                                   parse_mode="HTML",
-                                   reply_markup=await get_retry_registration_button())
+                                                      caption=texts["TEXT"]['user_profile']['username_error'],
+                                                      parse_mode="HTML",
+                                                      reply_markup=await get_retry_registration_button())
         
         await save_to_cache(user_id, "start_message_id", message_id = starting_message.message_id) # запись в базу
         return
@@ -531,10 +538,10 @@ async def query_matches(callback: types.CallbackQuery):
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
                                       reply_markup = markup)
-    
+
 
 # вперед/назад при навигации у меню Совпадений
-@dp.callback_query(lambda c: c.data.startswith("matches_navigation"))
+@dp.callback_query(lambda c: c.data.startswith("navigation_matches"))
 async def query_matches_navigation(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
@@ -584,7 +591,7 @@ async def query_collection(callback: types.CallbackQuery):
     
 
 # вперед/назад при навигации Коллекция
-@dp.callback_query(lambda c: c.data.startswith("collection_navigation"))
+@dp.callback_query(lambda c: c.data.startswith("navigation_collection"))
 async def query_collection_navigation(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
