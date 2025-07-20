@@ -10,7 +10,7 @@ __all__ = ['get_approval_button',
            'get_btn_to_search',
            'get_matches_menu_buttons',
            'get_wants_user',
-           'get_matches_user',
+           'get_match_user',
            'get_gender_buttons',
            'get_gender_search_buttons',
            'get_profile_edit_buttons',
@@ -20,7 +20,8 @@ __all__ = ['get_approval_button',
            'get_start_button_search_menu',
            'payment_keyboard',
            'reload_search',
-           'empty_category_buttons']
+           'empty_category_buttons',
+           'get_collection_user']
 
 
 async def get_approval_button():
@@ -59,7 +60,7 @@ async def get_matches_menu_buttons(match_count: int, collection_count: int, love
     button2 = InlineKeyboardButton(text=f"Свидание [{love_count}]", callback_data=f"who_wants|LOVE")
     button3 = InlineKeyboardButton(text=f"Постель [{sex_count}]", callback_data=f"who_wants|SEX")
     button4 = InlineKeyboardButton(text=f"Общение [{chat_count}]", callback_data=f"who_wants|CHAT")
-    button5 = InlineKeyboardButton(text=f"Обновить 🔄", callback_data=f"start_btn_match_menu|{unique_suffix}")
+    button5 = InlineKeyboardButton(text=f"Обновить 🔄", callback_data=f"match_menu_start_btn|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button0], [button1], [button2, button3, button4], [button5]])
     
     return markup
@@ -68,48 +69,13 @@ async def get_matches_menu_buttons(match_count: int, collection_count: int, love
 async def empty_category_buttons():
     # Пустая категория, выход в меню Совпадений
     unique_suffix = uuid4().hex[:4]
-    button1 = InlineKeyboardButton(text=f"Обновить 🔄", callback_data=f"start_btn_match_menu|{unique_suffix}")
+    button1 = InlineKeyboardButton(text=f"⏮️ Вернуться в меню", callback_data=f"match_menu_start_btn|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1]])
     
     return markup
 
 
-
-async def get_wants_user(reaction: ReactionType, price: int, priced: bool = False, user_info: dict=None, id_in_cache: int=0):
-    if reaction == "LOVE":
-        pass
-    elif reaction == "SEX":
-        pass
-    elif reaction == "CHAT":
-        pass
-    if user_info == None:
-        random_user = random.choice(test_db)
-        target_tg_id = random_user.get('tg_id', 0)
-        target_name = random_user.get('name', '')
-        target_username = random_user.get('username', '')
-        description = random_user.get('description', '')
-        photo_id = random_user.get('photo_id', '')
-        caption=f"<b>{target_name}</b>\n<i>{description}</i>"
-    else:
-        target_name = user_info.get('target_name', '')
-        caption = user_info.get('caption', '')
-        photo_id = user_info.get('photo_id', '')
-
-    if priced:
-        button1 = InlineKeyboardButton(text=f"Добавлено в 💘 Совпадения", callback_data=f"pass")
-    else:
-        button1 = InlineKeyboardButton(text=f"Добавить в Совпадения {price} ⭐️", callback_data=f"wants_pay|{target_tg_id}|{price}|{reaction}", pay=True)
-    unique_suffix = uuid4().hex[:4]
-    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"wants_slider|BACK|{id_in_cache}|{reaction}")
-    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"wants_slider|NEXT|{id_in_cache}||{reaction}")
-    button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"start_btn_match_menu|{unique_suffix}")
-    markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
-
-    return photo_id, caption, markup
-
-
-async def get_matches_user(user: User, ids: list):
-    username = user.username
+async def get_wants_user(user: User, ids: list, reaction: ReactionType, price: int):
     back_id, next_id = ids
     if ids[0] == None:
         back_id = 'pass'
@@ -117,10 +83,44 @@ async def get_matches_user(user: User, ids: list):
         next_id = 'pass'
 
     unique_suffix = uuid4().hex[:4]
-    button1 = InlineKeyboardButton(text="✉️ Начать знакомство", callback_data=f"pass", url=f"https://t.me/{username}")
+    button1 = InlineKeyboardButton(text=f"Добавить в Совпадения {price} ⭐️", callback_data=f"wants_pay|{user.telegram_id}|{price}|{reaction}", pay=True)
+    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"wants_navigation|{reaction}|{back_id}")
+    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"wants_navigation|{reaction}|{next_id}")
+    button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"match_menu_start_btn|{unique_suffix}")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
+    
+    return markup
+
+
+async def get_match_user(user: User, ids: list):
+    back_id, next_id = ids
+    if ids[0] == None:
+        back_id = 'pass'
+    if ids[1] == None:
+        next_id = 'pass'
+
+    unique_suffix = uuid4().hex[:4]
+    button1 = InlineKeyboardButton(text="✉️ Начать знакомство", callback_data=f"pass", url=f"https://t.me/{user.username}")
     button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"matches_navigation|{back_id}")
     button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"matches_navigation|{next_id}")
-    button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"start_btn_match_menu|{unique_suffix}")
+    button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"match_menu_start_btn|{unique_suffix}")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
+    
+    return markup
+
+
+async def get_collection_user(user: User, ids: list):
+    back_id, next_id = ids
+    if ids[0] == None:
+        back_id = 'pass'
+    if ids[1] == None:
+        next_id = 'pass'
+
+    unique_suffix = uuid4().hex[:4]
+    button1 = InlineKeyboardButton(text="✉️ Начать знакомство", callback_data=f"pass", url=f"https://t.me/{user.username}")
+    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"collection_navigation|{back_id}")
+    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"collection_navigation|{next_id}")
+    button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"match_menu_start_btn|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
     
     return markup
@@ -188,7 +188,7 @@ async def get_location_button():
 
 async def get_start_button_match_menu():
     # Кнопка Старт Посмотреть Совпадения
-    button = InlineKeyboardButton(text="Посмотреть Совпадения", callback_data="start_btn_match_menu")
+    button = InlineKeyboardButton(text="Посмотреть Совпадения", callback_data="match_menu_start_btn")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
     
     return markup
@@ -196,7 +196,7 @@ async def get_start_button_match_menu():
 
 async def get_start_button_search_menu():
     # Кнопка Старт Поиска
-    button = InlineKeyboardButton(text="Начать поиск", callback_data="start_btn_search_menu")
+    button = InlineKeyboardButton(text="Начать поиск", callback_data="search_menu_start_btn")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
     
     return markup

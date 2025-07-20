@@ -405,7 +405,7 @@ async def cmd_delete_profile(message: types.Message, state: FSMContext):
 
 
 # колбек поиск вход
-@dp.callback_query(F.data == "start_btn_search_menu")
+@dp.callback_query(F.data == "search_menu_start_btn")
 async def btn_start_search(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
@@ -480,7 +480,7 @@ async def btn_reload_search(callback: types.CallbackQuery):
 
 
 # колбек кнопка старт у меню совпадений
-@dp.callback_query(lambda c: c.data.startswith("start_btn_match_menu"))
+@dp.callback_query(lambda c: c.data.startswith("match_menu_start_btn"))
 async def query_start__reload_btn_match_menu(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
@@ -527,11 +527,11 @@ async def query_matches(callback: types.CallbackQuery):
         prev_id, next_id = await get_prev_next_ids(target_users_ids[0], target_users_ids)
         photo_id = target_user.photo_id
         caption = await get_caption(target_user)
-        markup = await get_matches_user(target_user, [prev_id, next_id])
+        markup = await get_match_user(target_user, [prev_id, next_id])
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
                                       reply_markup = markup)
-
+    
 
 # вперед/назад при навигации у меню Совпадений
 @dp.callback_query(lambda c: c.data.startswith("matches_navigation"))
@@ -553,7 +553,57 @@ async def query_matches_navigation(callback: types.CallbackQuery):
     target_user = await get_user_by_id(target_id)
     photo_id = target_user.photo_id
     caption = await get_caption(target_user)
-    markup = await get_matches_user(target_user, [prev_id, next_id])
+    markup = await get_match_user(target_user, [prev_id, next_id])
+
+    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
+                                      reply_markup = markup)
+
+
+# колбек кнопка Коллекция в меню Совпадений
+@dp.callback_query(F.data == "collection")
+async def query_collection(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
+
+    target_users_ids, _ = await get_collection_targets(user_id)
+
+    if not target_users_ids:
+        photo_id = MATCH_MENU_PICTURE
+        caption = texts['TEXT']['match_menu']['start']
+        markup = await empty_category_buttons()
+    else:
+        target_user = await get_user_by_id(target_users_ids[0])
+        prev_id, next_id = await get_prev_next_ids(target_users_ids[0], target_users_ids)
+        photo_id = target_user.photo_id
+        caption = await get_caption(target_user)
+        markup = await get_collection_user(target_user, [prev_id, next_id])
+
+    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
+                                      reply_markup = markup)
+    
+
+# вперед/назад при навигации Коллекция
+@dp.callback_query(lambda c: c.data.startswith("collection_navigation"))
+async def query_collection_navigation(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
+
+    _, target_id = callback.data.split("|", 1)
+
+    if target_id == 'pass':
+        await callback.answer(texts['TEXT']["notifications"]["empty"]) # уведомление сверху
+        return
+
+    target_id = int(target_id)
+    target_users_ids, _ = await get_collection_targets(user_id)
+    prev_id, next_id = await get_prev_next_ids(target_id, target_users_ids)
+
+    target_user = await get_user_by_id(target_id)
+    photo_id = target_user.photo_id
+    caption = await get_caption(target_user)
+    markup = await get_collection_user(target_user, [prev_id, next_id])
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
                                       reply_markup = markup)
@@ -563,10 +613,52 @@ async def query_matches_navigation(callback: types.CallbackQuery):
 @dp.callback_query(lambda c: c.data.startswith("who_wants"))
 async def handle_who_wants(callback: types.CallbackQuery):
     user_id = callback.from_user.id
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
+
     _, reaction = callback.data.split("|", 1)
-    photo_id, caption, markup = await get_wants_user(reaction, PRICE_ADD_TO_MATCHES)
-    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id))
-    await callback.message.edit_caption(caption=caption, reply_markup=markup, parse_mode="HTML")
+
+    target_users_ids, _ = await get_intent_targets(user_id, reaction)
+
+    if not target_users_ids:
+        photo_id = MATCH_MENU_PICTURE
+        caption = texts['TEXT']['match_menu']['start']
+        markup = await empty_category_buttons()
+    else:
+        target_user = await get_user_by_id(target_users_ids[0])
+        prev_id, next_id = await get_prev_next_ids(target_users_ids[0], target_users_ids)
+        photo_id = target_user.photo_id
+        caption = await get_caption(target_user)
+        markup = await get_wants_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION)
+
+    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
+                                      reply_markup = markup)
+
+
+# вперед/назад при навигации Коллекция
+@dp.callback_query(lambda c: c.data.startswith("wants_navigation"))
+async def query_wants_navigation(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
+
+    _, reaction, target_id = callback.data.split("|", 2)
+
+    if target_id == 'pass':
+        await callback.answer(texts['TEXT']["notifications"]["empty"]) # уведомление сверху
+        return
+
+    target_id = int(target_id)
+    target_users_ids, _ = await get_intent_targets(user_id, reaction)
+    prev_id, next_id = await get_prev_next_ids(target_id, target_users_ids)
+
+    target_user = await get_user_by_id(target_id)
+    photo_id = target_user.photo_id
+    caption = await get_caption(target_user)
+    markup = await get_wants_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION)
+
+    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
+                                      reply_markup = markup)
 
 
 # обработка колбека оплаты
@@ -624,7 +716,7 @@ async def on_successful_payment(message: types.Message):
         # изменяем запись
         target_id = await get_user_by_id(target_id)
         user_info = {"target_name": target_id.first_name, "caption": target_id.about_me, "photo_id": target_id.photo_id}
-        markup = await get_wants_user(reaction, PRICE_ADD_TO_MATCHES, priced=True, user_info=user_info)
+        markup = await get_wants_user(reaction, PRICE_ADD_TO_COLLECTION, priced=True, user_info=user_info)
 
         match_menu_message_id = await get_cached_message_id(user_id, "match_menu_message_id")
         await bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=int(match_menu_message_id), reply_markup=markup)

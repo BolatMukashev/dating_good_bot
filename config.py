@@ -12,7 +12,7 @@ __all__ = ['BOT_API_KEY',
            'SEARCH_MENU_PICTURE',
            'NO_USERNAME_PICTURE',
            'PRICE_INCOGNITO',
-           'PRICE_ADD_TO_MATCHES',
+           'PRICE_ADD_TO_COLLECTION',
            'NOT_FOUND_PICTURE',
            'NOTION_SITE',
            'opencagedata_API_KEY'
@@ -43,4 +43,4 @@ NOT_FOUND_PICTURE = "AgACAgIAAxkBAAIEvmhza0krNzZpfxACmpK6ldTGMiKdAAKb-zEb-GmZS3m
 
 #prices:
 PRICE_INCOGNITO = 1
-PRICE_ADD_TO_MATCHES = 1
+PRICE_ADD_TO_COLLECTION = 1
