@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Index
 from sqlalchemy.orm import relationship, DeclarativeBase
 from enum import Enum
 from sqlalchemy import Enum as SQLEnum
@@ -61,6 +61,12 @@ class Reaction(Base):
 
     sender = relationship('User', foreign_keys=[telegram_id], back_populates='reactions_sent')
     receiver = relationship('User', foreign_keys=[target_tg_id], back_populates='reactions_received')
+
+    __table_args__ = (
+        Index('ix_reactions_telegram_target_reaction', telegram_id, target_tg_id, reaction),
+        Index('ix_reactions_target_tg_id', target_tg_id),
+    )
+
 
 
 # Таблица payment

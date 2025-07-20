@@ -340,7 +340,7 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
 
     user = await get_user_by_id(user_id)
 
-    label = texts['TEXT']["payment"]["incognito"]["lable"]
+    label = texts['TEXT']["payment"]["incognito"]["label"]
     title = texts['TEXT']["payment"]["incognito"]["title"]
     description = texts['TEXT']["payment"]["incognito"]["description"]
 
@@ -601,16 +601,15 @@ async def query_collection_navigation(callback: types.CallbackQuery):
     prev_id, next_id = await get_prev_next_ids(target_id, target_users_ids)
 
     target_user = await get_user_by_id(target_id)
-    photo_id = target_user.photo_id
     caption = await get_caption(target_user)
     markup = await get_collection_user(target_user, [prev_id, next_id])
 
-    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
+    await callback.message.edit_media(media=InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
                                       reply_markup = markup)
 
 
 # колбека кому нравишься
-@dp.callback_query(lambda c: c.data.startswith("who_wants"))
+@dp.callback_query(lambda c: c.data.startswith("intentions"))
 async def handle_who_wants(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
@@ -629,14 +628,14 @@ async def handle_who_wants(callback: types.CallbackQuery):
         prev_id, next_id = await get_prev_next_ids(target_users_ids[0], target_users_ids)
         photo_id = target_user.photo_id
         caption = await get_caption(target_user)
-        markup = await get_wants_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION)
+        markup = await get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION)
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
                                       reply_markup = markup)
 
 
 # вперед/назад при навигации Коллекция
-@dp.callback_query(lambda c: c.data.startswith("wants_navigation"))
+@dp.callback_query(lambda c: c.data.startswith("navigation_intentions"))
 async def query_wants_navigation(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
@@ -653,34 +652,35 @@ async def query_wants_navigation(callback: types.CallbackQuery):
     prev_id, next_id = await get_prev_next_ids(target_id, target_users_ids)
 
     target_user = await get_user_by_id(target_id)
-    photo_id = target_user.photo_id
     caption = await get_caption(target_user)
-    markup = await get_wants_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION)
+    markup = await get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION)
 
-    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
+    await callback.message.edit_media(media=InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
                                       reply_markup = markup)
 
 
 # обработка колбека оплаты
-@dp.callback_query(lambda c: c.data.startswith("wants_pay"))
-async def handle_wants_pay(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
+@dp.callback_query(lambda c: c.data.startswith("pay_intentions"))
+async def handle_intentions_pay(callback: types.CallbackQuery):
     user_lang = callback.from_user.language_code
     texts = await get_texts(user_lang)
 
-    _, target_tg_id, target_name, caption, photo_id, price_str, reaction = callback.data.split("|")
-    price = int(price_str)
+    _, target_id, amount_str, reaction = callback.data.split("|")
+    target_id = int(target_id)
+    amount = int(amount_str)
+
+    user = await get_user_by_id(target_id)
 
     label = texts["TEXT"]["payment"]["collection"]["label"]
     title = texts["TEXT"]["payment"]["collection"]["title"]
     description = texts["TEXT"]["payment"]["collection"]["description"]
 
-    prices = [LabeledPrice(label=label.format(target_name=target_name), amount=price)] #🏆 💫 ⭐ Избранное
+    prices = [LabeledPrice(label=label.format(target_name=user.first_name), amount=amount)] #🏆 💫 ⭐ Избранное
 
     sent_invoice = await callback.message.answer_invoice(
-        title=title.format(target_name=target_name),
-        description=description.format(target_name=target_name),
-        payload=f"payment_add_to_collection|{target_tg_id}|{price}|{reaction}",
+        title=title.format(target_name=user.first_name),
+        description=description.format(target_name=user.first_name),
+        payload=f"payment_add_to_collection|{target_id}|{amount}|{reaction}",
         provider_token="",
         currency="XTR",
         prices=prices,
@@ -705,6 +705,8 @@ async def pre_checkout(pre_checkout_query: types.PreCheckoutQuery):
 async def on_successful_payment(message: types.Message):
     payload = message.successful_payment.invoice_payload
     user_id = message.from_user.id
+    user_lang = message.from_user.language_code
+    texts = await get_texts(user_lang)
 
     if payload.startswith("payment_add_to_collection"):
         _, target_id, amount, reaction = payload.split("|")
@@ -713,13 +715,24 @@ async def on_successful_payment(message: types.Message):
 
         payment_message_id = await get_cached_message_id(user_id, "invoice_message_id")
     
-        # изменяем запись
-        target_id = await get_user_by_id(target_id)
-        user_info = {"target_name": target_id.first_name, "caption": target_id.about_me, "photo_id": target_id.photo_id}
-        markup = await get_wants_user(reaction, PRICE_ADD_TO_COLLECTION, priced=True, user_info=user_info)
+        target_users_ids, _ = await get_intent_targets(user_id, reaction)
+
+        if not target_users_ids:
+            photo_id = MATCH_MENU_PICTURE
+            caption = texts['TEXT']['match_menu']['start']
+            markup = await empty_category_buttons()
+        else:
+            target_user = await get_user_by_id(target_users_ids[0])
+            prev_id, next_id = await get_prev_next_ids(target_users_ids[0], target_users_ids)
+            photo_id = target_user.photo_id
+            caption = await get_caption(target_user)
+            markup = await get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION)
 
         match_menu_message_id = await get_cached_message_id(user_id, "match_menu_message_id")
-        await bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=int(match_menu_message_id), reply_markup=markup)
+        await bot.edit_message_media(chat_id=message.chat.id,
+                                     message_id=int(match_menu_message_id),
+                                     media=InputMediaPhoto(media=photo_id, parse_mode="HTML", caption=caption),
+                                     reply_markup = markup)
 
     elif payload.startswith("payment_incognito"):
         _, amount = payload.split("|")
@@ -763,17 +776,15 @@ async def handle_text(message: types.Message):
         # изменяем запись
         await bot.edit_message_media(chat_id=message.chat.id,
                                     message_id=int(start_message_id),
-                                    media=InputMediaPhoto(media=user.photo_id))
-        await bot.edit_message_caption(chat_id=message.chat.id,
-                                    message_id=int(start_message_id),
-                                    reply_markup = await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch),
-                                    parse_mode="HTML",
-                                    caption=texts['TEXT']["user_profile"]["profile"].format(first_name=user.first_name,
-                                                                                                country_local=user.country_local,
-                                                                                                city_local=user.city_local,
-                                                                                                gender=texts['GENDER_LABELS'][user.gender],
-                                                                                                gender_search=texts['GENDER_SEARCH_LABELS'][user.gender_search],
-                                                                                                about_me=user_text))
+                                    media=InputMediaPhoto(media=user.photo_id,
+                                                          parse_mode="HTML",
+                                                          caption=texts['TEXT']["user_profile"]["profile"].format(first_name=user.first_name,
+                                                                                                                  country_local=user.country_local,
+                                                                                                                  city_local=user.city_local,
+                                                                                                                  gender=texts['GENDER_LABELS'][user.gender],
+                                                                                                                  gender_search=texts['GENDER_SEARCH_LABELS'][user.gender_search],
+                                                                                                                  about_me=user_text)),
+                                    reply_markup = await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch))
 
         match_menu = await message.answer_photo(photo=MATCH_MENU_PICTURE,
                                                 caption=texts['TEXT']['match_menu']['start'],

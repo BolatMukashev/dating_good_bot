@@ -1,4 +1,4 @@
-from sqlalchemy import select, update, or_, delete
+from sqlalchemy import select, update, or_, delete, union_all
 from sqlalchemy.orm import aliased
 from models import User, Reaction, Payment, Cache, Gender, PaymentType
 from typing import Any, Optional
@@ -8,7 +8,6 @@ from languages import get_texts
 from sqlalchemy.orm import aliased
 from config import *
 import asyncio
-import aiohttp
 from sqlalchemy.orm import aliased
 
 
@@ -269,11 +268,11 @@ async def add_reaction(user_id: int, target_tg_id: int, reaction_str: str):
 
 
 # Добавление платежа в базу
-async def add_payment(user_id: int, amount: int, payment_type: PaymentType, target_tg_id: int | None = None):
+async def add_payment(user_id: int, amount: int, payment_type: PaymentType, target_id: int | None = None):
     async with AsyncSessionLocal() as session:
         payment = Payment(
             telegram_id=user_id,
-            target_tg_id=target_tg_id,
+            target_tg_id=target_id,
             amount=amount,
             type=payment_type
         )
@@ -359,27 +358,45 @@ async def get_collection_targets(user_id: int) -> tuple[list[int], int]:
         return sorted_ids, len(ids)
 
 
-# Найти по намерениям
+# Найти по намерениям, исключая взаимных и тех, кто в Коллекции
 async def get_intent_targets(user_id: int, intent: str) -> tuple[list[int], int]:
     async with AsyncSessionLocal() as session:
-        # Подзапрос: выбираем id всех, кому user_id поставил такую же реакцию
-        subq = select(Reaction.target_tg_id).where(
-            Reaction.telegram_id == user_id,
-            Reaction.reaction == intent.upper()
+        # Подзапрос: кого user_id лайкнул с таким intent
+        subq_reacted = (
+            select(Reaction.target_tg_id)
+            .where(
+                Reaction.telegram_id == user_id,
+                Reaction.reaction == intent.upper()
+            )
         )
 
-        # Основной запрос: все, кто поставил user_id такую реакцию, НО исключаем взаимных
+        # Подзапрос: кого user_id добавил в Коллекцию
+        subq_collection = (
+            select(Payment.target_tg_id)
+            .where(
+                Payment.telegram_id == user_id,
+                Payment.target_tg_id != None
+            )
+        )
+
+        # Объединённый подзапрос через UNION
+        union_subq = union_all(subq_reacted, subq_collection).subquery()
+
+        # Основной запрос: ищем пользователей, которые поставили реакцию user_id,
+        # но которых нет в объединённом списке
         result = await session.execute(
             select(Reaction.telegram_id)
             .where(
                 Reaction.target_tg_id == user_id,
                 Reaction.reaction == intent.upper(),
-                ~Reaction.telegram_id.in_(subq)  # теперь всё ок
+                ~Reaction.telegram_id.in_(select(union_subq.c.target_tg_id))
             )
         )
+
         ids = result.scalars().unique().all()
         sorted_ids = sorted(ids)
         return sorted_ids, len(ids)
+
 
 
 # Найти id-до и id-после в списке

@@ -9,7 +9,7 @@ from uuid import uuid4
 __all__ = ['get_approval_button',
            'get_btn_to_search',
            'get_matches_menu_buttons',
-           'get_wants_user',
+           'get_intention_user',
            'get_match_user',
            'get_gender_buttons',
            'get_gender_search_buttons',
@@ -57,9 +57,9 @@ async def get_matches_menu_buttons(match_count: int, collection_count: int, love
     unique_suffix = uuid4().hex[:4]
     button0 = InlineKeyboardButton(text=f"💘 Совпадения [{match_count}]", callback_data=f"matches")
     button1 = InlineKeyboardButton(text=f"✨ Коллекция [{collection_count}]", callback_data=f"collection")
-    button2 = InlineKeyboardButton(text=f"Свидание [{love_count}]", callback_data=f"who_wants|LOVE")
-    button3 = InlineKeyboardButton(text=f"Постель [{sex_count}]", callback_data=f"who_wants|SEX")
-    button4 = InlineKeyboardButton(text=f"Общение [{chat_count}]", callback_data=f"who_wants|CHAT")
+    button2 = InlineKeyboardButton(text=f"Свидание [{love_count}]", callback_data=f"intentions|LOVE")
+    button3 = InlineKeyboardButton(text=f"Постель [{sex_count}]", callback_data=f"intentions|SEX")
+    button4 = InlineKeyboardButton(text=f"Общение [{chat_count}]", callback_data=f"intentions|CHAT")
     button5 = InlineKeyboardButton(text=f"Обновить 🔄", callback_data=f"match_menu_start_btn|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button0], [button1], [button2, button3, button4], [button5]])
     
@@ -75,7 +75,8 @@ async def empty_category_buttons():
     return markup
 
 
-async def get_wants_user(user: User, ids: list, reaction: ReactionType, price: int):
+async def get_intention_user(user: User, ids: list, reaction: ReactionType, amount: int):
+    # получить кнопки для 
     back_id, next_id = ids
     if ids[0] == None:
         back_id = 'pass'
@@ -83,9 +84,9 @@ async def get_wants_user(user: User, ids: list, reaction: ReactionType, price: i
         next_id = 'pass'
 
     unique_suffix = uuid4().hex[:4]
-    button1 = InlineKeyboardButton(text=f"Добавить в Совпадения {price} ⭐️", callback_data=f"wants_pay|{user.telegram_id}|{price}|{reaction}", pay=True)
-    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"wants_navigation|{reaction}|{back_id}")
-    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"wants_navigation|{reaction}|{next_id}")
+    button1 = InlineKeyboardButton(text=f"Добавить в Коллекцию {amount} ⭐️", callback_data=f"pay_intentions|{user.telegram_id}|{amount}|{reaction}", pay=True)
+    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"navigation_intentions|{reaction}|{back_id}")
+    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"navigation_intentions|{reaction}|{next_id}")
     button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"match_menu_start_btn|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
     
@@ -93,6 +94,7 @@ async def get_wants_user(user: User, ids: list, reaction: ReactionType, price: i
 
 
 async def get_match_user(user: User, ids: list):
+    # получить кнопки для 
     back_id, next_id = ids
     if ids[0] == None:
         back_id = 'pass'
@@ -110,6 +112,7 @@ async def get_match_user(user: User, ids: list):
 
 
 async def get_collection_user(user: User, ids: list):
+    # получить кнопки для 
     back_id, next_id = ids
     if ids[0] == None:
         back_id = 'pass'
