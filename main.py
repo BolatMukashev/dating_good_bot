@@ -57,7 +57,7 @@ async def cmd_start(message: types.Message):
         starting_message = await message.answer_photo(photo=NO_USERNAME_PICTURE,
                                                       caption=texts["TEXT"]['user_profile']['username_error'],
                                                       parse_mode="HTML",
-                                                      reply_markup=await get_retry_registration_button())
+                                                      reply_markup=await get_retry_registration_button(texts))
         
         await save_to_cache(user_id, "start_message_id", message_id = starting_message.message_id) # запись в базу
         return
@@ -69,7 +69,7 @@ async def cmd_start(message: types.Message):
     if user.about_me:
         starting_message = await message.answer_photo(photo=user.photo_id,
                                                       parse_mode="HTML",
-                                                      reply_markup=await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch),
+                                                      reply_markup=await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch, texts),
                                                       caption=texts["TEXT"]["user_profile"]["profile"].format(first_name=user.first_name,
                                                                                                                 country_local=user.country_local,
                                                                                                                 city_local=user.city_local,
@@ -80,14 +80,14 @@ async def cmd_start(message: types.Message):
         match_menu = await message.answer_photo(photo=MATCH_MENU_PICTURE,
                                                 caption=texts['TEXT']['match_menu']['start'],
                                                 parse_mode="HTML",
-                                                reply_markup=await get_start_button_match_menu())
+                                                reply_markup=await get_start_button_match_menu(texts))
         
         await save_to_cache(user_id, "match_menu_message_id", message_id = match_menu.message_id) # запись в базу
 
         search_menu = await message.answer_photo(photo=SEARCH_MENU_PICTURE,
                                                 caption=texts['TEXT']['search_menu']['start'],
                                                 parse_mode="HTML",
-                                                reply_markup=await get_start_button_search_menu())
+                                                reply_markup=await get_start_button_search_menu(texts))
         
         await save_to_cache(user_id, "search_menu_message_id", message_id = search_menu.message_id) # запись в базу
 
@@ -95,7 +95,7 @@ async def cmd_start(message: types.Message):
         starting_message = await message.answer_photo(photo=USER_PROFILE_PICTURE,
                                                       caption=texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
                                                       parse_mode="HTML",
-                                                      reply_markup=await get_approval_button())
+                                                      reply_markup=await get_approval_button(texts))
     # запись в базу
     await save_to_cache(user_id, "start_message_id", message_id = starting_message.message_id)
 
@@ -125,7 +125,7 @@ async def query_retry_registration(callback: types.CallbackQuery):
             media=USER_PROFILE_PICTURE,
             caption=texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
             parse_mode="HTML"),
-        reply_markup=await get_approval_button())
+        reply_markup=await get_approval_button(texts))
 
 
 # подтверждение 18 лет
@@ -146,7 +146,7 @@ async def query_18years(callback: types.CallbackQuery):
 
     # 2. Отдельно отправляем сообщение с обычной клавиатурой для геолокации
     location_message = await callback.message.answer(texts['TEXT']['user_profile']['get_location_message'],
-                                                     reply_markup= await get_location_button(), parse_mode="HTML")
+                                                     reply_markup= await get_location_button(texts), parse_mode="HTML")
     
     # запись в базу
     await save_to_cache(user_id, "location_message_id", message_id = location_message.message_id)
@@ -196,7 +196,7 @@ async def handle_location(message: types.Message):
     await bot.edit_message_caption(chat_id=message.chat.id,
                                    message_id=int(start_message_id),
                                    caption= texts['TEXT']['user_profile']['step_3'],
-                                   reply_markup = await get_gender_buttons(),
+                                   reply_markup = await get_gender_buttons(texts),
                                    parse_mode="HTML")
 
 
@@ -224,7 +224,7 @@ async def query_gender(callback: types.CallbackQuery):
     # Переход к следующему шагу
     await callback.message.edit_caption(
         caption=texts['TEXT']['user_profile']['step_4'],
-        reply_markup=await get_gender_search_buttons(),
+        reply_markup=await get_gender_search_buttons(texts),
         parse_mode="HTML"
     )
 
@@ -317,7 +317,7 @@ async def query_profile_edit(callback: types.CallbackQuery):
                                        message_id = int(start_message_id),
                                        caption = texts['TEXT']['user_profile']['username_error'],
                                        parse_mode ="HTML",
-                                       reply_markup = await get_retry_registration_button())
+                                       reply_markup = await get_retry_registration_button(texts))
         return
     
     # запись в базу
@@ -331,7 +331,7 @@ async def query_profile_edit(callback: types.CallbackQuery):
             media=USER_PROFILE_PICTURE,
             caption=texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
             parse_mode="HTML"),
-        reply_markup=await get_approval_button())
+        reply_markup=await get_approval_button(texts))
 
 
 # ------------------------------------------------------------------ Режим Инкогнито ----------------------------------------------------------
@@ -361,7 +361,7 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
             provider_token="",
             currency="XTR",
             prices=prices,
-            reply_markup=payment_keyboard()
+            reply_markup=payment_keyboard(texts)
         )
 
         # сохраняем в Кэш
@@ -377,7 +377,7 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
     await bot.edit_message_reply_markup(
         chat_id=callback.message.chat.id,
         message_id=callback.message.message_id,
-        reply_markup=await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch))
+        reply_markup=await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch, texts))
     
     # двойное нажатие ??? но работает
 
@@ -423,13 +423,13 @@ async def btn_start_search(callback: types.CallbackQuery):
         caption = await get_caption(target_user)
         await callback.message.edit_media(
             media=types.InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
-            reply_markup = await get_btn_to_search(target_user.first_name, target_user.telegram_id))
+            reply_markup = await get_btn_to_search(target_user.first_name, target_user.telegram_id, texts))
     else:
         caption = texts['TEXT']["search"]["not_found"]
         notification = texts['TEXT']["notifications"]["not_found"]
         await callback.message.edit_media(
             media=types.InputMediaPhoto(media=NOT_FOUND_PICTURE, caption=caption, parse_mode = "HTML"),
-            reply_markup = await reload_search())
+            reply_markup = await reload_search_button(texts))
         await callback.answer(notification) # уведомление сверху
 
 
@@ -451,7 +451,7 @@ async def handle_reaction(callback: types.CallbackQuery):
 
     if target_user:
         caption = await get_caption(target_user)
-        markup = await get_btn_to_search(target_user.first_name, target_user.telegram_id)
+        markup = await get_btn_to_search(target_user.first_name, target_user.telegram_id, texts)
         await callback.message.edit_media(
             media=types.InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
             reply_markup = markup)
@@ -460,7 +460,7 @@ async def handle_reaction(callback: types.CallbackQuery):
         notification = texts['TEXT']["notifications"]["not_found"]
         await callback.message.edit_media(
             media=types.InputMediaPhoto(media=NOT_FOUND_PICTURE, caption=caption, parse_mode = "HTML"),
-            reply_markup = await reload_search())
+            reply_markup = await reload_search_button(texts))
         await callback.answer(notification) # уведомление сверху
 
 
@@ -477,7 +477,7 @@ async def btn_reload_search(callback: types.CallbackQuery):
         caption = await get_caption(target_user)
         await callback.message.edit_media(
             media=types.InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
-            reply_markup = await get_btn_to_search(target_user.first_name, target_user.telegram_id))
+            reply_markup = await get_btn_to_search(target_user.first_name, target_user.telegram_id, texts))
     else:
         await callback.answer(texts['TEXT']["notifications"]["not_found"]) # уведомление сверху
 
@@ -504,7 +504,7 @@ async def query_start__reload_btn_match_menu(callback: types.CallbackQuery):
     # Распаковка результатов
     (_, match_count), (_, collection_count), (_, love_count), (_, sex_count), (_, chat_count) = results
 
-    markup = await get_matches_menu_buttons(match_count, collection_count, love_count, sex_count, chat_count)
+    markup = await get_matches_menu_buttons(match_count, collection_count, love_count, sex_count, chat_count, texts)
 
     await callback.message.edit_media(media=InputMediaPhoto(media=MATCH_MENU_PICTURE,
                                                             caption=texts['TEXT']['match_menu']['start'],
@@ -527,13 +527,13 @@ async def query_matches(callback: types.CallbackQuery):
     if not target_users_ids:
         photo_id = MATCH_MENU_PICTURE
         caption = texts['TEXT']['match_menu']['start']
-        markup = await empty_category_buttons()
+        markup = await empty_category_buttons(texts)
     else:
         target_user = await get_user_by_id(target_users_ids[0])
         prev_id, next_id = await get_prev_next_ids(target_users_ids[0], target_users_ids)
         photo_id = target_user.photo_id
         caption = await get_caption(target_user)
-        markup = await get_match_user(target_user, [prev_id, next_id])
+        markup = await get_match_user(target_user, [prev_id, next_id], texts)
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
                                       reply_markup = markup)
@@ -559,10 +559,17 @@ async def query_matches_navigation(callback: types.CallbackQuery):
     target_user = await get_user_by_id(target_id)
     photo_id = target_user.photo_id
     caption = await get_caption(target_user)
-    markup = await get_match_user(target_user, [prev_id, next_id])
+    markup = await get_match_user(target_user, [prev_id, next_id], texts)
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
                                       reply_markup = markup)
+
+
+# кнопка без действия
+@dp.callback_query(F.data == "pass")
+async def query_pass(callback: types.CallbackQuery):
+    await callback.answer()
+    return
 
 
 # колбек кнопка Коллекция в меню Совпадений
@@ -577,13 +584,13 @@ async def query_collection(callback: types.CallbackQuery):
     if not target_users_ids:
         photo_id = MATCH_MENU_PICTURE
         caption = texts['TEXT']['match_menu']['start']
-        markup = await empty_category_buttons()
+        markup = await empty_category_buttons(texts)
     else:
         target_user = await get_user_by_id(target_users_ids[0])
         prev_id, next_id = await get_prev_next_ids(target_users_ids[0], target_users_ids)
         photo_id = target_user.photo_id
         caption = await get_caption(target_user)
-        markup = await get_collection_user(target_user, [prev_id, next_id])
+        markup = await get_collection_user(target_user, [prev_id, next_id], texts)
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
                                       reply_markup = markup)
@@ -608,7 +615,7 @@ async def query_collection_navigation(callback: types.CallbackQuery):
 
     target_user = await get_user_by_id(target_id)
     caption = await get_caption(target_user)
-    markup = await get_collection_user(target_user, [prev_id, next_id])
+    markup = await get_collection_user(target_user, [prev_id, next_id], texts)
 
     await callback.message.edit_media(media=InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
                                       reply_markup = markup)
@@ -628,13 +635,13 @@ async def handle_who_wants(callback: types.CallbackQuery):
     if not target_users_ids:
         photo_id = MATCH_MENU_PICTURE
         caption = texts['TEXT']['match_menu']['start']
-        markup = await empty_category_buttons()
+        markup = await empty_category_buttons(texts)
     else:
         target_user = await get_user_by_id(target_users_ids[0])
         prev_id, next_id = await get_prev_next_ids(target_users_ids[0], target_users_ids)
         photo_id = target_user.photo_id
         caption = await get_caption(target_user)
-        markup = await get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION)
+        markup = await get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION, texts)
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
                                       reply_markup = markup)
@@ -659,7 +666,7 @@ async def query_wants_navigation(callback: types.CallbackQuery):
 
     target_user = await get_user_by_id(target_id)
     caption = await get_caption(target_user)
-    markup = await get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION)
+    markup = await get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION, texts)
 
     await callback.message.edit_media(media=InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
                                       reply_markup = markup)
@@ -690,7 +697,7 @@ async def handle_intentions_pay(callback: types.CallbackQuery):
         provider_token="",
         currency="XTR",
         prices=prices,
-        reply_markup=payment_keyboard()
+        reply_markup=payment_keyboard(texts)
     )
 
     # сохраняем в Кэш
@@ -717,7 +724,7 @@ async def on_successful_payment(message: types.Message):
     if payload.startswith("payment_add_to_collection"):
         _, target_id, amount, reaction = payload.split("|")
 
-        await add_payment(user_id, amount, PaymentType.COLLECTION, target_id) # запись в базу
+        await add_payment(user_id, int(amount), PaymentType.COLLECTION, target_id) # запись в базу
 
         payment_message_id = await get_cached_message_id(user_id, "invoice_message_id")
     
@@ -726,13 +733,13 @@ async def on_successful_payment(message: types.Message):
         if not target_users_ids:
             photo_id = MATCH_MENU_PICTURE
             caption = texts['TEXT']['match_menu']['start']
-            markup = await empty_category_buttons()
+            markup = await empty_category_buttons(texts)
         else:
             target_user = await get_user_by_id(target_users_ids[0])
             prev_id, next_id = await get_prev_next_ids(target_users_ids[0], target_users_ids)
             photo_id = target_user.photo_id
             caption = await get_caption(target_user)
-            markup = await get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION)
+            markup = await get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION, texts)
 
         match_menu_message_id = await get_cached_message_id(user_id, "match_menu_message_id")
         await bot.edit_message_media(chat_id=message.chat.id,
@@ -742,14 +749,14 @@ async def on_successful_payment(message: types.Message):
 
     elif payload.startswith("payment_incognito"):
         _, amount = payload.split("|")
-        await add_payment(user_id, amount, PaymentType.INCOGNITO) # запись в базу
+        await add_payment(user_id, int(amount), PaymentType.INCOGNITO) # запись в базу
 
         await update_user_fields(user_id, incognito_pay=True, incognito_switch=True) # запись в базу
 
         payment_message_id = await get_cached_message_id(user_id, "incognito_pay_message_id")
 
         start_message_id = await get_cached_message_id(user_id, "start_message_id")
-        await bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=int(start_message_id), reply_markup=await get_profile_edit_buttons(True, True))
+        await bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=int(start_message_id), reply_markup=await get_profile_edit_buttons(True, True, texts))
 
     # получаем id из Кэш и удаляем сообщение
     await bot.delete_message(chat_id=message.chat.id, message_id=payment_message_id)
@@ -790,19 +797,19 @@ async def handle_text(message: types.Message):
                                                                                                                   gender=texts['GENDER_LABELS'][user.gender],
                                                                                                                   gender_search=texts['GENDER_SEARCH_LABELS'][user.gender_search],
                                                                                                                   about_me=user_text)),
-                                    reply_markup = await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch))
+                                    reply_markup = await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch, texts))
 
         match_menu = await message.answer_photo(photo=MATCH_MENU_PICTURE,
                                                 caption=texts['TEXT']['match_menu']['start'],
                                                 parse_mode="HTML",
-                                                reply_markup=await get_start_button_match_menu())
+                                                reply_markup=await get_start_button_match_menu(texts))
         # запись в базу
         await save_to_cache(user_id, "match_menu_message_id", message_id = match_menu.message_id)
 
         search_menu = await message.answer_photo(photo=SEARCH_MENU_PICTURE,
                                                 caption=texts['TEXT']['search_menu']['start'],
                                                 parse_mode="HTML",
-                                                reply_markup=await get_start_button_search_menu())
+                                                reply_markup=await get_start_button_search_menu(texts))
         # запись в базу
         await save_to_cache(user_id, "search_menu_message_id", message_id = search_menu.message_id)
 

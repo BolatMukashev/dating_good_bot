@@ -68,7 +68,6 @@ class Reaction(Base):
     )
 
 
-
 # Таблица payment
 class Payment(Base):
     __tablename__ = 'payments'
@@ -78,7 +77,7 @@ class Payment(Base):
     target_tg_id = Column(Integer, ForeignKey('users.telegram_id'), nullable=True)
     amount = Column(Integer, nullable=False)
     type = Column(SQLEnum(PaymentType, name="payment_type_enum", native_enum=False), nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     buyer = relationship('User', foreign_keys=[telegram_id], back_populates='payments_made')
     target = relationship('User', foreign_keys=[target_tg_id], back_populates='payments_received')

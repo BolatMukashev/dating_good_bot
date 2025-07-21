@@ -18,63 +18,63 @@ __all__ = ['get_approval_button',
            'get_start_button_match_menu',
            'get_start_button_search_menu',
            'payment_keyboard',
-           'reload_search',
+           'reload_search_button',
            'empty_category_buttons',
            'get_collection_user']
 
 
-async def get_approval_button():
+async def get_approval_button(texts: dict):
     # Кнопка 18+ и согласие с политикой и соглашением
-    button = InlineKeyboardButton(text="Начать регистрацию", callback_data="18yes_and_approval")
+    button = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["begin"], callback_data="18yes_and_approval")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
     
     return markup
 
 
-async def reload_search():
+async def reload_search_button(texts: dict):
     # Кнопка обновить поиск
-    button = InlineKeyboardButton(text="Обновить 🔄", callback_data="reload_search")
+    button = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reload"], callback_data="reload_search")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
     
     return markup
 
 
-async def get_btn_to_search(target_name, target_tg_id):
+async def get_btn_to_search(target_name, target_tg_id, texts: dict):
     # получить кнопки для поиска
-    button1 = InlineKeyboardButton(text="☕ Свидание", callback_data=f"reaction|LOVE|{target_name}|{target_tg_id}")
-    button2 = InlineKeyboardButton(text="👩‍❤️‍💋‍👨 Постель", callback_data=f"reaction|SEX|{target_name}|{target_tg_id}")
-    button3 = InlineKeyboardButton(text="💬 Общение", callback_data=f"reaction|CHAT|{target_name}|{target_tg_id}")
-    button4 = InlineKeyboardButton(text="Пропустить ⏩", callback_data=f"reaction|SKIP|{target_name}|{target_tg_id}")
+    button1 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reaction"]['love'], callback_data=f"reaction|LOVE|{target_name}|{target_tg_id}")
+    button2 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reaction"]['sex'], callback_data=f"reaction|SEX|{target_name}|{target_tg_id}")
+    button3 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reaction"]['chat'], callback_data=f"reaction|CHAT|{target_name}|{target_tg_id}")
+    button4 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reaction"]['skip'], callback_data=f"reaction|SKIP|{target_name}|{target_tg_id}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1, button2, button3], [button4]])
     
     return markup
 
 
-async def get_matches_menu_buttons(match_count: int, collection_count: int, love_count: int, sex_count: int, chat_count: int):
+async def get_matches_menu_buttons(match_count: int, collection_count: int, love_count: int, sex_count: int, chat_count: int, texts: dict):
     # Кнопки match меню
 
     unique_suffix = uuid4().hex[:4]
-    button0 = InlineKeyboardButton(text=f"💘 Совпадения [{match_count}]", callback_data=f"matches")
-    button1 = InlineKeyboardButton(text=f"✨ Коллекция [{collection_count}]", callback_data=f"collection")
-    button2 = InlineKeyboardButton(text=f"Свидание [{love_count}]", callback_data=f"intentions|LOVE")
-    button3 = InlineKeyboardButton(text=f"Постель [{sex_count}]", callback_data=f"intentions|SEX")
-    button4 = InlineKeyboardButton(text=f"Общение [{chat_count}]", callback_data=f"intentions|CHAT")
-    button5 = InlineKeyboardButton(text=f"Обновить 🔄", callback_data=f"match_menu_start_btn|{unique_suffix}")
+    button0 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["match_menu"]['match'].format(match_count=match_count), callback_data=f"matches")
+    button1 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["match_menu"]['collection'].format(collection_count=collection_count), callback_data=f"collection")
+    button2 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["match_menu"]['love'].format(love_count=love_count), callback_data=f"intentions|LOVE")
+    button3 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["match_menu"]['sex'].format(sex_count=sex_count), callback_data=f"intentions|SEX")
+    button4 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["match_menu"]['chat'].format(chat_count=chat_count), callback_data=f"intentions|CHAT")
+    button5 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reload"], callback_data=f"match_menu_start_btn|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button0], [button1], [button2, button3, button4], [button5]])
     
     return markup
 
 
-async def empty_category_buttons():
+async def empty_category_buttons(texts: dict):
     # Пустая категория, выход в меню Совпадений
     unique_suffix = uuid4().hex[:4]
-    button1 = InlineKeyboardButton(text=f"⏮️ Вернуться в меню", callback_data=f"match_menu_start_btn|{unique_suffix}")
+    button1 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["return"], callback_data=f"match_menu_start_btn|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1]])
     
     return markup
 
 
-async def get_intention_user(user: User, ids: list, reaction: ReactionType, amount: int):
+async def get_intention_user(user: User, ids: list, reaction: ReactionType, amount: int, texts: dict):
     # получить кнопки для 
     back_id, next_id = ids
     if ids[0] == None:
@@ -83,16 +83,16 @@ async def get_intention_user(user: User, ids: list, reaction: ReactionType, amou
         next_id = 'pass'
 
     unique_suffix = uuid4().hex[:4]
-    button1 = InlineKeyboardButton(text=f"Добавить в Коллекцию {amount} ⭐️", callback_data=f"pay_intentions|{user.telegram_id}|{amount}|{reaction}", pay=True)
-    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"navigation_intentions|{reaction}|{back_id}")
-    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"navigation_intentions|{reaction}|{next_id}")
-    button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"match_menu_start_btn|{unique_suffix}")
+    button1 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["match_menu"]['add_to_collection'].format(amount=amount), callback_data=f"pay_intentions|{user.telegram_id}|{amount}|{reaction}", pay=True)
+    button2 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["back"], callback_data=f"navigation_intentions|{reaction}|{back_id}")
+    button3 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["next"], callback_data=f"navigation_intentions|{reaction}|{next_id}")
+    button4 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["return"], callback_data=f"match_menu_start_btn|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
     
     return markup
 
 
-async def get_match_user(user: User, ids: list):
+async def get_match_user(user: User, ids: list, texts: dict):
     # получить кнопки для 
     back_id, next_id = ids
     if ids[0] == None:
@@ -101,16 +101,16 @@ async def get_match_user(user: User, ids: list):
         next_id = 'pass'
 
     unique_suffix = uuid4().hex[:4]
-    button1 = InlineKeyboardButton(text="✉️ Начать знакомство", callback_data=f"pass", url=f"https://t.me/{user.username}")
-    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"navigation_matches|{back_id}")
-    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"navigation_matches|{next_id}")
-    button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"match_menu_start_btn|{unique_suffix}")
+    button1 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["match_menu"]['send_message'], callback_data=f"pass", url=f"https://t.me/{user.username}")
+    button2 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["back"], callback_data=f"navigation_matches|{back_id}")
+    button3 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["next"], callback_data=f"navigation_matches|{next_id}")
+    button4 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["return"], callback_data=f"match_menu_start_btn|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
     
     return markup
 
 
-async def get_collection_user(user: User, ids: list):
+async def get_collection_user(user: User, ids: list, texts: dict):
     # получить кнопки для 
     back_id, next_id = ids
     if ids[0] == None:
@@ -119,93 +119,93 @@ async def get_collection_user(user: User, ids: list):
         next_id = 'pass'
 
     unique_suffix = uuid4().hex[:4]
-    button1 = InlineKeyboardButton(text="✉️ Начать знакомство", callback_data=f"pass", url=f"https://t.me/{user.username}")
-    button2 = InlineKeyboardButton(text=" ⬅️ Назад", callback_data=f"navigation_collection|{back_id}")
-    button3 = InlineKeyboardButton(text="Вперед ➡️", callback_data=f"navigation_collection|{next_id}")
-    button4 = InlineKeyboardButton(text="⏮️ Вернуться в меню", callback_data=f"match_menu_start_btn|{unique_suffix}")
+    button1 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["match_menu"]['send_message'], callback_data=f"pass", url=f"https://t.me/{user.username}")
+    button2 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["back"], callback_data=f"navigation_collection|{back_id}")
+    button3 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["next"], callback_data=f"navigation_collection|{next_id}")
+    button4 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["return"], callback_data=f"match_menu_start_btn|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
     
     return markup
 
 
-async def get_gender_buttons():
+async def get_gender_buttons(texts: dict):
     # Выбора пола
-    button1 = InlineKeyboardButton(text="Мужчина", callback_data="MAN")
-    button2 = InlineKeyboardButton(text="Женщина", callback_data="WOMAN")
-    button3 = InlineKeyboardButton(text="Другое", callback_data="ANY")
+    button1 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["gender"]['man'], callback_data="MAN")
+    button2 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["gender"]['woman'], callback_data="WOMAN")
+    button3 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["gender"]['any'], callback_data="ANY")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2], [button3]])
     
     return markup
 
 
-async def get_gender_search_buttons():
+async def get_gender_search_buttons(texts: dict):
     # Выбора поиска пола
-    button1 = InlineKeyboardButton(text="Ищу Мужчину", callback_data="search_man")
-    button2 = InlineKeyboardButton(text="Ищу Женщину", callback_data="search_woman")
-    button3 = InlineKeyboardButton(text="Пол не имеет значения", callback_data="search_any")
+    button1 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["gender_search"]['man'], callback_data="search_man")
+    button2 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["gender_search"]['woman'], callback_data="search_woman")
+    button3 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["gender_search"]['any'], callback_data="search_any")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2], [button3]])
     
     return markup
 
 
-async def get_profile_edit_buttons(pay_status: bool, incognito_switch: bool):
+async def get_profile_edit_buttons(pay_status: bool, incognito_switch: bool, texts: dict):
     # Изменение профиля и статуса инкогнито
     if not pay_status:
         status = 'NOT_PAYED'
-        btn_text = "Стать Инкогнито 🫥"
+        btn_text = texts["BUTTONS_TEXT"]["incognito"]["not_active"]
     else:
         if incognito_switch:
             status = 'ON'
-            btn_text = "Инкогнито включено ✅"
+            btn_text = texts["BUTTONS_TEXT"]["incognito"]["on"]
         else:
             status = 'OFF'
-            btn_text = "Инкогнито выключено 🚫"
+            btn_text = texts["BUTTONS_TEXT"]["incognito"]["off"]
     
     unique_suffix = uuid4().hex[:4]
-    button1 = InlineKeyboardButton(text="Изменить анкету ✏", callback_data="profile_edit")
+    button1 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["profile"]["edit"], callback_data="profile_edit")
     button2 = InlineKeyboardButton(text=btn_text, callback_data=f"incognito|{status}|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2]])
     
     return markup
 
 
-async def get_retry_registration_button():
+async def get_retry_registration_button(texts: dict):
     # Кнопки повтора регистрации, если нет username
-    button1 = InlineKeyboardButton(text="Повторить регистрацию 🔄", callback_data="retry_registration")
+    button1 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["profile"]["retry"], callback_data="retry_registration")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1]])
     
     return markup
 
 
-async def get_location_button():
+async def get_location_button(texts: dict):
     # Отправка геолокации (не инлайн)
-    kb = [[KeyboardButton(text="📍 Отправить местоположение", request_location=True)]]
+    kb = [[KeyboardButton(text=texts["BUTTONS_TEXT"]["location"]["send"], request_location=True)]]
     keyboard = ReplyKeyboardMarkup(
         keyboard=kb,
         resize_keyboard=True,
-        input_field_placeholder="Нажми на кнопку")
+        input_field_placeholder=texts["BUTTONS_TEXT"]["location"]["press"])
     
     return keyboard
 
 
-async def get_start_button_match_menu():
+async def get_start_button_match_menu(texts: dict):
     # Кнопка Старт Посмотреть Совпадения
-    button = InlineKeyboardButton(text="Посмотреть Совпадения", callback_data="match_menu_start_btn")
+    button = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["match_menu"]["start"], callback_data="match_menu_start_btn")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
     
     return markup
 
 
-async def get_start_button_search_menu():
+async def get_start_button_search_menu(texts: dict):
     # Кнопка Старт Поиска
-    button = InlineKeyboardButton(text="Начать поиск", callback_data="search_menu_start_btn")
+    button = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["search_menu"]["start"], callback_data="search_menu_start_btn")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
     
     return markup
 
 
-def payment_keyboard():
+def payment_keyboard(texts: dict):
     builder = InlineKeyboardBuilder()
-    builder.button(text="Оплатить через Telegram Stars ⭐️", pay=True)
+    builder.button(text=texts["BUTTONS_TEXT"]["pay"], pay=True)
     
     return builder.as_markup()
