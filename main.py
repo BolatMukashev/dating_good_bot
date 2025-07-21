@@ -1,5 +1,4 @@
 import logging
-import aiohttp
 import asyncio
 from db_connect import async_engine
 from aiogram.types import InputMediaPhoto, LabeledPrice

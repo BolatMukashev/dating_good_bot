@@ -1,5 +1,4 @@
-from aiogram.types import ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
-import random
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from models import ReactionType, User
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder

@@ -1,10 +1,9 @@
 from dotenv import dotenv_values
+from urllib.parse import quote_plus
 
 
 __all__ = ['BOT_API_KEY',
            'ADMIN_ID',
-           'MONGO_DB_USERNAME',
-           'MONGO_DB_PASSWORD',
            'MIN_COUNT_SYMBOLS',
            'MAX_COUNT_SYMBOLS',
            'USER_PROFILE_PICTURE',
@@ -15,7 +14,7 @@ __all__ = ['BOT_API_KEY',
            'PRICE_ADD_TO_COLLECTION',
            'NOT_FOUND_PICTURE',
            'NOTION_SITE',
-           'opencagedata_API_KEY'
+           'opencagedata_API_KEY',
            ]
 
 
@@ -26,8 +25,11 @@ config = dotenv_values(".env")
 BOT_API_KEY = config.get("BOT_API_KEY")
 ADMIN_ID = config.get("ADMIN_ID")
 
-MONGO_DB_USERNAME = config.get("MONGO_DB_USERNAME")
-MONGO_DB_PASSWORD = config.get("MONGO_DB_PASSWORD")
+SUPABASE_PASSWORD = config.get("SUPABASE_PASSWORD")
+SUPABASE_PASSWORD = quote_plus(SUPABASE_PASSWORD)
+DATABASE_URL = f"postgresql+asyncpg://postgres:{SUPABASE_PASSWORD}@db.epqowkqlqrigguetfiww.supabase.co:5432/postgres"
+
+# DATABASE_URL = "sqlite+aiosqlite:///my_database.db"
 
 opencagedata_API_KEY = config.get("opencagedata_API_KEY")
 

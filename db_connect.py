@@ -1,6 +1,5 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-
-DATABASE_URL = "sqlite+aiosqlite:///my_database.db"
+from config import DATABASE_URL
 
 async_engine = create_async_engine(DATABASE_URL, echo=False)
 
