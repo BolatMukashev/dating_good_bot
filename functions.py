@@ -1,4 +1,4 @@
-from sqlalchemy import select, update, or_, delete, union_all
+from sqlalchemy import select, or_, delete, union_all
 from sqlalchemy.orm import aliased
 from models import User, Reaction, Payment, Cache, Gender, PaymentType
 from typing import Any, Optional
@@ -7,7 +7,6 @@ import aiohttp
 from languages import get_texts
 from sqlalchemy.orm import aliased
 from config import *
-import asyncio
 from sqlalchemy.orm import aliased
 
 

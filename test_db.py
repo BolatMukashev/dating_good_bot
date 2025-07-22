@@ -2,7 +2,7 @@ import asyncio
 from models import User, ReactionType, Gender
 import random
 from faker import Faker
-from sqlalchemy import select, update
+from sqlalchemy import select
 from functions import *
 from config import ADMIN_ID
 from db_connect import AsyncSessionLocal
