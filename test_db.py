@@ -1,29 +1,27 @@
 import asyncio
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-from models import User
+from models import User, ReactionType, Gender
 import random
 from faker import Faker
 from sqlalchemy import select, update
-from models import Gender
 from functions import *
 from config import ADMIN_ID
+from db_connect import AsyncSessionLocal
 
 
 fake = Faker("ru_RU")
 
 
-# Настройка подключения к базе
-async_engine = create_async_engine("sqlite+aiosqlite:///my_database.db")
-AsyncSessionLocal = sessionmaker(bind=async_engine, class_=AsyncSession, expire_on_commit=False)
-
 WOMAN_PHOTO = 'AgACAgIAAxkBAAIEXWhyM6aDeihjOMGDRT4wm2zQlBVnAAJ_AjIbE9uYS_5EbII1p1GkAQADAgADeQADNgQ'
 MAN_PHOTO = 'AgACAgIAAxkBAAIEZmhyNMfHJtQKJTEpyBvnzSn78uxBAALc8jEbht2QSwgCthHAoX1JAQADAgADeQADNgQ'
 
+
 # TODO добавить ANY
 
-async def add_new_fake_user(gender: Gender, gender_search=True, random_location=False):
+
+async def add_new_fake_user(gender: Gender, tg_id: int, gender_search=True, random_location=False):
     async with AsyncSessionLocal() as session:
+        if tg_id == 0:
+            tg_id = random.randint(100000000, 999999999)
         if gender == Gender.MAN:
             first_name=fake.first_name_male()
             photo_id = MAN_PHOTO
@@ -46,7 +44,7 @@ async def add_new_fake_user(gender: Gender, gender_search=True, random_location=
             country = "Kazakhstan"
             city = "Oral"
 
-        new_user = User(telegram_id= random.randint(100000000, 999999999),
+        new_user = User(telegram_id= tg_id,
                         first_name=first_name,
                         username="astana11b",
                         gender = gender,
@@ -70,16 +68,48 @@ async def get_user_by_id(user_id):
         user = result.scalar_one_or_none()
         if user:
             return user
+        
+async def test():
+    # сценарий MATCH
+    await add_new_fake_user(Gender.WOMAN, tg_id=1111, gender_search=True, random_location=False)
+    await add_reaction(1111, ADMIN_ID, ReactionType.LOVE.value)
+    await add_reaction(ADMIN_ID, 1111, ReactionType.LOVE.value)
 
+    # сценарий LOVE
+    await add_new_fake_user(Gender.WOMAN, tg_id=2222, gender_search=True, random_location=False)
+    await add_reaction(2222, ADMIN_ID, ReactionType.LOVE.value)
 
-async def test_add(user_id, target_id, reaction):
-    await add_reaction(user_id, target_id, reaction)
+    # сценарий SEX
+    await add_new_fake_user(Gender.WOMAN, tg_id=3333, gender_search=True, random_location=False)
+    await add_reaction(3333, ADMIN_ID, ReactionType.SEX.value)
+
+    # сценарий CHAT
+    await add_new_fake_user(Gender.WOMAN, tg_id=4444, gender_search=True, random_location=False)
+    await add_reaction(4444, ADMIN_ID, ReactionType.CHAT.value)
+
+    # сценарий SKIP
+    await add_new_fake_user(Gender.WOMAN, tg_id=5555, gender_search=True, random_location=False)
+    await add_reaction(5555, ADMIN_ID, ReactionType.SKIP.value)
+
+    # сценарий COLLECTION
+    await add_new_fake_user(Gender.WOMAN, tg_id=6666, gender_search=True, random_location=False)
+    await add_reaction(6666, ADMIN_ID, ReactionType.SEX.value)
+
+    # сценарий SEARCH TRUE
+    await add_new_fake_user(Gender.WOMAN, tg_id=7111, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=7112, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=7113, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=7114, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=7115, gender_search=True, random_location=False)
+
+    # сценарий SEARCH FALSE
+    await add_new_fake_user(Gender.WOMAN, tg_id=8111, gender_search=False, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=8112, gender_search=True, random_location=True)
+    await add_new_fake_user(Gender.MAN, tg_id=8113, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=8114, gender_search=False, random_location=True)
+    await add_new_fake_user(Gender.ANY, tg_id=8115, gender_search=True, random_location=False)
 
 
 if __name__ == "__main__":
+    asyncio.run(test())
 
-    # for el in range(5):
-    #     asyncio.run(add_new_fake_user(Gender.WOMAN, gender_search=False, random_location=False))
-
-    user_id = 798338650
-    asyncio.run(test_add(user_id, ADMIN_ID, "SKIP"))

@@ -23,7 +23,7 @@ NOTION_SITE = "https://www.notion.so/bolat-mukashev/dating_good_bot-22fa2ae3a2a3
 config = dotenv_values(".env")
 
 BOT_API_KEY = config.get("BOT_API_KEY")
-ADMIN_ID = config.get("ADMIN_ID")
+ADMIN_ID = int(config.get("ADMIN_ID"))
 
 SUPABASE_PASSWORD = config.get("SUPABASE_PASSWORD")
 SUPABASE_PASSWORD = quote_plus(SUPABASE_PASSWORD)

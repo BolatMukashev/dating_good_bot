@@ -442,7 +442,7 @@ async def handle_reaction(callback: types.CallbackQuery):
 
     _, reaction_str, target_name, target_tg_id = callback.data.split("|", 3)
 
-    await add_reaction(user_id, target_tg_id, reaction_str) # запись в базу
+    await add_reaction(user_id, int(target_tg_id), reaction_str) # запись в базу
     
     reaction = ReactionType(reaction_str)
     await callback.answer(reaction.message_template.format(name=target_name)) # уведомление сверху
@@ -724,7 +724,7 @@ async def on_successful_payment(message: types.Message):
     if payload.startswith("payment_add_to_collection"):
         _, target_id, amount, reaction = payload.split("|")
 
-        await add_payment(user_id, int(amount), PaymentType.COLLECTION, target_id) # запись в базу
+        await add_payment(user_id, int(amount), PaymentType.COLLECTION, int(target_id)) # запись в базу
 
         payment_message_id = await get_cached_message_id(user_id, "invoice_message_id")
     
@@ -749,8 +749,8 @@ async def on_successful_payment(message: types.Message):
 
     elif payload.startswith("payment_incognito"):
         _, amount = payload.split("|")
-        await add_payment(user_id, int(amount), PaymentType.INCOGNITO) # запись в базу
 
+        await add_payment(user_id, int(amount), PaymentType.INCOGNITO) # запись в базу
         await update_user_fields(user_id, incognito_pay=True, incognito_switch=True) # запись в базу
 
         payment_message_id = await get_cached_message_id(user_id, "incognito_pay_message_id")
