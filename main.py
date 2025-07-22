@@ -440,11 +440,11 @@ async def handle_reaction(callback: types.CallbackQuery):
     user_lang = callback.from_user.language_code
     texts = await get_texts(user_lang)
 
-    _, reaction_str, target_name, target_tg_id = callback.data.split("|", 3)
+    _, reaction, target_name, target_tg_id = callback.data.split("|", 3)
 
-    await add_reaction(user_id, int(target_tg_id), reaction_str) # запись в базу
+    await add_reaction(user_id, int(target_tg_id), reaction) # запись в базу
     
-    await callback.answer(texts["TEXT"]["notifications"][reaction_str].format(name=target_name)) # уведомление сверху
+    await callback.answer(texts["TEXT"]["notifications"][reaction].format(name=target_name)) # уведомление сверху
 
     target_user = await find_first_matching_user(user_id) # поиск
 
@@ -532,7 +532,7 @@ async def query_matches(callback: types.CallbackQuery):
         target_user = await get_user_by_id(first_id)
         prev_id, next_id = await get_prev_next_ids(first_id, list(target_users_ids.keys()))
         photo_id = target_user.photo_id
-        caption = await get_caption(target_user, reaction)
+        caption = await get_caption(target_user, user_lang, reaction)
         markup = await get_match_user(target_user, [prev_id, next_id], texts)
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
@@ -554,11 +554,12 @@ async def query_matches_navigation(callback: types.CallbackQuery):
 
     target_id = int(target_id)
     target_users_ids, _ = await get_match_targets(user_id)
-    prev_id, next_id = await get_prev_next_ids(target_id, target_users_ids)
+    prev_id, next_id = await get_prev_next_ids(target_id, list(target_users_ids.keys()))
 
     target_user = await get_user_by_id(target_id)
+    reaction = target_users_ids[target_id]
     photo_id = target_user.photo_id
-    caption = await get_caption(target_user)
+    caption = await get_caption(target_user, user_lang, reaction)
     markup = await get_match_user(target_user, [prev_id, next_id], texts)
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),

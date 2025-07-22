@@ -110,6 +110,26 @@ async def test():
     await add_new_fake_user(Gender.ANY, tg_id=8115, gender_search=True, random_location=False)
 
 
+async def test2():
+    # сценарий SEARCH TRUE
+    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=True, random_location=False)
+
+    # сценарий SEARCH FALSE
+    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=False, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=True, random_location=True)
+    await add_new_fake_user(Gender.MAN, tg_id=0, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=False, random_location=True)
+    await add_new_fake_user(Gender.ANY, tg_id=0, gender_search=True, random_location=False)
+
+
+async def test3():
+    await add_reaction(251093196, ADMIN_ID, ReactionType.SEX.value)
+
+
 if __name__ == "__main__":
-    asyncio.run(test())
+    asyncio.run(test3())
 

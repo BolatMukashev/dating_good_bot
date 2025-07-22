@@ -108,21 +108,29 @@ async def find_first_matching_user(current_user_id: int) -> Optional[User]:
         return None
 
 
-async def get_caption(user: User, reaction) -> str:
+async def get_caption(user: User, lang: str = None, reaction: str = None) -> str:
     # получить описание для пользователя
-    caption=(f"<b>{user.first_name}</b>"
-    f"\n📌 {user.country_local}, {user.city_local}"
-    f"\n⚤ {user.gender.value}, {user.gender_search.value}"
-    f"\n<i>{user.about_me}</i>")
+    if lang and reaction:
+        texts = await get_texts(lang)
+        reaction_str = texts["BUTTONS_TEXT"]["reaction"][reaction]
+        caption=(f"<b>{user.first_name}</b>"
+        f"\n📌 {user.country_local}, {user.city_local}"
+        f"\n<i>{texts["TEXT"]["match_menu"]["you_want"].format(reaction=reaction_str)}</i>"
+        f"\n<i>{user.about_me}</i>")
+    else:
+        caption=(f"<b>{user.first_name}</b>"
+        f"\n📌 {user.country_local}, {user.city_local}"
+        f"\n<i>{user.about_me}</i>")
+    
     return caption
 
 
-async def get_gender_label(gender: Gender, lang: str = "ru") -> str:
+async def get_gender_label(gender: Gender, lang: str) -> str:
     texts = await get_texts(lang)
     return texts['GENDER_LABELS'][gender]
 
 
-async def get_gender_search_label(gender: Gender, lang: str = "ru") -> str:
+async def get_gender_search_label(gender: Gender, lang: str) -> str:
     texts = await get_texts(lang)
     return texts['GENDER_SEARCH_LABELS'][gender]
 

@@ -41,10 +41,10 @@ async def reload_search_button(texts: dict):
 
 async def get_btn_to_search(target_name, target_tg_id, texts: dict):
     # получить кнопки для поиска
-    button1 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reaction"]['love'], callback_data=f"reaction|LOVE|{target_name}|{target_tg_id}")
-    button2 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reaction"]['sex'], callback_data=f"reaction|SEX|{target_name}|{target_tg_id}")
-    button3 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reaction"]['chat'], callback_data=f"reaction|CHAT|{target_name}|{target_tg_id}")
-    button4 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reaction"]['skip'], callback_data=f"reaction|SKIP|{target_name}|{target_tg_id}")
+    button1 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reaction"]['LOVE'], callback_data=f"reaction|LOVE|{target_name}|{target_tg_id}")
+    button2 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reaction"]['SEX'], callback_data=f"reaction|SEX|{target_name}|{target_tg_id}")
+    button3 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reaction"]['CHAT'], callback_data=f"reaction|CHAT|{target_name}|{target_tg_id}")
+    button4 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reaction"]['SKIP'], callback_data=f"reaction|SKIP|{target_name}|{target_tg_id}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button1, button2, button3], [button4]])
     
     return markup
