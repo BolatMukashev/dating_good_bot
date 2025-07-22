@@ -37,7 +37,7 @@ __all__ = ['save_to_cache',
 
 async def find_first_matching_user(current_user_id: int) -> Optional[User]:
     async with AsyncSessionLocal() as session:
-        # Получаем текущего пользователя
+        # ПОИСК. Получаем первого подходящего пользователя
         result = await session.execute(
             select(User).where(User.telegram_id == current_user_id)
         )
@@ -108,7 +108,7 @@ async def find_first_matching_user(current_user_id: int) -> Optional[User]:
         return None
 
 
-async def get_caption(user: User) -> str:
+async def get_caption(user: User, reaction) -> str:
     # получить описание для пользователя
     caption=(f"<b>{user.first_name}</b>"
     f"\n📌 {user.country_local}, {user.city_local}"
@@ -280,24 +280,6 @@ async def add_payment(user_id: int, amount: int, payment_type: PaymentType, targ
         await session.commit()
 
 
-# Получить данные о местоположении с указанным языком
-async def get_location_info(latitude, longitude, lang='en'):
-    url = "https://nominatim.openstreetmap.org/reverse"
-    params = {
-        "lat": latitude,
-        "lon": longitude,
-        "format": "json",
-        "accept-language": lang
-    }
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, params=params) as resp:
-            data = await resp.json()
-            address = data.get("address", {})
-            country = address.get("country")
-            city = address.get("city") or address.get("town") or address.get("village")
-            return country, city
-
-
 # -----------------------------------------------------------------геолокация ------------------------------------------------------
 
 
@@ -320,18 +302,38 @@ async def get_location_opencage(latitude: float, longitude: float, lang: str = '
                 return country, city
             except (IndexError, KeyError):
                 return "Location not found"
+            
+
+# Запасная
+async def get_location_info(latitude, longitude, lang='en'):
+    url = "https://nominatim.openstreetmap.org/reverse"
+    params = {
+        "lat": latitude,
+        "lon": longitude,
+        "format": "json",
+        "accept-language": lang
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, params=params) as resp:
+            data = await resp.json()
+            address = data.get("address", {})
+            country = address.get("country")
+            city = address.get("city") or address.get("town") or address.get("village")
+            return country, city
 
 
 # ----------------------------------------------------------------- совпадения ------------------------------------------------------
 
+
 # Найти Совпадения match
-async def get_match_targets(user_id: int) -> tuple[list[int], int]:
+# Возращает  словарь {id: reaction} и кол-во
+async def get_match_targets(user_id: int) -> tuple[dict[int, str], int]:
     async with AsyncSessionLocal() as session:
         user_reactions = aliased(Reaction)
         target_reactions = aliased(Reaction)
 
         result = await session.execute(
-            select(user_reactions.target_tg_id)
+            select(user_reactions.target_tg_id, user_reactions.reaction)
             .join(
                 target_reactions,
                 (user_reactions.target_tg_id == target_reactions.telegram_id) &
@@ -341,9 +343,9 @@ async def get_match_targets(user_id: int) -> tuple[list[int], int]:
             .where(user_reactions.telegram_id == user_id)
         )
 
-        ids = result.scalars().unique().all()
-        sorted_ids = sorted(ids)
-        return sorted_ids, len(ids)
+        # Сортируем по target_id
+        matches = dict(sorted(result.all(), key=lambda x: x[0]))
+        return matches, len(matches)
 
 
 # Получить из Коллекции

@@ -105,22 +105,3 @@ class ReactionType(str, Enum):
     SEX = "SEX"
     CHAT = "CHAT"
     SKIP = "SKIP"
-
-    @property
-    def label(self):
-        return {
-            self.LOVE: "Свидание",
-            self.SEX: "Постель",
-            self.CHAT: "Общение",
-            self.SKIP: "Пропуск",
-        }[self]
-
-    @property
-    def message_template(self):
-        return {
-            self.LOVE: "Ты лайкнул {name}",
-            self.SEX: "Ты лайкнул {name}",
-            self.CHAT: "Ты лайкнул {name}",
-            self.SKIP: "Ты пропустил {name}",
-        }[self]
-

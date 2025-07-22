@@ -7,7 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
 from config import *
-from models import ReactionType, Gender, Base, PaymentType
+from models import Gender, Base, PaymentType
 from buttons import *
 from functions import *
 from languages import get_texts
@@ -444,8 +444,7 @@ async def handle_reaction(callback: types.CallbackQuery):
 
     await add_reaction(user_id, int(target_tg_id), reaction_str) # запись в базу
     
-    reaction = ReactionType(reaction_str)
-    await callback.answer(reaction.message_template.format(name=target_name)) # уведомление сверху
+    await callback.answer(texts["TEXT"]["notifications"][reaction_str].format(name=target_name)) # уведомление сверху
 
     target_user = await find_first_matching_user(user_id) # поиск
 
@@ -529,10 +528,11 @@ async def query_matches(callback: types.CallbackQuery):
         caption = texts['TEXT']['match_menu']['start']
         markup = await empty_category_buttons(texts)
     else:
-        target_user = await get_user_by_id(target_users_ids[0])
-        prev_id, next_id = await get_prev_next_ids(target_users_ids[0], target_users_ids)
+        first_id, reaction = next(iter(target_users_ids.items()))
+        target_user = await get_user_by_id(first_id)
+        prev_id, next_id = await get_prev_next_ids(first_id, list(target_users_ids.keys()))
         photo_id = target_user.photo_id
-        caption = await get_caption(target_user)
+        caption = await get_caption(target_user, reaction)
         markup = await get_match_user(target_user, [prev_id, next_id], texts)
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
