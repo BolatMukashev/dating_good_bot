@@ -21,7 +21,7 @@ MAN_PHOTO = 'AgACAgIAAxkBAAIEZmhyNMfHJtQKJTEpyBvnzSn78uxBAALc8jEbht2QSwgCthHAoX1
 async def add_new_fake_user(gender: Gender, tg_id: int, gender_search=True, random_location=False):
     async with AsyncSessionLocal() as session:
         if tg_id == 0:
-            tg_id = random.randint(100000000, 999999999)
+            tg_id = random.randint(10000, 99999)
         if gender == Gender.MAN:
             first_name=fake.first_name_male()
             photo_id = MAN_PHOTO

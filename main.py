@@ -152,8 +152,6 @@ async def query_18years(callback: types.CallbackQuery):
     await save_to_cache(user_id, "location_message_id", message_id = location_message.message_id)
 
 
-# TODO - тормозит await asyncio.gather(*tasks)
-
 # подтверждение локации
 @dp.message(F.location)
 async def handle_location(message: types.Message):
@@ -184,20 +182,25 @@ async def handle_location(message: types.Message):
             get_location_opencage(latitude, longitude, lang='en')
         )
 
-    # запись в базу
-    await update_user_fields(user_id, country=country_en, city=city_en, country_local=country_local, city_local=city_local)
+   # Получаем два message_id из кэша параллельно
+    location_message_id, start_message_id = await asyncio.gather(
+        get_cached_message_id(user_id, "location_message_id"),
+        get_cached_message_id(user_id, "start_message_id")
+    )
 
-    # получаем id из Кэш и удаляем сообщение
-    location_message_id = await get_cached_message_id(user_id, "location_message_id")
-    await bot.delete_message(chat_id=message.chat.id, message_id=location_message_id)
-
-    # изменяем запись
-    start_message_id = await get_cached_message_id(user_id, "start_message_id")
-    await bot.edit_message_caption(chat_id=message.chat.id,
-                                   message_id=int(start_message_id),
-                                   caption= texts['TEXT']['user_profile']['step_3'],
-                                   reply_markup = await get_gender_buttons(texts),
-                                   parse_mode="HTML")
+    # Удаляем сообщение и кэш, редактируем стартовое сообщение параллельно
+    await asyncio.gather(
+        update_user_fields(user_id, country=country_en, city=city_en, country_local=country_local, city_local=city_local),
+        bot.delete_message(chat_id=message.chat.id, message_id=location_message_id),
+        delete_from_cache(user_id, "location_message_id"),
+        bot.edit_message_caption(
+            chat_id=message.chat.id,
+            message_id=int(start_message_id),
+            caption=texts['TEXT']['user_profile']['step_3'],
+            reply_markup=await get_gender_buttons(texts),
+            parse_mode="HTML"
+        )
+    )
 
 
 # выбор гендера
@@ -701,7 +704,7 @@ async def handle_intentions_pay(callback: types.CallbackQuery):
     )
 
     # сохраняем в Кэш
-    await save_to_cache(callback.from_user.id, "invoice_message_id", message_id = sent_invoice.message_id)
+    await save_to_cache(callback.from_user.id, "collection_pay_message_id", message_id = sent_invoice.message_id)
 
     await callback.answer()
 
@@ -726,7 +729,8 @@ async def on_successful_payment(message: types.Message):
 
         await add_payment(user_id, int(amount), PaymentType.COLLECTION, int(target_id)) # запись в базу
 
-        payment_message_id = await get_cached_message_id(user_id, "invoice_message_id")
+        payment_message_id = await get_cached_message_id(user_id, "collection_pay_message_id")
+        await delete_from_cache(user_id, "collection_pay_message_id")
     
         target_users_ids, _ = await get_intent_targets(user_id, reaction)
 
@@ -750,13 +754,21 @@ async def on_successful_payment(message: types.Message):
     elif payload.startswith("payment_incognito"):
         _, amount = payload.split("|")
 
-        await add_payment(user_id, int(amount), PaymentType.INCOGNITO) # запись в базу
-        await update_user_fields(user_id, incognito_pay=True, incognito_switch=True) # запись в базу
+        # получение id сообщений
+        payment_message_id, start_message_id = await asyncio.gather(
+            get_cached_message_id(user_id, "incognito_pay_message_id"),
+            get_cached_message_id(user_id, "start_message_id")
+            )
 
-        payment_message_id = await get_cached_message_id(user_id, "incognito_pay_message_id")
-
-        start_message_id = await get_cached_message_id(user_id, "start_message_id")
-        await bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=int(start_message_id), reply_markup=await get_profile_edit_buttons(True, True, texts))
+        # добавление инфо о платеже в базу, обновление статусов у пользователя, удаление кэша, изменение стартового сообщения
+        await asyncio.gather(
+            add_payment(user_id, int(amount), PaymentType.INCOGNITO),
+            update_user_fields(user_id, incognito_pay=True, incognito_switch=True),
+            delete_from_cache(user_id, "incognito_pay_message_id"),
+            bot.edit_message_reply_markup(chat_id=message.chat.id,
+                                          message_id=int(start_message_id),
+                                          reply_markup=await get_profile_edit_buttons(True, True, texts))
+        )
 
     # получаем id из Кэш и удаляем сообщение
     await bot.delete_message(chat_id=message.chat.id, message_id=payment_message_id)

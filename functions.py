@@ -15,6 +15,7 @@ from sqlalchemy.orm import aliased
 
 __all__ = ['save_to_cache',
            'get_cached_message_id',
+           'delete_from_cache',
            'create_or_update_user',
            'update_user_fields',
            'get_user_by_id',
@@ -175,6 +176,23 @@ async def get_cached_message_id(user_id: int, parameter: str) -> int | None:
         )
         cache_entry = result.scalar_one_or_none()
         return cache_entry.message_id if cache_entry else None
+
+
+# Удалить запись из кэша по параметру
+# await delete_from_cache(user_id, "start_message_id")
+async def delete_from_cache(user_id: int, parameter: str) -> None:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(Cache).where(
+                Cache.telegram_id == user_id,
+                Cache.parameter == parameter
+            )
+        )
+        cache_entry = result.scalar_one_or_none()
+
+        if cache_entry:
+            await session.delete(cache_entry)
+            await session.commit()
 
 
 # Функция для создания или обновления пользователя
