@@ -391,19 +391,20 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
 @dp.message(Command("delete_profile"))
 async def cmd_delete_profile(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
-    
-    search_menu_message_id = await get_cached_message_id(user_id, "search_menu_message_id")
-    await bot.delete_message(chat_id=message.chat.id, message_id=int(search_menu_message_id))
 
-    match_menu_message_id = await get_cached_message_id(user_id, "match_menu_message_id")
-    await bot.delete_message(chat_id=message.chat.id, message_id=int(match_menu_message_id))
+    search_menu_message_id, match_menu_message_id, start_message_id = await asyncio.gather(
+        get_cached_message_id(user_id, "search_menu_message_id"),
+        get_cached_message_id(user_id, "match_menu_message_id"),
+        get_cached_message_id(user_id, "start_message_id")
+    )
 
-    start_message_id = await get_cached_message_id(user_id, "start_message_id")
-    await bot.delete_message(chat_id=message.chat.id, message_id=int(start_message_id))
-
-    await message.delete()
-
-    await delete_user_by_id(user_id)
+    await asyncio.gather(
+        bot.delete_message(chat_id=message.chat.id, message_id=int(search_menu_message_id)),
+        bot.delete_message(chat_id=message.chat.id, message_id=int(match_menu_message_id)),
+        bot.delete_message(chat_id=message.chat.id, message_id=int(start_message_id)),
+        message.delete(),
+        delete_user_by_id(user_id)
+    )
 
 
 # ------------------------------------------------------------------- Бан аккаунта -------------------------------------------------------
@@ -470,9 +471,11 @@ async def handle_reaction(callback: types.CallbackQuery):
 async def btn_reload_search(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
-    texts = await get_texts(user_lang)
 
-    target_user = await find_first_matching_user(user_id) # поиск
+    target_user, texts = await asyncio.gather(
+        find_first_matching_user(user_id),
+        get_texts(user_lang)
+    )
     
     if target_user:
         caption = await get_caption(target_user)
@@ -527,7 +530,7 @@ async def query_matches(callback: types.CallbackQuery):
 
     if not target_users_ids:
         photo_id = MATCH_MENU_PICTURE
-        caption = texts['TEXT']['match_menu']['start']
+        caption = texts['TEXT']['match_menu']['match_empty']
         markup = await empty_category_buttons(texts)
     else:
         first_id, reaction = next(iter(target_users_ids.items()))
@@ -586,7 +589,7 @@ async def query_collection(callback: types.CallbackQuery):
 
     if not target_users_ids:
         photo_id = MATCH_MENU_PICTURE
-        caption = texts['TEXT']['match_menu']['start']
+        caption = texts['TEXT']['match_menu']['collection_empty']
         markup = await empty_category_buttons(texts)
     else:
         target_user = await get_user_by_id(target_users_ids[0])
@@ -629,22 +632,28 @@ async def query_collection_navigation(callback: types.CallbackQuery):
 async def handle_who_wants(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
-    texts = await get_texts(user_lang)
-
+    
     _, reaction = callback.data.split("|", 1)
 
-    target_users_ids, _ = await get_intent_targets(user_id, reaction)
+    (target_users_ids, _), texts = await asyncio.gather(
+        get_intent_targets(user_id, reaction), 
+        get_texts(user_lang)
+    )
 
     if not target_users_ids:
         photo_id = MATCH_MENU_PICTURE
-        caption = texts['TEXT']['match_menu']['start']
+        caption = texts['TEXT']['match_menu']['empty'][reaction]
         markup = await empty_category_buttons(texts)
     else:
-        target_user = await get_user_by_id(target_users_ids[0])
-        prev_id, next_id = await get_prev_next_ids(target_users_ids[0], target_users_ids)
+        target_user, (prev_id, next_id) = await asyncio.gather(
+            get_user_by_id(target_users_ids[0]),
+            get_prev_next_ids(target_users_ids[0], target_users_ids)
+        )
         photo_id = target_user.photo_id
-        caption = await get_caption(target_user)
-        markup = await get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION, texts)
+        caption, markup = await asyncio.gather(
+            get_caption(target_user),
+            get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION, texts)
+        )
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
                                       reply_markup = markup)
@@ -665,11 +674,16 @@ async def query_wants_navigation(callback: types.CallbackQuery):
 
     target_id = int(target_id)
     target_users_ids, _ = await get_intent_targets(user_id, reaction)
-    prev_id, next_id = await get_prev_next_ids(target_id, target_users_ids)
 
-    target_user = await get_user_by_id(target_id)
-    caption = await get_caption(target_user)
-    markup = await get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION, texts)
+    target_user, (prev_id, next_id) = await asyncio.gather(
+        get_user_by_id(target_id),
+        get_prev_next_ids(target_id, target_users_ids)
+    )
+
+    caption, markup = await asyncio.gather(
+        get_caption(target_user),
+        get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION, texts)
+    )
 
     await callback.message.edit_media(media=InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
                                       reply_markup = markup)
@@ -729,23 +743,30 @@ async def on_successful_payment(message: types.Message):
 
         await add_payment(user_id, int(amount), PaymentType.COLLECTION, int(target_id)) # запись в базу
 
-        payment_message_id = await get_cached_message_id(user_id, "collection_pay_message_id")
+        (target_users_ids, _), payment_message_id, match_menu_message_id = await asyncio.gather(
+            get_intent_targets(user_id, reaction),
+            get_cached_message_id(user_id, "collection_pay_message_id"),
+            get_cached_message_id(user_id, "match_menu_message_id")
+        )
+        
         await delete_from_cache(user_id, "collection_pay_message_id")
-    
-        target_users_ids, _ = await get_intent_targets(user_id, reaction)
 
         if not target_users_ids:
             photo_id = MATCH_MENU_PICTURE
-            caption = texts['TEXT']['match_menu']['start']
+            caption = texts['TEXT']['match_menu']['empty'][reaction]
             markup = await empty_category_buttons(texts)
         else:
-            target_user = await get_user_by_id(target_users_ids[0])
-            prev_id, next_id = await get_prev_next_ids(target_users_ids[0], target_users_ids)
+            target_user, (prev_id, next_id) = await asyncio.gather(
+                get_user_by_id(target_users_ids[0]),
+                get_prev_next_ids(target_users_ids[0], target_users_ids)
+            )
             photo_id = target_user.photo_id
-            caption = await get_caption(target_user)
-            markup = await get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION, texts)
 
-        match_menu_message_id = await get_cached_message_id(user_id, "match_menu_message_id")
+            caption, markup = await asyncio.gather(
+                get_caption(target_user),
+                get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION, texts)
+            )
+
         await bot.edit_message_media(chat_id=message.chat.id,
                                      message_id=int(match_menu_message_id),
                                      media=InputMediaPhoto(media=photo_id, parse_mode="HTML", caption=caption),
