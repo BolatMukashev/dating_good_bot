@@ -344,13 +344,11 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
     texts = await get_texts(user_lang)
     _, action, _ = callback.data.split("|")
 
-    user = await get_user_by_id(user_id)
-
-    label = texts['TEXT']["payment"]["incognito"]["label"]
-    title = texts['TEXT']["payment"]["incognito"]["title"]
-    description = texts['TEXT']["payment"]["incognito"]["description"]
-
     if action == "NOT_PAYED":
+
+        label = texts['TEXT']["payment"]["incognito"]["label"]
+        title = texts['TEXT']["payment"]["incognito"]["title"]
+        description = texts['TEXT']["payment"]["incognito"]["description"]
 
         prices = [LabeledPrice(label=label, amount=PRICE_INCOGNITO)]
 
@@ -367,19 +365,20 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
         # сохраняем в Кэш
         await save_to_cache(callback.from_user.id, "incognito_pay_message_id", message_id = sent_invoice.message_id)
 
-        await callback.answer()
     else:
         if action == "ON":
             await update_user_fields(user_id, incognito_switch=False)
         else:
             await update_user_fields(user_id, incognito_switch=True)
 
+    user = await get_user_by_id(user_id)
+
     await bot.edit_message_reply_markup(
         chat_id=callback.message.chat.id,
         message_id=callback.message.message_id,
         reply_markup=await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch, texts))
     
-    # двойное нажатие ??? но работает
+    await callback.answer(texts["BUTTONS_TEXT"]["incognito"][user.incognito_switch])
 
 
 # ------------------------------------------------------------------- Удаление аккаунта -------------------------------------------------------
