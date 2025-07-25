@@ -198,32 +198,29 @@ async def delete_from_cache(user_id: int, parameter: str) -> None:
 # Функция для создания или обновления пользователя
 # Пример:
 # await create_or_update_user(user_id, first_name, username)
-async def create_or_update_user(user_id: int, first_name: str, username: str) -> None:
+async def create_or_update_user(user_id: int, first_name: str, username: str) -> User:
     async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(User).where(User.telegram_id == user_id)
         )
-        existing_user = result.scalar_one_or_none()
+        user = result.scalar_one_or_none()
 
-        if not existing_user:
-            new_user = User(
+        if user is None:
+            user = User(
                 telegram_id=user_id,
                 first_name=first_name,
                 username=username
             )
-            session.add(new_user)
+            session.add(user)
         else:
-            updated = False
-            if existing_user.first_name != first_name:
-                existing_user.first_name = first_name
-                updated = True
-            if existing_user.username != username:
-                existing_user.username = username
-                updated = True
-            if updated:
-                session.add(existing_user)
+            if user.first_name != first_name:
+                user.first_name = first_name
+            if user.username != username:
+                user.username = username
+            # session.add(user) не нужен — объект уже в сессии
 
         await session.commit()
+        return user
 
 
 # Универсальная функция обновления полей пользователя

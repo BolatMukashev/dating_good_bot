@@ -11,6 +11,7 @@ from models import Gender, Base, PaymentType
 from buttons import *
 from functions import *
 from languages import get_texts
+from aiogram.exceptions import TelegramBadRequest
 
 
 # ------------------------------------------------------------------- Настройка бота -------------------------------------------------------
@@ -50,10 +51,8 @@ async def cmd_start(message: types.Message):
     username = message.from_user.username
 
     # получение текста на языке пользователя и удаление сообщения /start
-    texts = await asyncio.gather(
-        get_texts(user_lang),
-        message.delete()
-    )
+    texts = await get_texts(user_lang)
+    await message.delete()
 
     if not username:
         starting_message = await message.answer_photo(photo=NO_USERNAME_PICTURE,
@@ -65,10 +64,7 @@ async def cmd_start(message: types.Message):
         return
 
     # получение и обновление инфо о пользователе
-    user = await asyncio.gather(
-        get_user_by_id(user_id),
-        create_or_update_user(user_id, first_name, username)
-    )
+    user = await create_or_update_user(user_id, first_name, username)
 
     if user.about_me:
         starting_message = await message.answer_photo(photo=user.photo_id,
@@ -118,7 +114,7 @@ async def query_retry_registration(callback: types.CallbackQuery):
         return
     
     # получаем id стартового сообщения, обновляем инфу о пользователе, получаем текст на языке пользователя
-    start_message_id, texts = await asyncio.gather(
+    start_message_id, texts, _ = await asyncio.gather(
         get_cached_message_id(user_id, "start_message_id"),
         get_texts(user_lang),
         create_or_update_user(user_id, first_name, username)
@@ -143,15 +139,14 @@ async def query_18years(callback: types.CallbackQuery):
     texts = await get_texts(user_lang)
 
     # обновляем инфо о пользователе в базе, кидаем уведомление, меняем стартовое сообщение
-    await asyncio.gather(
-        update_user_fields(user_id, eighteen_years_and_approval=True),
-        callback.answer(text=texts['TEXT']['notifications']['18year']),
-        callback.message.edit_caption(caption=texts['TEXT']['user_profile']['step_2'], parse_mode="HTML", reply_markup=None)
-    )
+    await update_user_fields(user_id, eighteen_years_and_approval=True)
+    await callback.answer(text=texts['TEXT']['notifications']['18year'])
+    await callback.message.edit_caption(caption=texts['TEXT']['user_profile']['step_2'], parse_mode="HTML", reply_markup=None)
 
     # отдельно отправляем сообщение с обычной клавиатурой для геолокации
-    location_message = callback.message.answer(texts['TEXT']['user_profile']['get_location_message'],
-                                               reply_markup= await get_location_button(texts), parse_mode="HTML")
+    location_message = await callback.message.answer(texts['TEXT']['user_profile']['get_location_message'],
+                                                     reply_markup= await get_location_button(texts),
+                                                     parse_mode="HTML")
     
     await save_to_cache(user_id, "location_message_id", message_id = location_message.message_id) # запись в базу
 
@@ -167,9 +162,10 @@ async def handle_location(message: types.Message):
     # получение инфо о пользователе, получение текста на языке пользователя, удаление сообщения с локацией
     user, texts = await asyncio.gather(
         get_user_by_id(user_id),
-        get_texts(user_lang),
-        message.delete()
+        get_texts(user_lang)
     )
+
+    await message.delete()
 
     #защита от повторного ввода
     if user.city or user.country:
@@ -191,19 +187,21 @@ async def handle_location(message: types.Message):
         get_cached_message_id(user_id, "start_message_id")
     )
 
-    # Удаляем сообщение и кэш, редактируем стартовое сообщение параллельно
+    # обновляем инфо о пользователе, удаляем кэш
     await asyncio.gather(
         update_user_fields(user_id, country=country_en, city=city_en, country_local=country_local, city_local=city_local),
-        bot.delete_message(chat_id=message.chat.id, message_id=location_message_id),
-        delete_from_cache(user_id, "location_message_id"),
-        bot.edit_message_caption(
+        delete_from_cache(user_id, "location_message_id")
+    )
+
+    # удаляем сообщение о геолокации, изменяем стартовое сообщение
+    await bot.delete_message(chat_id=message.chat.id, message_id=location_message_id)
+    await bot.edit_message_caption(
             chat_id=message.chat.id,
             message_id=int(start_message_id),
             caption=texts['TEXT']['user_profile']['step_3'],
             reply_markup=await get_gender_buttons(texts),
             parse_mode="HTML"
         )
-    )
 
 
 # выбор гендера
@@ -215,7 +213,7 @@ async def query_gender(callback: types.CallbackQuery):
     selected_gender = Gender(callback.data) # Преобразуем строку в Enum
 
     # получение текста на языке пользователя, обновление инфо о пользователе
-    texts = await asyncio.gather(
+    texts, _ = await asyncio.gather(
         get_texts(user_lang),
         update_user_fields(user_id, gender=selected_gender)
     )
@@ -224,12 +222,10 @@ async def query_gender(callback: types.CallbackQuery):
     gender_label = texts['GENDER_LABELS'][selected_gender]
 
     # уведомление и переход к следующему шагу
-    await asyncio.gather(
-        callback.answer(text=texts['TEXT']['notifications']['gender'].format(user_gender=gender_label)),
-        callback.message.edit_caption(caption=texts['TEXT']['user_profile']['step_4'],
+    await callback.answer(text=texts['TEXT']['notifications']['gender'].format(user_gender=gender_label))
+    await callback.message.edit_caption(caption=texts['TEXT']['user_profile']['step_4'],
                                       reply_markup=await get_gender_search_buttons(texts),
                                       parse_mode="HTML")
-    )
 
 
 # выбора поиска: "Ищу Мужчину / Женщину / Пол не важен"
@@ -247,16 +243,14 @@ async def query_gender_search(callback: types.CallbackQuery):
     selected_gender_search = search_map[callback.data]
 
     # получаем текст на языке пользователя, обновляем в базе инфо о пользователе
-    texts = await asyncio.gather(
+    texts, _ = await asyncio.gather(
         get_texts(user_lang),
         update_user_fields(user_id, gender_search=selected_gender_search)
     )
 
     # Уведомление и переход к следующему шагу
-    await asyncio.gather(
-        callback.answer(text=texts['TEXT']['notifications']['gender_search'].format(gender_search=texts['GENDER_SEARCH_LABELS'][selected_gender_search])),
-        callback.message.edit_caption(caption=texts['TEXT']['user_profile']['step_5'], reply_markup=None, parse_mode="HTML")
-    )
+    await callback.answer(text=texts['TEXT']['notifications']['gender_search'].format(gender_search=texts['GENDER_SEARCH_LABELS'][selected_gender_search]))
+    await callback.message.edit_caption(caption=texts['TEXT']['user_profile']['step_5'], reply_markup=None, parse_mode="HTML")
 
 
 # обработка фото
@@ -270,9 +264,10 @@ async def handle_photo(message: types.Message):
     # получение инфо о пользователе, получение текста на языке пользователя, удаление сообщения с фото
     user, texts = await asyncio.gather(
         get_user_by_id(user_id),
-        get_texts(user_lang),
-        message.delete()
+        get_texts(user_lang)
     )
+
+    await message.delete()
 
     # защита от повторов, удаляем фото
     if user.photo_id:
@@ -280,7 +275,7 @@ async def handle_photo(message: types.Message):
         return
     
     # получение id стартового сообщения, обновление инфо о пользователе
-    start_message_id = await asyncio.gather(
+    start_message_id, _ = await asyncio.gather(
         get_cached_message_id(user_id, "start_message_id"),
         update_user_fields(user_id, photo_id = file_id)
     )
@@ -309,11 +304,16 @@ async def query_profile_edit(callback: types.CallbackQuery):
     )
     
     # удаляем сообщения
-    await asyncio.gather(
-        bot.delete_message(chat_id=callback.message.chat.id, message_id=match_menu_message_id),
-        bot.delete_message(chat_id=callback.message.chat.id, message_id=search_menu_message_id)
-    )
+    try:
+        await asyncio.gather(
+            bot.delete_message(chat_id=callback.message.chat.id, message_id=match_menu_message_id),
+            bot.delete_message(chat_id=callback.message.chat.id, message_id=search_menu_message_id)
+        )
+    except TelegramBadRequest as e:
+        print(f"Ошибка удаления: {e}")
 
+
+    # если нет username
     if not username:
         await bot.edit_message_caption(chat_id = callback.message.chat.id,
                                        message_id = int(start_message_id),
@@ -325,15 +325,15 @@ async def query_profile_edit(callback: types.CallbackQuery):
     # обновляем инфо о пользователе, удаляем записи по остальным полям, изменяем стартовое сообщение
     await asyncio.gather(
         create_or_update_user(user_id, first_name, username),
-        update_user_fields(user_id, **{k: None for k in ["gender", "gender_seach", "country", "country_local", "city", "city_local", "photo_id", "about_me"]}),
-        bot.edit_message_media(
-            chat_id=callback.message.chat.id,
-            message_id=int(start_message_id),
-            media=InputMediaPhoto(media=USER_PROFILE_PICTURE,
-                                  caption=texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
-                                  parse_mode="HTML"),
-            reply_markup=await get_approval_button(texts))
+        update_user_fields(user_id, **{k: None for k in ["gender", "gender_search", "country", "country_local", "city", "city_local", "photo_id", "about_me"]})
     )
+
+    await bot.edit_message_media(chat_id=callback.message.chat.id,
+                                 message_id=int(start_message_id),
+                                 media=InputMediaPhoto(media=USER_PROFILE_PICTURE,
+                                                       caption=texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
+                                                       parse_mode="HTML"),
+                                reply_markup=await get_approval_button(texts))
 
 
 # ------------------------------------------------------------------ Режим Инкогнито ----------------------------------------------------------
@@ -377,12 +377,13 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
     user = await get_user_by_id(user_id) # получение инфо о пользователе
 
     # изменение клавиатуры у стартового сообщения, отправка уведомления
-    await asyncio.gather(
-        bot.edit_message_reply_markup(chat_id=callback.message.chat.id,
+    
+    update_task = bot.edit_message_reply_markup(chat_id=callback.message.chat.id,
                                       message_id=callback.message.message_id,
-                                      reply_markup=await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch, texts)),
-        callback.answer(texts["BUTTONS_TEXT"]["incognito"][user.incognito_switch])
-    )
+                                      reply_markup=await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch, texts))
+    answer_task = callback.answer(texts["BUTTONS_TEXT"]["incognito"][user.incognito_switch])
+
+    await asyncio.gather(update_task, answer_task)
 
 
 # ------------------------------------------------------------------- Удаление аккаунта -------------------------------------------------------
@@ -405,9 +406,10 @@ async def cmd_delete_profile(message: types.Message, state: FSMContext):
         bot.delete_message(chat_id=message.chat.id, message_id=int(search_menu_message_id)),
         bot.delete_message(chat_id=message.chat.id, message_id=int(match_menu_message_id)),
         bot.delete_message(chat_id=message.chat.id, message_id=int(start_message_id)),
-        message.delete(),
         delete_user_by_id(user_id)
     )
+
+    await message.delete()
 
 
 # ------------------------------------------------------------------- Бан аккаунта -------------------------------------------------------
@@ -440,12 +442,9 @@ async def btn_start_search(callback: types.CallbackQuery):
         notification = texts['TEXT']["notifications"]["not_found"]
 
         # изменение сообщения с текстом "не найдено" и отправка уведомления
-        await asyncio.gather(
-            callback.message.edit_media(
-                media=types.InputMediaPhoto(media=NOT_FOUND_PICTURE, caption=caption, parse_mode = "HTML"),
-                reply_markup = await reload_search_button(texts)),
-            callback.answer(notification)
-        )
+        await callback.message.edit_media(media=types.InputMediaPhoto(media=NOT_FOUND_PICTURE, caption=caption, parse_mode = "HTML"),
+                                          reply_markup = await reload_search_button(texts))
+        await callback.answer(notification)
 
 
 # обработка колбека реакции
@@ -480,11 +479,9 @@ async def handle_reaction(callback: types.CallbackQuery):
         notification = texts['TEXT']["notifications"]["not_found"]
 
         # изменение сообщения поиска и отправка уведомления
-        await asyncio.gather(
-            callback.message.edit_media(media=types.InputMediaPhoto(media=NOT_FOUND_PICTURE, caption=caption, parse_mode = "HTML"),
-                                        reply_markup = await reload_search_button(texts)),
-            callback.answer(notification)
-        )
+        await callback.message.edit_media(media=types.InputMediaPhoto(media=NOT_FOUND_PICTURE, caption=caption, parse_mode = "HTML"),
+                                          reply_markup = await reload_search_button(texts))
+        await callback.answer(notification)
 
 
 # колбек повторить поиск
@@ -532,11 +529,9 @@ async def query_start__reload_btn_match_menu(callback: types.CallbackQuery):
     markup = await get_matches_menu_buttons(match_count, collection_count, love_count, sex_count, chat_count, texts)
 
     # изменение сообщения и отправка уведомления
-    await asyncio.gather(
-        callback.message.edit_media(media=InputMediaPhoto(media=MATCH_MENU_PICTURE,caption=texts['TEXT']['match_menu']['start'], parse_mode = "HTML"),
-                                    reply_markup = markup),
-        callback.answer(texts['TEXT']["notifications"]["reloaded"])
-    )
+    await callback.message.edit_media(media=InputMediaPhoto(media=MATCH_MENU_PICTURE,caption=texts['TEXT']['match_menu']['start'], parse_mode = "HTML"),
+                                      reply_markup = markup)
+    await callback.answer(texts['TEXT']["notifications"]["reloaded"])
 
 
 # колбек кнопка мэтчи в меню Совпадений
@@ -837,15 +832,17 @@ async def on_successful_payment(message: types.Message):
             get_cached_message_id(user_id, "start_message_id")
             )
 
-        # добавление инфо о платеже в базу, обновление статусов у пользователя, удаление кэша, изменение стартового сообщения
+        # добавление инфо о платеже в базу, обновление статусов у пользователя, удаление кэша
         await asyncio.gather(
             add_payment(user_id, int(amount), PaymentType.INCOGNITO),
             update_user_fields(user_id, incognito_pay=True, incognito_switch=True),
-            delete_from_cache(user_id, "incognito_pay_message_id"),
-            bot.edit_message_reply_markup(chat_id=message.chat.id,
+            delete_from_cache(user_id, "incognito_pay_message_id")
+        )
+
+        # изменение стартового сообщения
+        await bot.edit_message_reply_markup(chat_id=message.chat.id,
                                           message_id=int(start_message_id),
                                           reply_markup=await get_profile_edit_buttons(True, True, texts))
-        )
 
     # получаем id из Кэш и удаляем сообщение
     await bot.delete_message(chat_id=message.chat.id, message_id=payment_message_id)
@@ -877,20 +874,18 @@ async def handle_text(message: types.Message):
     user_text = message.text
     if len(user_text) >= MIN_COUNT_SYMBOLS and len(user_text) <= MAX_COUNT_SYMBOLS:
         # обновить инфо о пользователе в базе, изменить стартовое сообщение
-        await asyncio.gather(
-            update_user_fields(user_id, about_me = user_text),
-            bot.edit_message_media(chat_id=message.chat.id,
-                                   message_id=int(start_message_id),
-                                   media=InputMediaPhoto(media=user.photo_id,
-                                                         parse_mode="HTML",
-                                                         caption=texts['TEXT']["user_profile"]["profile"].format(first_name=user.first_name,
+        await update_user_fields(user_id, about_me = user_text)
+        await bot.edit_message_media(chat_id=message.chat.id,
+                                     message_id=int(start_message_id),
+                                     media=InputMediaPhoto(media=user.photo_id,
+                                                           parse_mode="HTML",
+                                                           caption=texts['TEXT']["user_profile"]["profile"].format(first_name=user.first_name,
                                                                                                                  country_local=user.country_local,
                                                                                                                  city_local=user.city_local,
                                                                                                                  gender=texts['GENDER_LABELS'][user.gender],
                                                                                                                  gender_search=texts['GENDER_SEARCH_LABELS'][user.gender_search],
                                                                                                                  about_me=user_text)),
-                                   reply_markup = await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch, texts))
-            )
+                                    reply_markup = await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch, texts))
 
         match_menu = await message.answer_photo(photo=MATCH_MENU_PICTURE,
                                                 caption=texts['TEXT']['match_menu']['start'],
