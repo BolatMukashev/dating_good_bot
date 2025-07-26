@@ -131,5 +131,5 @@ async def test3():
 
 
 if __name__ == "__main__":
-    asyncio.run(test3())
+    asyncio.run(test())
 

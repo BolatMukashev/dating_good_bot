@@ -377,13 +377,10 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
     user = await get_user_by_id(user_id) # получение инфо о пользователе
 
     # изменение клавиатуры у стартового сообщения, отправка уведомления
-    
-    update_task = bot.edit_message_reply_markup(chat_id=callback.message.chat.id,
-                                      message_id=callback.message.message_id,
-                                      reply_markup=await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch, texts))
-    answer_task = callback.answer(texts["BUTTONS_TEXT"]["incognito"][user.incognito_switch])
-
-    await asyncio.gather(update_task, answer_task)
+    await bot.edit_message_reply_markup(chat_id=callback.message.chat.id,
+                                        message_id=callback.message.message_id,
+                                        reply_markup=await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch, texts))
+    await callback.answer(texts["BUTTONS_TEXT"]["incognito"][user.incognito_switch])
 
 
 # ------------------------------------------------------------------- Удаление аккаунта -------------------------------------------------------
@@ -455,11 +452,12 @@ async def handle_reaction(callback: types.CallbackQuery):
     
     _, reaction, target_name, target_tg_id = callback.data.split("|", 3)
 
+    await add_reaction(user_id, int(target_tg_id), reaction)
+
     # получение первого подходящего собеседника, получение текста на языке пользователя, добавление реакции в базу
     target_user, texts = await asyncio.gather(
         find_first_matching_user(user_id),
         get_texts(user_lang),
-        add_reaction(user_id, int(target_tg_id), reaction)
     )
     
     await callback.answer(texts["TEXT"]["notifications"][reaction].format(name=target_name)) # уведомление сверху
