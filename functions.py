@@ -362,10 +362,12 @@ async def get_match_targets(user_id: int) -> tuple[dict[int, str], int]:
                 (user_reactions.telegram_id == target_reactions.target_tg_id) &
                 (user_reactions.reaction == target_reactions.reaction)
             )
-            .where(user_reactions.telegram_id == user_id)
+            .where(
+                user_reactions.telegram_id == user_id,
+                user_reactions.reaction != "SKIP"  # <-- исключаем SKIP
+            )
         )
 
-        # Сортируем по target_id
         matches = dict(sorted(result.all(), key=lambda x: x[0]))
         return matches, len(matches)
 
