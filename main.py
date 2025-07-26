@@ -55,7 +55,7 @@ async def cmd_start(message: types.Message):
     await message.delete()
 
     if not username:
-        starting_message = await message.answer_photo(photo=NO_USERNAME_PICTURE,
+        starting_message = await message.answer_photo(photo=Pictures.NO_USERNAME_PICTURE,
                                                       caption=texts["TEXT"]['user_profile']['username_error'],
                                                       parse_mode="HTML",
                                                       reply_markup=await get_retry_registration_button(texts))
@@ -77,12 +77,12 @@ async def cmd_start(message: types.Message):
                                                                                                                 gender_search=texts['GENDER_SEARCH_LABELS'][user.gender_search],
                                                                                                                 about_me=user.about_me))
 
-        match_menu = await message.answer_photo(photo=MATCH_MENU_PICTURE,
+        match_menu = await message.answer_photo(photo=Pictures.MATCH_MENU_PICTURE,
                                                 caption=texts['TEXT']['match_menu']['start'],
                                                 parse_mode="HTML",
                                                 reply_markup=await get_start_button_match_menu(texts))
 
-        search_menu = await message.answer_photo(photo=SEARCH_MENU_PICTURE,
+        search_menu = await message.answer_photo(photo=Pictures.SEARCH_MENU_PICTURE,
                                                 caption=texts['TEXT']['search_menu']['start'],
                                                 parse_mode="HTML",
                                                 reply_markup=await get_start_button_search_menu(texts))
@@ -94,7 +94,7 @@ async def cmd_start(message: types.Message):
         )
 
     else:
-        starting_message = await message.answer_photo(photo=USER_PROFILE_PICTURE,
+        starting_message = await message.answer_photo(photo=Pictures.USER_PROFILE_PICTURE,
                                                       caption=texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
                                                       parse_mode="HTML",
                                                       reply_markup=await get_approval_button(texts))
@@ -125,7 +125,7 @@ async def query_retry_registration(callback: types.CallbackQuery):
         chat_id=callback.message.chat.id,
         message_id=int(start_message_id),
         media=InputMediaPhoto(
-            media=USER_PROFILE_PICTURE,
+            media=Pictures.USER_PROFILE_PICTURE,
             caption=texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
             parse_mode="HTML"),
         reply_markup=await get_approval_button(texts))
@@ -330,7 +330,7 @@ async def query_profile_edit(callback: types.CallbackQuery):
 
     await bot.edit_message_media(chat_id=callback.message.chat.id,
                                  message_id=int(start_message_id),
-                                 media=InputMediaPhoto(media=USER_PROFILE_PICTURE,
+                                 media=InputMediaPhoto(media=Pictures.USER_PROFILE_PICTURE,
                                                        caption=texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
                                                        parse_mode="HTML"),
                                 reply_markup=await get_approval_button(texts))
@@ -439,7 +439,7 @@ async def btn_start_search(callback: types.CallbackQuery):
         notification = texts['TEXT']["notifications"]["not_found"]
 
         # изменение сообщения с текстом "не найдено" и отправка уведомления
-        await callback.message.edit_media(media=types.InputMediaPhoto(media=NOT_FOUND_PICTURE, caption=caption, parse_mode = "HTML"),
+        await callback.message.edit_media(media=types.InputMediaPhoto(media=Pictures.SEARCH_NOT_FOUND_PICTURE, caption=caption, parse_mode = "HTML"),
                                           reply_markup = await reload_search_button(texts))
         await callback.answer(notification)
 
@@ -477,7 +477,7 @@ async def handle_reaction(callback: types.CallbackQuery):
         notification = texts['TEXT']["notifications"]["not_found"]
 
         # изменение сообщения поиска и отправка уведомления
-        await callback.message.edit_media(media=types.InputMediaPhoto(media=NOT_FOUND_PICTURE, caption=caption, parse_mode = "HTML"),
+        await callback.message.edit_media(media=types.InputMediaPhoto(media=Pictures.SEARCH_NOT_FOUND_PICTURE, caption=caption, parse_mode = "HTML"),
                                           reply_markup = await reload_search_button(texts))
         await callback.answer(notification)
 
@@ -527,7 +527,7 @@ async def query_start__reload_btn_match_menu(callback: types.CallbackQuery):
     markup = await get_matches_menu_buttons(match_count, collection_count, love_count, sex_count, chat_count, texts)
 
     # изменение сообщения и отправка уведомления
-    await callback.message.edit_media(media=InputMediaPhoto(media=MATCH_MENU_PICTURE,caption=texts['TEXT']['match_menu']['start'], parse_mode = "HTML"),
+    await callback.message.edit_media(media=InputMediaPhoto(media=Pictures.MATCH_MENU_PICTURE,caption=texts['TEXT']['match_menu']['start'], parse_mode = "HTML"),
                                       reply_markup = markup)
     await callback.answer(texts['TEXT']["notifications"]["reloaded"])
 
@@ -545,7 +545,7 @@ async def query_matches(callback: types.CallbackQuery):
     )
 
     if not target_users_ids:
-        photo_id = MATCH_MENU_PICTURE
+        photo_id = Pictures.MATCH_NOT_FOUND_PICTURE
         caption = texts['TEXT']['match_menu']['match_empty']
         markup = await empty_category_buttons(texts)
     else:
@@ -620,7 +620,7 @@ async def query_collection(callback: types.CallbackQuery):
     )
 
     if not target_users_ids:
-        photo_id = MATCH_MENU_PICTURE
+        photo_id = Pictures.COLLECTION_NOT_FOUND_PICTURE
         caption = texts['TEXT']['match_menu']['collection_empty']
         markup = await empty_category_buttons(texts)
 
@@ -686,7 +686,7 @@ async def handle_who_wants(callback: types.CallbackQuery):
     )
 
     if not target_users_ids:
-        photo_id = MATCH_MENU_PICTURE
+        photo_id = Pictures.get_not_found_picture(reaction)
         caption = texts['TEXT']['match_menu']['empty'][reaction]
         markup = await empty_category_buttons(texts)
     else:
@@ -801,7 +801,7 @@ async def on_successful_payment(message: types.Message):
         await delete_from_cache(user_id, "collection_pay_message_id")
 
         if not target_users_ids:
-            photo_id = MATCH_MENU_PICTURE
+            photo_id = Pictures.get_not_found_picture(reaction)
             caption = texts['TEXT']['match_menu']['empty'][reaction]
             markup = await empty_category_buttons(texts)
         else:
@@ -886,14 +886,14 @@ async def handle_text(message: types.Message):
                                                                                                                  about_me=user_text)),
                                     reply_markup = await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch, texts))
 
-        match_menu = await message.answer_photo(photo=MATCH_MENU_PICTURE,
+        match_menu = await message.answer_photo(photo=Pictures.MATCH_MENU_PICTURE,
                                                 caption=texts['TEXT']['match_menu']['start'],
                                                 parse_mode="HTML",
                                                 reply_markup=await get_start_button_match_menu(texts))
         # запись в базу
         await save_to_cache(user_id, "match_menu_message_id", message_id = match_menu.message_id)
 
-        search_menu = await message.answer_photo(photo=SEARCH_MENU_PICTURE,
+        search_menu = await message.answer_photo(photo=Pictures.SEARCH_MENU_PICTURE,
                                                 caption=texts['TEXT']['search_menu']['start'],
                                                 parse_mode="HTML",
                                                 reply_markup=await get_start_button_search_menu(texts))
