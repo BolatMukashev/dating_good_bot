@@ -789,12 +789,13 @@ async def on_successful_payment(message: types.Message):
     if payload.startswith("payment_add_to_collection"):
         _, target_id, amount, reaction = payload.split("|")
 
+        await add_payment(user_id, int(amount), PaymentType.COLLECTION, int(target_id))
+
         # получение списка пользователей из коллекции, получение id сообщений, добавление платежа в бд 
         (target_users_ids, _), payment_message_id, match_menu_message_id = await asyncio.gather(
             get_intent_targets(user_id, reaction),
             get_cached_message_id(user_id, "collection_pay_message_id"),
             get_cached_message_id(user_id, "match_menu_message_id"),
-            add_payment(user_id, int(amount), PaymentType.COLLECTION, int(target_id))
         )
         
         await delete_from_cache(user_id, "collection_pay_message_id")
