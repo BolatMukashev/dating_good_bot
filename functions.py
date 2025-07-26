@@ -116,11 +116,11 @@ async def get_caption(user: User, lang: str = None, reaction: str = None) -> str
         caption=(f"<b>{user.first_name}</b>"
         f"\n📌 {user.country_local}, {user.city_local}"
         f"\n<i>{texts["TEXT"]["match_menu"]["you_want"].format(reaction=reaction_str)}</i>"
-        f"\n<i>{user.about_me}</i>")
+        f"\n\n<i>{user.about_me}</i>")
     else:
         caption=(f"<b>{user.first_name}</b>"
         f"\n📌 {user.country_local}, {user.city_local}"
-        f"\n<i>{user.about_me}</i>")
+        f"\n\n<i>{user.about_me}</i>")
     
     return caption
 
