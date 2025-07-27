@@ -435,7 +435,7 @@ async def btn_start_search(callback: types.CallbackQuery):
             media=types.InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
             reply_markup = await get_btn_to_search(target_user.first_name, target_user.telegram_id, texts))
     else:
-        caption = texts['TEXT']["search"]["not_found"]
+        caption = texts['TEXT']["search_menu"]["not_found"]
         notification = texts['TEXT']["notifications"]["not_found"]
 
         # изменение сообщения с текстом "не найдено" и отправка уведомления
@@ -473,7 +473,7 @@ async def handle_reaction(callback: types.CallbackQuery):
             media=types.InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
             reply_markup = markup)
     else:
-        caption = texts['TEXT']["search"]["not_found"]
+        caption = texts['TEXT']["search_menu"]["not_found"]
         notification = texts['TEXT']["notifications"]["not_found"]
 
         # изменение сообщения поиска и отправка уведомления
@@ -527,7 +527,7 @@ async def query_start__reload_btn_match_menu(callback: types.CallbackQuery):
     markup = await get_matches_menu_buttons(match_count, collection_count, love_count, sex_count, chat_count, texts)
 
     # изменение сообщения и отправка уведомления
-    await callback.message.edit_media(media=InputMediaPhoto(media=Pictures.MATCH_MENU_PICTURE,caption=texts['TEXT']['match_menu']['start'], parse_mode = "HTML"),
+    await callback.message.edit_media(media=InputMediaPhoto(media=Pictures.MATCH_MENU_PICTURE, caption="", parse_mode = "HTML"),
                                       reply_markup = markup)
     await callback.answer(texts['TEXT']["notifications"]["reloaded"])
 

@@ -62,9 +62,7 @@ async def find_first_matching_user(current_user_id: int) -> Optional[User]:
                 User.gender_search == Gender.ANY
             )
 
-        # Исключаем инкогнито
-        not_incognito_condition = User.incognito_switch == False
-
+        
         # Исключаем тех, на кого уже реагировал
         ReactionAlias = aliased(Reaction)
         subquery = select(ReactionAlias.target_tg_id).where(
@@ -76,7 +74,7 @@ async def find_first_matching_user(current_user_id: int) -> Optional[User]:
             User.telegram_id != current_user_id,
             gender_condition,
             search_condition,
-            not_incognito_condition,
+            User.incognito_switch == False,
             User.banned == False,
             User.telegram_id.not_in(subquery)
         ]
