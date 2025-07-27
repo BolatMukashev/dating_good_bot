@@ -1,13 +1,12 @@
 from sqlalchemy import select, or_, delete, union_all
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import aliased
 from models import User, Reaction, Payment, Cache, Gender, PaymentType
 from typing import Any, Optional
 from db_connect import AsyncSessionLocal
 import aiohttp
 from languages import get_texts
-from sqlalchemy.orm import aliased
 from config import *
-from sqlalchemy.orm import aliased
 
 
 # TODO бан пользователя
@@ -284,9 +283,17 @@ async def delete_user_by_id(user_id: int) -> bool:
 # Добавление реакции в базу
 async def add_reaction(user_id: int, target_tg_id: int, reaction_str: str):
     async with AsyncSessionLocal() as session:
-        new_reaction = Reaction(telegram_id=user_id, target_tg_id=target_tg_id, reaction=reaction_str)
-        session.add(new_reaction)
+        stmt = insert(Reaction).values(
+            telegram_id=user_id,
+            target_tg_id=target_tg_id,
+            reaction=reaction_str
+        ).on_conflict_do_update(
+            index_elements=['telegram_id', 'target_tg_id'],
+            set_={'reaction': reaction_str}
+        )
+        await session.execute(stmt)
         await session.commit()
+
 
 
 # Добавление платежа в базу
@@ -387,8 +394,8 @@ async def get_collection_targets(user_id: int) -> tuple[list[int], int]:
 # Найти по намерениям, исключая взаимных и тех, кто в Коллекции
 async def get_intent_targets(user_id: int, intent: str) -> tuple[list[int], int]:
     async with AsyncSessionLocal() as session:
-        # Подзапрос: кого user_id лайкнул с таким intent
-        subq_reacted = (
+        # Подзапрос: пользователи, которым я поставил эту же реакцию (взаимные)
+        subq_mutual = (
             select(Reaction.target_tg_id)
             .where(
                 Reaction.telegram_id == user_id,
@@ -396,7 +403,16 @@ async def get_intent_targets(user_id: int, intent: str) -> tuple[list[int], int]
             )
         )
 
-        # Подзапрос: кого user_id добавил в Коллекцию
+        # Подзапрос: пользователи, которым я поставил SKIP
+        subq_skipped = (
+            select(Reaction.target_tg_id)
+            .where(
+                Reaction.telegram_id == user_id,
+                Reaction.reaction == "SKIP"
+            )
+        )
+
+        # Подзапрос: пользователи, кого я оплатил
         subq_collection = (
             select(Payment.target_tg_id)
             .where(
@@ -405,11 +421,10 @@ async def get_intent_targets(user_id: int, intent: str) -> tuple[list[int], int]
             )
         )
 
-        # Объединённый подзапрос через UNION
-        union_subq = union_all(subq_reacted, subq_collection).subquery()
+        # Объединённый подзапрос: исключаем всех из этих 3 подгрупп
+        union_subq = union_all(subq_mutual, subq_skipped, subq_collection).subquery()
 
-        # Основной запрос: ищем пользователей, которые поставили реакцию user_id,
-        # но которых нет в объединённом списке
+        # Основной запрос: те, кто мне поставил intent, но не попал в исключения
         result = await session.execute(
             select(Reaction.telegram_id)
             .where(
@@ -422,7 +437,6 @@ async def get_intent_targets(user_id: int, intent: str) -> tuple[list[int], int]
         ids = result.scalars().unique().all()
         sorted_ids = sorted(ids)
         return sorted_ids, len(ids)
-
 
 
 # Найти id-до и id-после в списке

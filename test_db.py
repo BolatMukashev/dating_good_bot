@@ -127,9 +127,9 @@ async def test2():
 
 
 async def test3():
-    await add_reaction(251093196, ADMIN_ID, ReactionType.SEX.value)
+    await add_reaction(ADMIN_ID, 5555, ReactionType.SEX.value)
 
 
 if __name__ == "__main__":
-    asyncio.run(test())
+    asyncio.run(test3())
 

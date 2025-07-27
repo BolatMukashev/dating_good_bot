@@ -270,7 +270,7 @@ async def handle_photo(message: types.Message):
     await message.delete()
 
     # защита от повторов, удаляем фото
-    if user.photo_id:
+    if user.photo_id or not user.gender_search:
         print(file_id)
         return
     
@@ -860,8 +860,8 @@ async def handle_text(message: types.Message):
     user = await get_user_by_id(user_id)
 
     # защита от повторов, удаление текста
-    if user.about_me:
-        await message.delete() 
+    if user.about_me or not user.photo_id:
+        await message.delete()
         return
     
     # получение id стартового сообщения, текста на языке пользователя

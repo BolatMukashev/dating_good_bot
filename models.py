@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Index
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Index, UniqueConstraint
 from sqlalchemy.orm import relationship, DeclarativeBase
 from enum import Enum
 from sqlalchemy import Enum as SQLEnum
@@ -65,6 +65,7 @@ class Reaction(Base):
     __table_args__ = (
         Index('ix_reactions_telegram_target_reaction', telegram_id, target_tg_id, reaction),
         Index('ix_reactions_target_tg_id', target_tg_id),
+        UniqueConstraint('telegram_id', 'target_tg_id', name='uq_reaction_pair'),
     )
 
 

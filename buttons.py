@@ -84,10 +84,11 @@ async def get_intention_user(user: User, ids: list, reaction: ReactionType, amou
 
     unique_suffix = uuid4().hex[:4]
     button1 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["match_menu"]['add_to_collection'].format(amount=amount), callback_data=f"pay_intentions|{user.telegram_id}|{amount}|{reaction}", pay=True)
-    button2 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["back"], callback_data=f"navigation_intentions|{reaction}|{back_id}")
-    button3 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["next"], callback_data=f"navigation_intentions|{reaction}|{next_id}")
-    button4 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["return"], callback_data=f"match_menu_start_btn|{unique_suffix}")
-    markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
+    button2 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["skip"], callback_data=f"skip_user|{reaction}|{user.telegram_id}")
+    button3 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["back"], callback_data=f"navigation_intentions|{reaction}|{back_id}")
+    button4 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["next"], callback_data=f"navigation_intentions|{reaction}|{next_id}")
+    button5 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["return"], callback_data=f"match_menu_start_btn|{unique_suffix}")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2], [button3, button4], [button5]])
     
     return markup
 
