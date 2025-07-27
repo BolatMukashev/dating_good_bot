@@ -30,7 +30,7 @@ __all__ = ['save_to_cache',
            'get_match_targets',
            'get_collection_targets',
            'get_intent_targets',
-           'get_prev_next_ids'
+           'get_prev_next_ids',
            ]
 
 
@@ -448,3 +448,11 @@ async def get_prev_next_ids(current_id: int, ids: list[int]) -> tuple[int | None
         return prev_id, next_id
     except ValueError:
         return None, None
+
+
+# возврат id если не None
+async def pick_id(ids: list[int | None]) -> tuple[int | str, str | int, str | int]:
+    back_id, next_id = ids
+    chosen = next_id or back_id or "None"
+    return chosen, back_id, next_id
+

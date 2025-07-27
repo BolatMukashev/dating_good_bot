@@ -7,7 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
 from config import *
-from models import Gender, Base, PaymentType
+from models import Gender, Base, PaymentType, ReactionType
 from buttons import *
 from functions import *
 from languages import get_texts
@@ -577,7 +577,7 @@ async def query_matches_navigation(callback: types.CallbackQuery):
 
     _, target_id = callback.data.split("|", 1)
 
-    if target_id == 'pass':
+    if target_id == 'None':
         await callback.answer(texts['TEXT']["notifications"]["empty"]) # уведомление сверху
         return
 
@@ -599,6 +599,67 @@ async def query_matches_navigation(callback: types.CallbackQuery):
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
                                       reply_markup = markup)
+
+
+# удаление пользователей из match и intentions
+@dp.callback_query(lambda c: c.data.startswith("skip_user"))
+async def query_skip_user(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    user_lang = callback.from_user.language_code
+    texts = await get_texts(user_lang)
+
+    _, reaction, target_id, chosen_id = callback.data.split("|", 3)
+
+    target_id = int(target_id)
+    await add_reaction(user_id, target_id, ReactionType.SKIP.value)
+    await callback.answer(texts['TEXT']["notifications"]["delete"]) # уведомление сверху
+
+    if reaction == "MATCH":
+
+        if chosen_id == "None":
+            photo_id = Pictures.MATCH_NOT_FOUND_PICTURE
+            caption = texts['TEXT']['match_menu']['match_empty']
+            markup = await empty_category_buttons(texts)
+        else:
+            chosen_id = int(chosen_id)
+            target_users_ids, _ = await get_match_targets(user_id)
+
+            target_user, (prev_id, next_id) = await asyncio.gather(
+                get_user_by_id(chosen_id),
+                get_prev_next_ids(chosen_id, list(target_users_ids.keys()))
+            )
+
+            reaction = target_users_ids[chosen_id]
+            photo_id = target_user.photo_id
+
+            caption, markup = await asyncio.gather(
+                get_caption(target_user, user_lang, reaction),
+                get_match_user(target_user, [prev_id, next_id], texts)
+            )
+
+        await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
+                                        reply_markup = markup)
+    else:
+
+        if chosen_id == "None":
+            photo_id = Pictures.get_not_found_picture(reaction)
+            caption = texts['TEXT']['match_menu']['empty'][reaction]
+            markup = await empty_category_buttons(texts)
+        else:
+            chosen_id = int(chosen_id)
+            target_users_ids, _ = await get_intent_targets(user_id, reaction)
+            target_user, (prev_id, next_id) = await asyncio.gather(
+                get_user_by_id(chosen_id),
+                get_prev_next_ids(chosen_id, target_users_ids)
+            )
+            photo_id = target_user.photo_id
+            caption, markup = await asyncio.gather(
+                get_caption(target_user),
+                get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION, texts)
+            )
+
+        await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
+                                        reply_markup = markup)
 
 
 # кнопка без действия
@@ -651,7 +712,7 @@ async def query_collection_navigation(callback: types.CallbackQuery):
 
     _, target_id = callback.data.split("|", 1)
 
-    if target_id == 'pass':
+    if target_id == 'None':
         await callback.answer(texts['TEXT']["notifications"]["empty"]) # уведомление сверху
         return
 
@@ -713,7 +774,7 @@ async def query_wants_navigation(callback: types.CallbackQuery):
 
     _, reaction, target_id = callback.data.split("|", 2)
 
-    if target_id == 'pass':
+    if target_id == 'None':
         await callback.answer(texts['TEXT']["notifications"]["empty"]) # уведомление сверху
         return
 

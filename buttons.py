@@ -3,6 +3,7 @@ from models import ReactionType, User
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from uuid import uuid4
+from functions import pick_id
 
 
 __all__ = ['get_approval_button',
@@ -76,15 +77,11 @@ async def empty_category_buttons(texts: dict):
 
 async def get_intention_user(user: User, ids: list, reaction: ReactionType, amount: int, texts: dict):
     # получить кнопки для 
-    back_id, next_id = ids
-    if ids[0] == None:
-        back_id = 'pass'
-    if ids[1] == None:
-        next_id = 'pass'
+    chosen, back_id, next_id = await pick_id(ids)
 
     unique_suffix = uuid4().hex[:4]
     button1 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["match_menu"]['add_to_collection'].format(amount=amount), callback_data=f"pay_intentions|{user.telegram_id}|{amount}|{reaction}", pay=True)
-    button2 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["skip"], callback_data=f"skip_user|{reaction}|{user.telegram_id}")
+    button2 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["delete"], callback_data=f"skip_user|{reaction}|{user.telegram_id}|{chosen}")
     button3 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["back"], callback_data=f"navigation_intentions|{reaction}|{back_id}")
     button4 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["next"], callback_data=f"navigation_intentions|{reaction}|{next_id}")
     button5 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["return"], callback_data=f"match_menu_start_btn|{unique_suffix}")
@@ -95,29 +92,22 @@ async def get_intention_user(user: User, ids: list, reaction: ReactionType, amou
 
 async def get_match_user(user: User, ids: list, texts: dict):
     # получить кнопки для 
-    back_id, next_id = ids
-    if ids[0] == None:
-        back_id = 'pass'
-    if ids[1] == None:
-        next_id = 'pass'
+    chosen, back_id, next_id = await pick_id(ids)
 
     unique_suffix = uuid4().hex[:4]
     button1 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["match_menu"]['send_message'], callback_data=f"pass", url=f"https://t.me/{user.username}")
-    button2 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["back"], callback_data=f"navigation_matches|{back_id}")
-    button3 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["next"], callback_data=f"navigation_matches|{next_id}")
-    button4 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["return"], callback_data=f"match_menu_start_btn|{unique_suffix}")
-    markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2, button3], [button4]])
+    button2 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["delete"], callback_data=f"skip_user|MATCH|{user.telegram_id}|{chosen}")
+    button3 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["back"], callback_data=f"navigation_matches|{back_id}")
+    button4 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["next"], callback_data=f"navigation_matches|{next_id}")
+    button5 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["return"], callback_data=f"match_menu_start_btn|{unique_suffix}")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button1], [button2], [button3, button4], [button5]])
     
     return markup
 
 
 async def get_collection_user(user: User, ids: list, texts: dict):
     # получить кнопки для 
-    back_id, next_id = ids
-    if ids[0] == None:
-        back_id = 'pass'
-    if ids[1] == None:
-        next_id = 'pass'
+    _, back_id, next_id = await pick_id(ids)
 
     unique_suffix = uuid4().hex[:4]
     button1 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["match_menu"]['send_message'], callback_data=f"pass", url=f"https://t.me/{user.username}")
