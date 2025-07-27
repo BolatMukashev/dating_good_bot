@@ -77,6 +77,7 @@ async def find_first_matching_user(current_user_id: int) -> Optional[User]:
             gender_condition,
             search_condition,
             not_incognito_condition,
+            User.banned == False,
             User.telegram_id.not_in(subquery)
         ]
 
