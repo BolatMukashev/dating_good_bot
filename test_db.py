@@ -95,19 +95,26 @@ async def test():
     await add_new_fake_user(Gender.WOMAN, tg_id=6666, gender_search=True, random_location=False)
     await add_reaction(6666, ADMIN_ID, ReactionType.SEX.value)
 
+    # сценарий SKIP
+    await add_new_fake_user(Gender.WOMAN, tg_id=7777, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=8888, gender_search=True, random_location=False)
+    await add_reaction(7777, ADMIN_ID, ReactionType.SEX.value)
+    await add_reaction(ADMIN_ID, 7777, ReactionType.SEX.value)
+    await add_reaction(8888, ADMIN_ID, ReactionType.SEX.value)
+
     # сценарий SEARCH TRUE
-    await add_new_fake_user(Gender.WOMAN, tg_id=7111, gender_search=True, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=7112, gender_search=True, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=7113, gender_search=True, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=7114, gender_search=True, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=7115, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=9111, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=9112, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=9113, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=9114, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=9115, gender_search=True, random_location=False)
 
     # сценарий SEARCH FALSE
-    await add_new_fake_user(Gender.WOMAN, tg_id=8111, gender_search=False, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=8112, gender_search=True, random_location=True)
-    await add_new_fake_user(Gender.MAN, tg_id=8113, gender_search=True, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=8114, gender_search=False, random_location=True)
-    await add_new_fake_user(Gender.ANY, tg_id=8115, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=9222, gender_search=False, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=9223, gender_search=True, random_location=True)
+    await add_new_fake_user(Gender.MAN, tg_id=9224, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=9225, gender_search=False, random_location=True)
+    await add_new_fake_user(Gender.ANY, tg_id=9226, gender_search=True, random_location=False)
 
 
 async def test2():
@@ -131,5 +138,5 @@ async def test3():
 
 
 if __name__ == "__main__":
-    asyncio.run(test3())
+    asyncio.run(test())
 
