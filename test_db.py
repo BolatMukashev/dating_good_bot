@@ -106,7 +106,7 @@ async def test_delete_user_from_search():
 
 
 async def search_test1():
-    # М ищет Ж
+    # M ищет W
     # сценарий SEARCH TRUE
     await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти ✅")
     await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, random_city=True, about_me = "Ты должен меня найти ✅")
@@ -152,6 +152,409 @@ async def search_test1():
     await add_new_fake_user(0, Gender.ANY, Gender.ANY, about_me = "Ты не должен меня найти ❌")
     await add_new_fake_user(0, Gender.ANY, Gender.ANY, random_city=True, about_me = "Ты не должен меня найти ❌")
     await add_new_fake_user(0, Gender.ANY, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+
+async def search_test2():
+    # М ищет М
+    # сценарий SEARCH TRUE
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_city=True, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_city=True, about_me = "Ты должен меня найти ✅")
+
+    # сценарий SEARCH FALSE
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+    
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌", incognito = True)
+
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌", banned = True)
+
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+
+async def search_test3():
+    # М ищет A
+    # сценарий SEARCH TRUE
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, random_city=True, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_city=True, about_me = "Ты должен меня найти ✅")
+
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_city=True, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_city=True, about_me = "Ты должен меня найти ✅")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, random_city=True, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, random_city=True, about_me = "Ты должен меня найти ✅")
+
+    # сценарий SEARCH FALSE
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, about_me = "Ты не должен меня найти ❌", incognito = True)
+
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, about_me = "Ты не должен меня найти ❌", incognito = True)
+
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, about_me = "Ты не должен меня найти ❌", banned = True)
+
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, about_me = "Ты не должен меня найти ❌", banned = True)
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+
+async def search_test4():
+    # W ищет M
+    # сценарий SEARCH TRUE
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_city=True, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_city=True, about_me = "Ты должен меня найти ✅")
+
+    # сценарий SEARCH FALSE
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+    
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌", incognito = True)
+
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌", banned = True)
+
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+
+async def search_test5():
+    # W ищет W
+    # сценарий SEARCH TRUE
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_city=True, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_city=True, about_me = "Ты должен меня найти ✅")
+
+    # сценарий SEARCH FALSE
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+    
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌", incognito = True)
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌", banned = True)
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+
+async def search_test6():
+    # W ищет A
+    # сценарий SEARCH TRUE
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_city=True, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_city=True, about_me = "Ты должен меня найти ✅")
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_city=True, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_city=True, about_me = "Ты должен меня найти ✅")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, random_city=True, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, random_city=True, about_me = "Ты должен меня найти ✅")
+
+    # сценарий SEARCH FALSE
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, about_me = "Ты не должен меня найти ❌", incognito = True)
+
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, about_me = "Ты не должен меня найти ❌", incognito = True)
+
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, about_me = "Ты не должен меня найти ❌", banned = True)
+
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, about_me = "Ты не должен меня найти ❌", banned = True)
+
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+
+async def search_test7():
+    # A ищет M
+    # сценарий SEARCH TRUE
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_city=True, about_me = "Ты должен меня найти ✅")
+
+    # сценарий SEARCH FALSE
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+    
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_city=True, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌", incognito = True)
+
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_city=True, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌", banned = True)
+
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+
+async def search_test8():
+    # A ищет W
+    # сценарий SEARCH TRUE
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_city=True, about_me = "Ты должен меня найти ✅")
+
+    # сценарий SEARCH FALSE
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+    
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_city=True, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌", incognito = True)
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_city=True, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌", banned = True)
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+
+async def search_test9():
+    # A ищет A
+    # сценарий SEARCH TRUE
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_city=True, about_me = "Ты должен меня найти ✅")
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_city=True, about_me = "Ты должен меня найти ✅")
+
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, random_city=True, about_me = "Ты должен меня найти ✅")
+
+    # сценарий SEARCH FALSE
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, about_me = "Ты не должен меня найти ❌", incognito = True)
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, about_me = "Ты не должен меня найти ❌", incognito = True)
+
+    await add_new_fake_user(0, Gender.MAN, Gender.ANY, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, about_me = "Ты не должен меня найти ❌", banned = True)
+    await add_new_fake_user(0, Gender.ANY, Gender.ANY, about_me = "Ты не должен меня найти ❌", banned = True)
+
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
 
 
 if __name__ == "__main__":
