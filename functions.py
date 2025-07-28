@@ -69,6 +69,16 @@ async def find_first_matching_user(current_user_id: int) -> Optional[User]:
             ReactionAlias.telegram_id == current_user_id
         )
 
+
+         # Подзапрос: пользователи, кого я оплатил
+        subq_collection = (
+            select(Payment.target_tg_id)
+            .where(
+                Payment.telegram_id == current_user_id,
+                Payment.target_tg_id != None
+            )
+        )
+
         # Общие условия
         base_conditions = [
             User.telegram_id != current_user_id,
@@ -76,7 +86,8 @@ async def find_first_matching_user(current_user_id: int) -> Optional[User]:
             search_condition,
             User.incognito_switch == False,
             User.banned == False,
-            User.telegram_id.not_in(subquery)
+            User.telegram_id.not_in(subquery),
+            User.telegram_id.not_in(subq_collection)
         ]
 
         # 👉 Шаг 1: сначала ищем по стране и городу

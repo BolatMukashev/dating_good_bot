@@ -18,42 +18,27 @@ MAN_PHOTO = 'AgACAgIAAxkBAAIEZmhyNMfHJtQKJTEpyBvnzSn78uxBAALc8jEbht2QSwgCthHAoX1
 # TODO добавить ANY
 
 
-async def add_new_fake_user(gender: Gender, tg_id: int, gender_search=True, random_location=False):
+async def add_new_fake_user(gender: Gender, tg_id: int, gender_search: Gender, random_location=False, about_me: str = None):
     async with AsyncSessionLocal() as session:
         if tg_id == 0:
             tg_id = random.randint(10000, 99999)
         if gender == Gender.MAN:
             first_name=fake.first_name_male()
             photo_id = MAN_PHOTO
-            if gender_search:
-                gender_search = Gender.WOMAN
-            else:
-                gender_search = Gender.MAN
         else:
             first_name=fake.first_name_female()
             photo_id = WOMAN_PHOTO
-            if gender_search:
-                gender_search = Gender.MAN
-            else:
-                gender_search = Gender.WOMAN
         
-        if random_location:
-            country = fake.country()
-            city = fake.city()
-        else:
-            country = "Kazakhstan"
-            city = "Oral"
-
         new_user = User(telegram_id= tg_id,
                         first_name=first_name,
                         username="astana11b",
                         gender = gender,
                         gender_search = gender_search,
-                        country = country,
-                        country_local = country,
-                        city = city,
-                        city_local = city,
-                        about_me = fake.sentence(nb_words=6),
+                        country = "Kazakhstan" if not random_location else fake.country(),
+                        country_local = "Kazakhstan" if not random_location else fake.country(),
+                        city = "Oral" if not random_location else fake.city(),
+                        city_local = "Oral" if not random_location else fake.city(),
+                        about_me = about_me if about_me else fake.sentence(nb_words=6),
                         photo_id = photo_id,
                         eighteen_years_and_approval = True)
         session.add(new_user)
@@ -69,68 +54,66 @@ async def get_user_by_id(user_id):
         if user:
             return user
         
-async def test():
+async def test_match_menu():
+    # должно появится по 1 пользователю во вкладках Совпадение, Коллекция, Свидание, Постель, Чат
     # сценарий MATCH
-    await add_new_fake_user(Gender.WOMAN, tg_id=1111, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=1111, gender_search=Gender.MAN, random_location=False, about_me = "Ты должен меня найти в MATCH ✅")
     await add_reaction(1111, ADMIN_ID, ReactionType.LOVE.value)
     await add_reaction(ADMIN_ID, 1111, ReactionType.LOVE.value)
 
+    # сценарий COLLECTION
+    await add_new_fake_user(Gender.WOMAN, tg_id=2222, gender_search=Gender.MAN, random_location=False, about_me = "Ты должен добавить меня в коллекцию ✅")
+    await add_reaction(2222, ADMIN_ID, ReactionType.SEX.value)
+
     # сценарий LOVE
-    await add_new_fake_user(Gender.WOMAN, tg_id=2222, gender_search=True, random_location=False)
-    await add_reaction(2222, ADMIN_ID, ReactionType.LOVE.value)
+    await add_new_fake_user(Gender.WOMAN, tg_id=3333, gender_search=Gender.MAN, random_location=False, about_me = "Ты должен меня найти в LOVE✅")
+    await add_reaction(3333, ADMIN_ID, ReactionType.LOVE.value)
 
     # сценарий SEX
-    await add_new_fake_user(Gender.WOMAN, tg_id=3333, gender_search=True, random_location=False)
-    await add_reaction(3333, ADMIN_ID, ReactionType.SEX.value)
+    await add_new_fake_user(Gender.WOMAN, tg_id=4444, gender_search=Gender.MAN, random_location=False, about_me = "Ты должен меня найти в SEX ✅")
+    await add_reaction(4444, ADMIN_ID, ReactionType.SEX.value)
 
     # сценарий CHAT
-    await add_new_fake_user(Gender.WOMAN, tg_id=4444, gender_search=True, random_location=False)
-    await add_reaction(4444, ADMIN_ID, ReactionType.CHAT.value)
+    await add_new_fake_user(Gender.WOMAN, tg_id=5555, gender_search=Gender.MAN, random_location=False, about_me = "Ты должен меня найти в CHAT ✅")
+    await add_reaction(5555, ADMIN_ID, ReactionType.CHAT.value)
 
     # сценарий SKIP
-    await add_new_fake_user(Gender.WOMAN, tg_id=5555, gender_search=True, random_location=False)
-    await add_reaction(5555, ADMIN_ID, ReactionType.SKIP.value)
+    await add_new_fake_user(Gender.WOMAN, tg_id=6666, gender_search=Gender.MAN, random_location=False, about_me = "Ты найдешь меня в поиске но я уже поставил SKIP ❌")
+    await add_reaction(6666, ADMIN_ID, ReactionType.SKIP.value)
 
-    # сценарий COLLECTION
-    await add_new_fake_user(Gender.WOMAN, tg_id=6666, gender_search=True, random_location=False)
-    await add_reaction(6666, ADMIN_ID, ReactionType.SEX.value)
 
+async def test_delete_user_from_search():
+    # появятся 4 пользователя во вкладках Совпадение, Свидание, Постель, Чат. Нужно их удалить. Они должны исчезнуть из вкладок
     # сценарий SKIP
-    await add_new_fake_user(Gender.WOMAN, tg_id=7777, gender_search=True, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=8888, gender_search=True, random_location=False)
-    await add_reaction(7777, ADMIN_ID, ReactionType.SEX.value)
-    await add_reaction(ADMIN_ID, 7777, ReactionType.SEX.value)
-    await add_reaction(8888, ADMIN_ID, ReactionType.SEX.value)
+    await add_new_fake_user(Gender.WOMAN, tg_id=7111, gender_search=Gender.MAN, random_location=False, about_me = "Ты должен меня найти в MATCH и удалить✅")
+    await add_reaction(7111, ADMIN_ID, ReactionType.SEX.value)
+    await add_reaction(ADMIN_ID, 7111, ReactionType.SEX.value)
 
+    await add_new_fake_user(Gender.WOMAN, tg_id=7112, gender_search=Gender.MAN, random_location=False, about_me = "Ты должен меня найти в LOVE и удалить✅")
+    await add_reaction(7112, ADMIN_ID, ReactionType.LOVE.value)
+
+    await add_new_fake_user(Gender.WOMAN, tg_id=7113, gender_search=Gender.MAN, random_location=False, about_me = "Ты должен меня найти в SEX и удалить✅")
+    await add_reaction(7113, ADMIN_ID, ReactionType.SEX.value)
+
+    await add_new_fake_user(Gender.WOMAN, tg_id=7114, gender_search=Gender.MAN, random_location=False, about_me = "Ты должен меня найти в CHAT и удалить✅")
+    await add_reaction(7114, ADMIN_ID, ReactionType.CHAT.value)
+
+
+async def search_test1():
+    # М ищет Ж
     # сценарий SEARCH TRUE
-    await add_new_fake_user(Gender.WOMAN, tg_id=9111, gender_search=True, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=9112, gender_search=True, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=9113, gender_search=True, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=9114, gender_search=True, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=9115, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=Gender.MAN, random_location=False, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=Gender.MAN, random_location=False, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=Gender.ANY, random_location=False, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=Gender.ANY, random_location=False, about_me = "Ты должен меня найти ✅")
 
     # сценарий SEARCH FALSE
-    await add_new_fake_user(Gender.WOMAN, tg_id=9222, gender_search=False, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=9223, gender_search=True, random_location=True)
-    await add_new_fake_user(Gender.MAN, tg_id=9224, gender_search=True, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=9225, gender_search=False, random_location=True)
-    await add_new_fake_user(Gender.ANY, tg_id=9226, gender_search=True, random_location=False)
-
-
-async def test2():
-    # сценарий SEARCH TRUE
-    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=True, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=True, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=True, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=True, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=True, random_location=False)
-
-    # сценарий SEARCH FALSE
-    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=False, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=True, random_location=True)
-    await add_new_fake_user(Gender.MAN, tg_id=0, gender_search=True, random_location=False)
-    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=False, random_location=True)
-    await add_new_fake_user(Gender.ANY, tg_id=0, gender_search=True, random_location=False)
+    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=Gender.WOMAN, random_location=False, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=Gender.MAN, random_location=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(Gender.MAN, tg_id=0, gender_search=Gender.MAN, random_location=False, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(Gender.WOMAN, tg_id=0, gender_search=Gender.WOMAN, random_location=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(Gender.ANY, tg_id=0, gender_search=Gender.MAN, random_location=False, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(Gender.ANY, tg_id=0, gender_search=Gender.ANY, random_location=False, about_me = "Ты не должен меня найти ❌")
 
 
 async def test3():
@@ -138,5 +121,5 @@ async def test3():
 
 
 if __name__ == "__main__":
-    asyncio.run(test())
+    asyncio.run(test_match_menu())
 
