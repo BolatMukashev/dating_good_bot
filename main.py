@@ -310,7 +310,24 @@ async def query_profile_edit(callback: types.CallbackQuery):
             bot.delete_message(chat_id=callback.message.chat.id, message_id=search_menu_message_id)
         )
     except TelegramBadRequest as e:
-        print(f"Ошибка удаления: {e}")
+        print(f"ошибка удаления сообщений: {e}")
+        await bot.edit_message_media(chat_id=callback.message.chat.id,
+                            message_id=match_menu_message_id,
+                            media=InputMediaPhoto(media=Pictures.MATCH_MENU_PICTURE,
+                                                caption=texts['TEXT']['match_menu']['start'],
+                                                parse_mode="HTML"),
+                            reply_markup=await get_start_button_match_menu(texts))
+        
+        await bot.edit_message_media(chat_id=callback.message.chat.id,
+                            message_id=search_menu_message_id,
+                            media=InputMediaPhoto(media=Pictures.SEARCH_MENU_PICTURE,
+                                                caption=texts['TEXT']['search_menu']['start'],
+                                                parse_mode="HTML"),
+                            reply_markup=await get_start_button_search_menu(texts))
+    else:
+        # await delete_from_cache(user_id, "match_menu_message_id")
+        # await delete_from_cache(user_id, "search_menu_message_id")
+        pass
 
 
     # если нет username
@@ -399,12 +416,20 @@ async def cmd_delete_profile(message: types.Message, state: FSMContext):
     )
 
     # удаление сообщений и пользователя из базы
-    await asyncio.gather(
-        bot.delete_message(chat_id=message.chat.id, message_id=int(search_menu_message_id)),
-        bot.delete_message(chat_id=message.chat.id, message_id=int(match_menu_message_id)),
-        bot.delete_message(chat_id=message.chat.id, message_id=int(start_message_id)),
-        delete_user_by_id(user_id)
-    )
+    try:
+        await asyncio.gather(
+            bot.delete_message(chat_id=message.chat.id, message_id=int(search_menu_message_id)),
+            bot.delete_message(chat_id=message.chat.id, message_id=int(match_menu_message_id)),
+            bot.delete_message(chat_id=message.chat.id, message_id=int(start_message_id)),
+            delete_user_by_id(user_id)
+        )
+    except TelegramBadRequest as e:
+        print(f"ошибка удаления сообщений: {e}")
+    else:
+        # await delete_from_cache(user_id, "start_message_id")
+        # await delete_from_cache(user_id, "match_menu_message_id")
+        # await delete_from_cache(user_id, "search_menu_message_id")
+        pass
 
     await message.delete()
 
@@ -1002,3 +1027,4 @@ async def main():
 if __name__ == '__main__':
     import asyncio
     asyncio.run(main())
+

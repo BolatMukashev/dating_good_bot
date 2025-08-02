@@ -178,6 +178,10 @@ async def search_test2():
     await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
     await add_new_fake_user(0, Gender.MAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
 
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(0, Gender.WOMAN, Gender.MAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
+
     await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
     await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_city=True, about_me = "Ты не должен меня найти ❌")
     await add_new_fake_user(0, Gender.WOMAN, Gender.WOMAN, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
@@ -185,10 +189,6 @@ async def search_test2():
     await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, about_me = "Ты не должен меня найти ❌")
     await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_city=True, about_me = "Ты не должен меня найти ❌")
     await add_new_fake_user(0, Gender.WOMAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
-
-    await add_new_fake_user(0, Gender.MAN, Gender.ANY, about_me = "Ты не должен меня найти ❌")
-    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_city=True, about_me = "Ты не должен меня найти ❌")
-    await add_new_fake_user(0, Gender.MAN, Gender.ANY, random_country=True, random_city=True, about_me = "Ты не должен меня найти ❌")
 
     await add_new_fake_user(0, Gender.ANY, Gender.MAN, about_me = "Ты не должен меня найти ❌")
     await add_new_fake_user(0, Gender.ANY, Gender.MAN, random_city=True, about_me = "Ты не должен меня найти ❌")
@@ -558,5 +558,5 @@ async def search_test9():
 
 
 if __name__ == "__main__":
-    asyncio.run(search_test1())
+    asyncio.run(search_test2())
 
