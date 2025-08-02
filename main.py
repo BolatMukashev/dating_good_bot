@@ -74,6 +74,7 @@ async def cmd_start(message: types.Message):
                                                                                                                 country_local=user.country_local,
                                                                                                                 city_local=user.city_local,
                                                                                                                 gender=texts['GENDER_LABELS'][user.gender],
+                                                                                                                gender_emoji=texts['GENDER_EMOJI'][user.gender],
                                                                                                                 gender_search=texts['GENDER_SEARCH_LABELS'][user.gender_search],
                                                                                                                 about_me=user.about_me))
 
@@ -959,6 +960,7 @@ async def handle_text(message: types.Message):
                                                                                                                  country_local=user.country_local,
                                                                                                                  city_local=user.city_local,
                                                                                                                  gender=texts['GENDER_LABELS'][user.gender],
+                                                                                                                 gender_emoji=texts['GENDER_EMOJI'][user.gender],
                                                                                                                  gender_search=texts['GENDER_SEARCH_LABELS'][user.gender_search],
                                                                                                                  about_me=user_text)),
                                     reply_markup = await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch, texts))

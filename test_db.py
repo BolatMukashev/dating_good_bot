@@ -558,5 +558,5 @@ async def search_test9():
 
 
 if __name__ == "__main__":
-    asyncio.run(search_test9())
+    asyncio.run(test_match_menu())
 

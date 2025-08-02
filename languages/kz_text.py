@@ -19,3 +19,10 @@ GENDER_SEARCH_LABELS = {
     Gender.ANY: "Жынысы маңызды емес",
 
 }
+
+GENDER_EMOJI = {
+    Gender.MAN: "♂️",
+    Gender.WOMAN: "♀️",
+    Gender.ANY: "⚧️",
+}
+
