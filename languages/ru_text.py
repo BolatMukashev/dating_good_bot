@@ -116,11 +116,11 @@ BUTTONS_TEXT = {"begin":"Начать регистрацию ✅",
                               "add_to_collection":"Добавить в Коллекцию {amount} ⭐️",
                               "send_message":"✉️ Написать сообщение"},
                 "gender": {"man": "Парень 🧔🏻",
-                           "woman":"Девушка 👧🏻",
+                           "woman":"Девушка 👩🏻‍🦰",
                            "any":"Другое 👱"},
                 "gender_search": {"man": "Ищу парня 🧔🏻",
-                                  "woman":"Ищу девушку 👧🏻",
-                                  "any":"Пол не имеет значения 🧔🏻👧🏻👱"},
+                                  "woman":"Ищу девушку 👩🏻‍🦰",
+                                  "any":"Пол не имеет значения 🧔🏻👩🏻‍🦰👱"},
                 "incognito":{"not_active":"🫥 Стать Инкогнито",
                              "on":"✅ Инкогнито включён",
                              "off":"🚫 Инкогнито выключен",
@@ -138,18 +138,21 @@ BUTTONS_TEXT = {"begin":"Начать регистрацию ✅",
 
 GENDER_LABELS = {
     Gender.MAN: "Парень 🧔🏻",
-    Gender.WOMAN: "Девушка 👧🏻",
+    Gender.WOMAN: "Девушка 👩🏻‍🦰",
     Gender.ANY: "Другое 👱",
 }
 
+
 GENDER_SEARCH_LABELS = {
     Gender.MAN: "Ищу парня 🧔🏻",
-    Gender.WOMAN: "Ищу девушку 👧🏻",
-    Gender.ANY: "Пол не имеет значения 🧔🏻👧🏻👱",
+    Gender.WOMAN: "Ищу девушку 👩🏻‍🦰",
+    Gender.ANY: "Пол не имеет значения 🧔🏻👩🏻‍🦰👱",
 }
+
 
 GENDER_EMOJI = {
     Gender.MAN: "♂️",
     Gender.WOMAN: "♀️",
     Gender.ANY: "⚧️",
 }
+
