@@ -114,21 +114,22 @@ async def query_retry_registration(callback: types.CallbackQuery):
         return
     
     # получаем id стартового сообщения, обновляем инфу о пользователе, получаем текст на языке пользователя
-    start_message_id, texts, _ = await asyncio.gather(
-        get_cached_message_id(user_id, "start_message_id"),
+    cached_messages, texts, _ = await asyncio.gather(
+        get_cached_messages_ids(user_id),
         get_texts(user_lang),
         create_or_update_user(user_id, first_name, username)
     )
 
+    start_message_id = cached_messages.get("start_message_id")
+
     # изменяем стартовое сообщение
     await bot.edit_message_media(
-        chat_id=callback.message.chat.id,
-        message_id=int(start_message_id),
-        media=InputMediaPhoto(
-            media=Pictures.USER_PROFILE_PICTURE,
-            caption=texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
-            parse_mode="HTML"),
-        reply_markup=await get_approval_button(texts))
+        chat_id = callback.message.chat.id,
+        message_id = start_message_id,
+        media = InputMediaPhoto(media = Pictures.USER_PROFILE_PICTURE,
+                                caption = texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
+                                parse_mode = "HTML"),
+        reply_markup = await get_approval_button(texts))
 
 
 # подтверждение 18 лет
@@ -181,11 +182,9 @@ async def handle_location(message: types.Message):
             get_location_opencage(latitude, longitude, lang='en')
         )
 
-   # Получаем два message_id из кэша параллельно
-    location_message_id, start_message_id = await asyncio.gather(
-        get_cached_message_id(user_id, "location_message_id"),
-        get_cached_message_id(user_id, "start_message_id")
-    )
+   # Получаем message_id из кэш
+    cached_messages = await get_cached_messages_ids(user_id)
+    start_message_id = cached_messages.get("start_message_id")
 
     # обновляем инфо о пользователе, удаляем кэш
     await asyncio.gather(
@@ -194,13 +193,13 @@ async def handle_location(message: types.Message):
     )
 
     # удаляем сообщение о геолокации, изменяем стартовое сообщение
-    await bot.delete_message(chat_id=message.chat.id, message_id=location_message_id)
+    await bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("location_message_id"))
     await bot.edit_message_caption(
-            chat_id=message.chat.id,
-            message_id=int(start_message_id),
-            caption=texts['TEXT']['user_profile']['step_3'],
-            reply_markup=await get_gender_buttons(texts),
-            parse_mode="HTML"
+            chat_id = message.chat.id,
+            message_id = start_message_id,
+            caption = texts['TEXT']['user_profile']['step_3'],
+            reply_markup = await get_gender_buttons(texts),
+            parse_mode = "HTML"
         )
 
 
@@ -275,13 +274,13 @@ async def handle_photo(message: types.Message):
         return
     
     # получение id стартового сообщения, обновление инфо о пользователе
-    start_message_id, _ = await asyncio.gather(
-        get_cached_message_id(user_id, "start_message_id"),
+    cached_messages, _ = await asyncio.gather(
+        get_cached_messages_ids(user_id),
         update_user_fields(user_id, photo_id = file_id)
     )
 
     await bot.edit_message_caption(chat_id=message.chat.id,
-                                   message_id=int(start_message_id),
+                                   message_id=cached_messages.get("start_message_id"),
                                    caption=texts['TEXT']['user_profile']['step_6'],
                                    parse_mode="HTML")
 
@@ -297,12 +296,12 @@ async def query_profile_edit(callback: types.CallbackQuery):
     texts = await get_texts(user_lang)
 
     # получаем id сообщений из Кэш
-    start_message_id, match_menu_message_id, search_menu_message_id = await asyncio.gather(
-        get_cached_message_id(user_id, "start_message_id"),
-        get_cached_message_id(user_id, "match_menu_message_id"),
-        get_cached_message_id(user_id, "search_menu_message_id")
-    )
-    
+    cached_messages = await get_cached_messages_ids(user_id)
+
+    start_message_id = cached_messages.get("start_message_id")
+    match_menu_message_id = cached_messages.get("match_menu_message_id")
+    search_menu_message_id = cached_messages.get("search_menu_message_id")
+
     # удаляем сообщения
     try:
         await asyncio.gather(
@@ -409,19 +408,14 @@ async def cmd_delete_profile(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
 
     # получение id сообщений
-    search_menu_message_id, match_menu_message_id, start_message_id = await asyncio.gather(
-        get_cached_message_id(user_id, "search_menu_message_id"),
-        get_cached_message_id(user_id, "match_menu_message_id"),
-        get_cached_message_id(user_id, "start_message_id")
-    )
+    cached_messages = await get_cached_messages_ids(user_id)
 
     # удаление сообщений и пользователя из базы
     try:
         await asyncio.gather(
-            bot.delete_message(chat_id=message.chat.id, message_id=int(search_menu_message_id)),
-            bot.delete_message(chat_id=message.chat.id, message_id=int(match_menu_message_id)),
-            bot.delete_message(chat_id=message.chat.id, message_id=int(start_message_id)),
-            delete_user_by_id(user_id)
+            bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("start_message_id")),
+            bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("match_menu_message_id")),
+            bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("search_menu_message_id")),
         )
     except TelegramBadRequest as e:
         print(f"ошибка удаления сообщений: {e}")
@@ -429,9 +423,9 @@ async def cmd_delete_profile(message: types.Message, state: FSMContext):
         # await delete_from_cache(user_id, "start_message_id")
         # await delete_from_cache(user_id, "match_menu_message_id")
         # await delete_from_cache(user_id, "search_menu_message_id")
-        pass
-
-    await message.delete()
+        delete_user_by_id(user_id)
+    finally:
+        await message.delete()
 
 
 # ------------------------------------------------------------------- Бан аккаунта -------------------------------------------------------
@@ -870,7 +864,11 @@ async def on_successful_payment(message: types.Message):
     user_id = message.from_user.id
     user_lang = message.from_user.language_code
 
+    # получение текста на языке пользователя
     texts = await get_texts(user_lang)
+
+    # получение id сообщений
+    cached_messages = await get_cached_messages_ids(user_id)
 
     if payload.startswith("payment_add_to_collection"):
         _, target_id, amount, reaction = payload.split("|")
@@ -878,11 +876,7 @@ async def on_successful_payment(message: types.Message):
         await add_payment(user_id, int(amount), PaymentType.COLLECTION, int(target_id))
 
         # получение списка пользователей из коллекции, получение id сообщений, добавление платежа в бд 
-        (target_users_ids, _), payment_message_id, match_menu_message_id = await asyncio.gather(
-            get_intent_targets(user_id, reaction),
-            get_cached_message_id(user_id, "collection_pay_message_id"),
-            get_cached_message_id(user_id, "match_menu_message_id"),
-        )
+        target_users_ids, _,  = await get_intent_targets(user_id, reaction)
         
         await delete_from_cache(user_id, "collection_pay_message_id")
 
@@ -904,18 +898,12 @@ async def on_successful_payment(message: types.Message):
             )
 
         await bot.edit_message_media(chat_id=message.chat.id,
-                                     message_id=int(match_menu_message_id),
+                                     message_id=cached_messages.get("match_menu_message_id"),
                                      media=InputMediaPhoto(media=photo_id, parse_mode="HTML", caption=caption),
                                      reply_markup = markup)
 
     elif payload.startswith("payment_incognito"):
         _, amount = payload.split("|")
-
-        # получение id сообщений
-        payment_message_id, start_message_id = await asyncio.gather(
-            get_cached_message_id(user_id, "incognito_pay_message_id"),
-            get_cached_message_id(user_id, "start_message_id")
-            )
 
         # добавление инфо о платеже в базу, обновление статусов у пользователя, удаление кэша
         await asyncio.gather(
@@ -926,11 +914,12 @@ async def on_successful_payment(message: types.Message):
 
         # изменение стартового сообщения
         await bot.edit_message_reply_markup(chat_id=message.chat.id,
-                                          message_id=int(start_message_id),
+                                          message_id=cached_messages.get("start_message_id"),
                                           reply_markup=await get_profile_edit_buttons(True, True, texts))
 
     # получаем id из Кэш и удаляем сообщение
-    await bot.delete_message(chat_id=message.chat.id, message_id=payment_message_id)
+    await bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("payment_message_id"))
+    await delete_from_cache(user_id, "payment_message_id")
 
 
 # ------------------------------------------------------------------- Текст (Последний шаг в Анкете)-------------------------------------------------------
@@ -951,17 +940,19 @@ async def handle_text(message: types.Message):
         return
     
     # получение id стартового сообщения, текста на языке пользователя
-    start_message_id, texts = await asyncio.gather(
-        get_cached_message_id(user_id, "start_message_id"),
+    cached_messages, texts = await asyncio.gather(
+        get_cached_messages_ids(user_id),
         get_texts(user_lang)
     )
+
+    start_message_id = cached_messages.get("start_message_id")
 
     user_text = message.text
     if len(user_text) >= MIN_COUNT_SYMBOLS and len(user_text) <= MAX_COUNT_SYMBOLS:
         # обновить инфо о пользователе в базе, изменить стартовое сообщение
         await update_user_fields(user_id, about_me = user_text)
         await bot.edit_message_media(chat_id=message.chat.id,
-                                     message_id=int(start_message_id),
+                                     message_id=start_message_id,
                                      media=InputMediaPhoto(media=user.photo_id,
                                                            parse_mode="HTML",
                                                            caption=texts['TEXT']["user_profile"]["profile"].format(first_name=user.first_name,
@@ -989,13 +980,13 @@ async def handle_text(message: types.Message):
 
     elif len(user_text) < MIN_COUNT_SYMBOLS:
         await bot.edit_message_caption(chat_id=message.chat.id,
-                            message_id=int(start_message_id),
+                            message_id=start_message_id,
                             caption=texts['TEXT']['user_profile']['min_count_symbols_error'].format(MIN_COUNT_SYMBOLS=MIN_COUNT_SYMBOLS, text_length=len(user_text)),
                             reply_markup = None,
                             parse_mode="HTML")
     elif len(user_text) > MAX_COUNT_SYMBOLS:
         await bot.edit_message_caption(chat_id=message.chat.id,
-                            message_id=int(start_message_id),
+                            message_id=start_message_id,
                             caption=texts['TEXT']['user_profile']['max_count_symbols_error'].format(MAX_COUNT_SYMBOLS=MAX_COUNT_SYMBOLS, text_length=len(user_text)),
                             reply_markup = None,
                             parse_mode="HTML")

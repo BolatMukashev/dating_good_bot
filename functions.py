@@ -13,7 +13,7 @@ from config import *
 
 
 __all__ = ['save_to_cache',
-           'get_cached_message_id',
+           'get_cached_messages_ids',
            'delete_from_cache',
            'create_or_update_user',
            'update_user_fields',
@@ -148,6 +148,7 @@ async def get_gender_search_label(gender: Gender, lang: str) -> str:
 # Пример:
 # await save_to_cache(user_id, "start_message_id", starting_message.message_id)
 # await save_to_cache(callback.from_user.id, "invoice_message_id", sent_invoice.message_id)
+
 async def save_to_cache(user_id: int, parameter: str, message_id: int = None) -> None:
     async with AsyncSessionLocal() as session:
         result = await session.execute(
@@ -172,23 +173,23 @@ async def save_to_cache(user_id: int, parameter: str, message_id: int = None) ->
         await session.commit()
 
 
-# получать id сообщения в бд Кэш по параметру
+# получать id сообщений из бд Кэш по user_id
 # Пример:
-# start_message_id = await get_cached_message_id(user_id, "start_message_id")
-async def get_cached_message_id(user_id: int, parameter: str) -> int | None:
+# cached_messages = await get_cached_messages_ids(user_id)
+# start_message_id = cached_messages.get("start_message_id")
+
+async def get_cached_messages_ids(user_id: int) -> dict[str, int]:
     async with AsyncSessionLocal() as session:
         result = await session.execute(
-            select(Cache).where(
-                Cache.telegram_id == user_id,
-                Cache.parameter == parameter
-            )
+            select(Cache.parameter, Cache.message_id).where(Cache.telegram_id == user_id)
         )
-        cache_entry = result.scalar_one_or_none()
-        return cache_entry.message_id if cache_entry else None
+        rows = result.all()
+        return {param: msg_id for param, msg_id in rows}
 
 
 # Удалить запись из кэша по параметру
 # await delete_from_cache(user_id, "start_message_id")
+
 async def delete_from_cache(user_id: int, parameter: str) -> None:
     async with AsyncSessionLocal() as session:
         result = await session.execute(
@@ -205,8 +206,8 @@ async def delete_from_cache(user_id: int, parameter: str) -> None:
 
 
 # Функция для создания или обновления пользователя
-# Пример:
-# await create_or_update_user(user_id, first_name, username)
+# Пример: await create_or_update_user(user_id, first_name, username)
+
 async def create_or_update_user(user_id: int, first_name: str, username: str) -> User:
     async with AsyncSessionLocal() as session:
         result = await session.execute(
@@ -236,6 +237,7 @@ async def create_or_update_user(user_id: int, first_name: str, username: str) ->
 # Примеры:
 # await update_user_fields(user_id, first_name="Алиса", username="alisa2025", is_active=True)
 # await update_user_fields(user_id, eighteen_years_old=True)
+
 async def update_user_fields(user_id: int, **fields: Any) -> bool:
     async with AsyncSessionLocal() as session:
         result = await session.execute(
