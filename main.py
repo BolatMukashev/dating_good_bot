@@ -368,15 +368,17 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
     # если НЕ ОПЛАЧЕНО, отправка оплаты
     if action == "NOT_PAYED":
 
+        amount = (PRICES.get(user_lang) or PRICES["en"]).get("incognito")
+
         label = texts['TEXT']["payment"]["incognito"]["label"]
         title = texts['TEXT']["payment"]["incognito"]["title"]
         description = texts['TEXT']["payment"]["incognito"]["description"]
-        prices = [LabeledPrice(label=label, amount=PRICE_INCOGNITO)]
+        prices = [LabeledPrice(label=label, amount=amount)]
 
         sent_invoice = await callback.message.answer_invoice(
             title=title,
             description=description,
-            payload=f"payment_incognito|{PRICE_INCOGNITO}",
+            payload=f"payment_incognito|{amount}",
             provider_token="",
             currency="XTR",
             prices=prices,
@@ -673,9 +675,10 @@ async def query_skip_user(callback: types.CallbackQuery):
                 get_prev_next_ids(chosen_id, target_users_ids)
             )
             photo_id = target_user.photo_id
+            amount = (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
             caption, markup = await asyncio.gather(
                 get_caption(target_user),
-                get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION, texts)
+                get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
             )
 
         await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
@@ -776,9 +779,10 @@ async def handle_who_wants(callback: types.CallbackQuery):
             get_prev_next_ids(target_users_ids[0], target_users_ids)
         )
         photo_id = target_user.photo_id
+        amount = (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
         caption, markup = await asyncio.gather(
             get_caption(target_user),
-            get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION, texts)
+            get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
         )
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
@@ -806,9 +810,10 @@ async def query_wants_navigation(callback: types.CallbackQuery):
         get_prev_next_ids(target_id, target_users_ids)
     )
 
+    amount = (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
     caption, markup = await asyncio.gather(
         get_caption(target_user),
-        get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION, texts)
+        get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
     )
 
     await callback.message.edit_media(media=InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
@@ -876,6 +881,8 @@ async def on_successful_payment(message: types.Message):
 
         await add_payment(user_id, int(amount), PaymentType.COLLECTION, int(target_id))
 
+        payment_message_id = cached_messages.get("collection_pay_message_id")
+
         # получение списка пользователей из коллекции, получение id сообщений, добавление платежа в бд 
         target_users_ids, _,  = await get_intent_targets(user_id, reaction)
         
@@ -893,9 +900,10 @@ async def on_successful_payment(message: types.Message):
 
             photo_id = target_user.photo_id
 
+            amount = (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
             caption, markup = await asyncio.gather(
                 get_caption(target_user),
-                get_intention_user(target_user, [prev_id, next_id], reaction, PRICE_ADD_TO_COLLECTION, texts)
+                get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
             )
 
         await bot.edit_message_media(chat_id=message.chat.id,
@@ -905,6 +913,8 @@ async def on_successful_payment(message: types.Message):
 
     elif payload.startswith("payment_incognito"):
         _, amount = payload.split("|")
+        
+        payment_message_id = cached_messages.get("incognito_pay_message_id")
 
         # добавление инфо о платеже в базу, обновление статусов у пользователя, удаление кэша
         await asyncio.gather(
@@ -919,8 +929,7 @@ async def on_successful_payment(message: types.Message):
                                           reply_markup=await get_profile_edit_buttons(True, True, texts))
 
     # получаем id из Кэш и удаляем сообщение
-    await bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("payment_message_id"))
-    await delete_from_cache(user_id, "payment_message_id")
+    await bot.delete_message(chat_id=message.chat.id, message_id=payment_message_id)
 
 
 # ------------------------------------------------------------------- Текст (Последний шаг в Анкете)-------------------------------------------------------

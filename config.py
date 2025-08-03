@@ -7,8 +7,7 @@ __all__ = ['BOT_API_KEY',
            'ADMIN_ID',
            'MIN_COUNT_SYMBOLS',
            'MAX_COUNT_SYMBOLS',
-           'PRICE_INCOGNITO',
-           'PRICE_ADD_TO_COLLECTION',
+           'PRICES',
            'NOTION_SITE',
            'opencagedata_API_KEY',
            'Pictures'
@@ -34,9 +33,49 @@ MIN_COUNT_SYMBOLS = 15
 MAX_COUNT_SYMBOLS = 100
 
 
-#prices:
-PRICE_INCOGNITO = 1
-PRICE_ADD_TO_COLLECTION = 1
+# региональные цены с разделением на развитых и развивающихся стран
+PRICES = {'en': {'name': 'английский', 'incognito': 2, 'add_to_collection': 2},
+          'de': {'name': 'немецкий', 'incognito': 2, 'add_to_collection': 2},
+          'fr': {'name': 'французский', 'incognito': 2, 'add_to_collection': 2},
+          'it': {'name': 'итальянский', 'incognito': 2, 'add_to_collection': 2},
+          'es': {'name': 'испанский', 'incognito': 2, 'add_to_collection': 2},
+          'nl': {'name': 'нидерландский', 'incognito': 2, 'add_to_collection': 2},
+          'sv': {'name': 'шведский', 'incognito': 2, 'add_to_collection': 2},
+          'fi': {'name': 'финский', 'incognito': 2, 'add_to_collection': 2},
+          'no': {'name': 'норвежский', 'incognito': 2, 'add_to_collection': 2},
+          'he': {'name': 'иврит', 'incognito': 2, 'add_to_collection': 2},
+          'ko': {'name': 'корейский', 'incognito': 2, 'add_to_collection': 2},
+          'ja': {'name': 'японский', 'incognito': 2, 'add_to_collection': 2},
+          'cs': {'name': 'чешский', 'incognito': 2, 'add_to_collection': 2},
+          'sk': {'name': 'словацкий', 'incognito': 2, 'add_to_collection': 2},
+          'sl': {'name': 'словенский', 'incognito': 2, 'add_to_collection': 2},
+          'pl': {'name': 'польский', 'incognito': 2, 'add_to_collection': 2},
+          'pt': {'name': 'португальский', 'incognito': 2, 'add_to_collection': 2},
+          'pt-br': {'name': 'португальский (бразильский)', 'incognito': 2, 'add_to_collection': 2},
+          'hr': {'name': 'хорватский', 'incognito': 2, 'add_to_collection': 2},
+
+          'ru': {'name': 'русский', 'incognito': 1, 'add_to_collection': 1},
+          'ar': {'name': 'арабский', 'incognito': 1, 'add_to_collection': 1},
+          'be': {'name': 'белорусский', 'incognito': 1, 'add_to_collection': 1},
+          'ca': {'name': 'каталанский', 'incognito': 1, 'add_to_collection': 1},
+          'hu': {'name': 'венгерский', 'incognito': 1, 'add_to_collection': 1},
+          'id': {'name': 'индонезийский', 'incognito': 1, 'add_to_collection': 1},
+          'kk': {'name': 'казахский', 'incognito': 1, 'add_to_collection': 1},
+          'ms': {'name': 'малайский', 'incognito': 1, 'add_to_collection': 1},
+          'fa': {'name': 'персидский', 'incognito': 1, 'add_to_collection': 1},
+          'ro': {'name': 'румынский', 'incognito': 1, 'add_to_collection': 1},
+          'sr': {'name': 'сербский', 'incognito': 1, 'add_to_collection': 1},
+          'tr': {'name': 'турецкий', 'incognito': 1, 'add_to_collection': 1},
+          'uk': {'name': 'украинский', 'incognito': 1, 'add_to_collection': 1},
+          'uz': {'name': 'узбекский', 'incognito': 1, 'add_to_collection': 1},
+          'hi': {'name': 'хинди', 'incognito': 1, 'add_to_collection': 1},
+          'vi': {'name': 'вьетнамский', 'incognito': 1, 'add_to_collection': 1},
+          'th': {'name': 'тайский', 'incognito': 1, 'add_to_collection': 1},
+          'zh': {'name': 'китайский', 'incognito': 1, 'add_to_collection': 1},
+          'zh-hans': {'name': 'китайский (упрощенный)', 'incognito': 1, 'add_to_collection': 1},
+          'zh-hant': {'name': 'китайский (традиционный)', 'incognito': 1, 'add_to_collection': 1},
+          'el': {'name': 'греческий', 'incognito': 1, 'add_to_collection': 1},
+          }
 
 
 # TODO переписать значения при переходе на другого бота
