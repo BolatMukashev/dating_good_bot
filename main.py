@@ -434,6 +434,38 @@ async def cmd_delete_profile(message: types.Message, state: FSMContext):
 # ------------------------------------------------------------------- Бан аккаунта -------------------------------------------------------
 
 
+# ------------------------------------------------------------------- Тест API Telegram -------------------------------------------------------
+
+
+@dp.message(Command("test1"))
+async def cmd_delete_msg(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    if user_id == ADMIN_ID:
+        cached_messages = await get_cached_messages_ids(user_id)
+        try:
+            bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("search_menu_message_id"))
+        except TelegramBadRequest as e:
+            print(f"ошибка удаления сообщений: {e}")
+
+
+@dp.message(Command("test2"))
+async def cmd_edit_msg(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    user_lang = message.from_user.language_code
+    texts = get_texts(user_lang)
+    if user_id == ADMIN_ID:
+        cached_messages = await get_cached_messages_ids(user_id)
+        try:
+            bot.edit_message_media(chat_id=message.chat.id,
+                                   message_id=cached_messages.get("search_menu_message_id"),
+                                   media=InputMediaPhoto(media=Pictures.SEARCH_MENU_PICTURE,
+                                                         parse_mode="HTML",
+                                                         caption=texts['TEXT']['search_menu']['start']),
+                                   reply_markup = await get_start_button_search_menu(texts))
+        except TelegramBadRequest as e:
+            print(f"ошибка удаления сообщений: {e}")
+
+
 # ------------------------------------------------------------------ ПОИСК ----------------------------------------------------------
 
 
