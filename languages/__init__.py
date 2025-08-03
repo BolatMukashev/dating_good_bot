@@ -26,4 +26,4 @@ LANGUAGES = {
 
 async def get_texts(lang_code: str) -> dict:
     """Возвращает набор словарей по коду языка."""
-    return LANGUAGES.get(lang_code, LANGUAGES["ru"])
+    return LANGUAGES.get(lang_code, LANGUAGES["en"])
