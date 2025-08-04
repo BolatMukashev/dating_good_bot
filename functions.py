@@ -88,6 +88,7 @@ async def find_first_matching_user(current_user_id: int) -> Optional[User]:
             User.telegram_id != current_user_id,
             gender_condition,
             search_condition,
+            User.username != None,
             User.incognito_switch == False,
             User.banned == False,
             User.telegram_id.not_in(subquery),
@@ -231,7 +232,6 @@ async def create_or_update_user(user_id: int, first_name: str, username: str) ->
                 user.first_name = first_name
             if user.username != username:
                 user.username = username
-            # session.add(user) не нужен — объект уже в сессии
 
         await session.commit()
         return user
@@ -376,6 +376,7 @@ async def get_match_targets(user_id: int) -> tuple[dict[int, str], int]:
     async with AsyncSessionLocal() as session:
         user_reactions = aliased(Reaction)
         target_reactions = aliased(Reaction)
+        target_user = aliased(User)
 
         result = await session.execute(
             select(user_reactions.target_tg_id, user_reactions.reaction)
@@ -385,9 +386,16 @@ async def get_match_targets(user_id: int) -> tuple[dict[int, str], int]:
                 (user_reactions.telegram_id == target_reactions.target_tg_id) &
                 (user_reactions.reaction == target_reactions.reaction)
             )
+            .join(
+                target_user,
+                user_reactions.target_tg_id == target_user.telegram_id
+            )
             .where(
                 user_reactions.telegram_id == user_id,
-                user_reactions.reaction != "SKIP"  # <-- исключаем SKIP
+                user_reactions.reaction != "SKIP",
+                target_user.username.is_not(None),
+                target_user.username != "",
+                target_user.banned == False
             )
         )
 
@@ -398,19 +406,32 @@ async def get_match_targets(user_id: int) -> tuple[dict[int, str], int]:
 # Получить из Коллекции
 async def get_collection_targets(user_id: int) -> tuple[list[int], int]:
     async with AsyncSessionLocal() as session:
+        target_user = aliased(User)
+
         result = await session.execute(
             select(Payment.target_tg_id)
-            .where(Payment.telegram_id == user_id, Payment.target_tg_id != None)
+            .join(
+                target_user,
+                Payment.target_tg_id == target_user.telegram_id
+            )
+            .where(
+                Payment.telegram_id == user_id,
+                Payment.target_tg_id != None,
+                target_user.username.is_not(None),
+                target_user.username != "",
+                target_user.banned == False
+            )
         )
+
         ids = result.scalars().unique().all()
         sorted_ids = sorted(ids)
-        return sorted_ids, len(ids)
+        return sorted_ids, len(sorted_ids)
 
 
 # Найти по намерениям, исключая взаимных и тех, кто в Коллекции
 async def get_intent_targets(user_id: int, intent: str) -> tuple[list[int], int]:
     async with AsyncSessionLocal() as session:
-        # Подзапрос: пользователи, которым я поставил эту же реакцию (взаимные)
+        # Подзапрос: пользователи, которым я поставил такую же реакцию
         subq_mutual = (
             select(Reaction.target_tg_id)
             .where(
@@ -419,7 +440,7 @@ async def get_intent_targets(user_id: int, intent: str) -> tuple[list[int], int]
             )
         )
 
-        # Подзапрос: пользователи, которым я поставил SKIP
+        # Подзапрос: пользователи, которых я пропустил
         subq_skipped = (
             select(Reaction.target_tg_id)
             .where(
@@ -437,22 +458,31 @@ async def get_intent_targets(user_id: int, intent: str) -> tuple[list[int], int]
             )
         )
 
-        # Объединённый подзапрос: исключаем всех из этих 3 подгрупп
+        # Объединённый подзапрос: исключаем всех из этих 3 категорий
         union_subq = union_all(subq_mutual, subq_skipped, subq_collection).subquery()
 
-        # Основной запрос: те, кто мне поставил intent, но не попал в исключения
+        reacting_user = aliased(User)
+
+        # Основной запрос: те, кто поставил мне intent, но не в исключениях
         result = await session.execute(
             select(Reaction.telegram_id)
+            .join(
+                reacting_user,
+                Reaction.telegram_id == reacting_user.telegram_id
+            )
             .where(
                 Reaction.target_tg_id == user_id,
                 Reaction.reaction == intent.upper(),
-                ~Reaction.telegram_id.in_(select(union_subq.c.target_tg_id))
+                ~Reaction.telegram_id.in_(select(union_subq.c.target_tg_id)),
+                reacting_user.username.is_not(None),
+                reacting_user.username != "",
+                reacting_user.banned == False
             )
         )
 
         ids = result.scalars().unique().all()
         sorted_ids = sorted(ids)
-        return sorted_ids, len(ids)
+        return sorted_ids, len(sorted_ids)
 
 
 # Найти id-до и id-после в списке

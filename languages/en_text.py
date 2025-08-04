@@ -69,7 +69,9 @@ TEXT = {
         "SEX": "You're interested in intimacy with {name}",
         "CHAT": "You want to chat with {name}",
         "SKIP": "You skipped {name}",
-        "delete": "User has been removed ❌"
+        "delete": "User has been removed ❌",
+        "payment_sent": "Payment has been sent ⭐️",
+        "unavailable": "The account {name} is currently unavailable 🚫"
     },
 
     "match_menu": {

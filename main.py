@@ -14,7 +14,7 @@ from languages import get_texts
 from aiogram.exceptions import TelegramBadRequest
 
 
-# ------------------------------------------------------------------- Настройка бота -------------------------------------------------------
+# ------------------------------------------------------------------- Настройка -------------------------------------------------------
 
 
 # TODO Supabase - SQL bd Postgres
@@ -39,7 +39,7 @@ storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
 
-# ------------------------------------------------------------------- Анкета пользователя -------------------------------------------------------
+# ------------------------------------------------------------------- АНКЕТА -------------------------------------------------------
 
 
 # Команда Старт
@@ -286,6 +286,9 @@ async def handle_photo(message: types.Message):
                                    parse_mode="HTML")
 
 
+# ------------------------------------------------------------------ ИЗМЕНЕНИЕ АНКЕТЫ ----------------------------------------------------------
+
+
 # изменить анкету
 @dp.callback_query(F.data == "profile_edit")
 async def query_profile_edit(callback: types.CallbackQuery):
@@ -353,7 +356,7 @@ async def query_profile_edit(callback: types.CallbackQuery):
                                 reply_markup=await get_approval_button(texts))
 
 
-# ------------------------------------------------------------------ Режим Инкогнито ----------------------------------------------------------
+# ------------------------------------------------------------------ ИНКОГНИТО ----------------------------------------------------------
 
 
 @dp.callback_query(F.data.startswith("incognito|"))
@@ -727,6 +730,9 @@ async def query_pass(callback: types.CallbackQuery):
     return
 
 
+# ------------------------------------------------------------------ КОЛЛЕКЦИЯ ----------------------------------------------------------
+
+
 # колбек кнопка Коллекция в меню Совпадений
 @dp.callback_query(F.data == "collection")
 async def query_collection(callback: types.CallbackQuery):
@@ -789,6 +795,9 @@ async def query_collection_navigation(callback: types.CallbackQuery):
 
     await callback.message.edit_media(media=InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
                                       reply_markup = markup)
+
+
+# ------------------------------------------------------------------ НАМЕРЕНИЯ ----------------------------------------------------------
 
 
 # колбека кому нравишься
@@ -858,29 +867,30 @@ async def query_wants_navigation(callback: types.CallbackQuery):
 # обработка колбека оплаты
 @dp.callback_query(lambda c: c.data.startswith("pay_intentions"))
 async def handle_intentions_pay(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
     
     _, target_id, amount_str, reaction = callback.data.split("|")
     target_id = int(target_id)
     amount = int(amount_str)
 
-    user, texts = await asyncio.gather(
+    target_user, texts = await asyncio.gather(
         get_user_by_id(target_id),
         get_texts(user_lang)
     )
 
-    name_check = await check_username(user.username)
+    name_check = await check_username(target_user.username)
 
     if name_check:
         label = texts["TEXT"]["payment"]["collection"]["label"]
         title = texts["TEXT"]["payment"]["collection"]["title"]
         description = texts["TEXT"]["payment"]["collection"]["description"]
 
-        prices = [LabeledPrice(label=label.format(target_name=user.first_name), amount=amount)] #🏆 💫 ⭐ Избранное
+        prices = [LabeledPrice(label=label.format(target_name=target_user.first_name), amount=amount)] #🏆 💫 ⭐ Избранное
 
         sent_invoice = await callback.message.answer_invoice(
-            title=title.format(target_name=user.first_name),
-            description=description.format(target_name=user.first_name),
+            title=title.format(target_name=target_user.first_name),
+            description=description.format(target_name=target_user.first_name),
             payload=f"payment_add_to_collection|{target_id}|{amount}|{reaction}",
             provider_token="",
             currency="XTR",
@@ -893,12 +903,36 @@ async def handle_intentions_pay(callback: types.CallbackQuery):
         await callback.answer(texts["TEXT"]["notifications"]["payment_sent"])
 
     else:
-        pass
+        await update_user_fields(target_user.telegram_id, username = None)
 
-    
+        # получение списка пользователей по реакции
+        target_users_ids, _,  = await get_intent_targets(user_id, reaction)
+        
+        if not target_users_ids:
+            photo_id = Pictures.get_not_found_picture(reaction)
+            caption = texts['TEXT']['match_menu']['empty'][reaction]
+            markup = await empty_category_buttons(texts)
+        else:
+            target_user, (prev_id, next_id) = await asyncio.gather(
+                get_user_by_id(target_users_ids[0]),
+                get_prev_next_ids(target_users_ids[0], target_users_ids)
+            )
+
+            photo_id = target_user.photo_id
+
+            amount = (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
+            caption, markup = await asyncio.gather(
+                get_caption(target_user),
+                get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
+            )
+        
+        await callback.message.edit_media(media=types.InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
+                                          reply_markup = markup)
+        
+        await callback.answer(texts["TEXT"]["notifications"]["unavailable"].format(name=target_user.first_name))
 
 
-# ------------------------------------------------------------------- Оплата -------------------------------------------------------
+# ------------------------------------------------------------------- ОПЛАТА -------------------------------------------------------
 
 
 @dp.pre_checkout_query()
@@ -974,7 +1008,7 @@ async def on_successful_payment(message: types.Message):
     await bot.delete_message(chat_id=message.chat.id, message_id=payment_message_id)
 
 
-# ------------------------------------------------------------------- Текст (Последний шаг в Анкете)-------------------------------------------------------
+# ------------------------------------------------------------------- ТЕКСТ (Последний шаг в Анкете)-------------------------------------------------------
 
 
 # обработка текста - добавляет или изменяет описание "о себе"
