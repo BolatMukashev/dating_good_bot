@@ -386,6 +386,7 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
         )
 
         await save_to_cache(callback.from_user.id, "incognito_pay_message_id", message_id = sent_invoice.message_id) # сохраняем в Кэш
+        await callback.answer(texts["TEXT"]["notifications"]["payment_sent"])
 
     else:
         if action == "ON":
@@ -437,6 +438,7 @@ async def cmd_delete_profile(message: types.Message, state: FSMContext):
 # ------------------------------------------------------------------- Тест API Telegram -------------------------------------------------------
 
 
+# проверка удаления сообщения (после 2 суток простоя)
 @dp.message(Command("test1"))
 async def cmd_delete_msg(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
@@ -448,6 +450,7 @@ async def cmd_delete_msg(message: types.Message, state: FSMContext):
             print(f"ошибка удаления сообщений: {e}")
 
 
+# проверка изменения сообщения (после 2 суток простоя)
 @dp.message(Command("test2"))
 async def cmd_edit_msg(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
@@ -465,7 +468,7 @@ async def cmd_edit_msg(message: types.Message, state: FSMContext):
         except TelegramBadRequest as e:
             print(f"ошибка удаления сообщений: {e}")
 
-
+    
 # ------------------------------------------------------------------ ПОИСК ----------------------------------------------------------
 
 
@@ -866,26 +869,33 @@ async def handle_intentions_pay(callback: types.CallbackQuery):
         get_texts(user_lang)
     )
 
-    label = texts["TEXT"]["payment"]["collection"]["label"]
-    title = texts["TEXT"]["payment"]["collection"]["title"]
-    description = texts["TEXT"]["payment"]["collection"]["description"]
+    name_check = await check_username(user.username)
 
-    prices = [LabeledPrice(label=label.format(target_name=user.first_name), amount=amount)] #🏆 💫 ⭐ Избранное
+    if name_check:
+        label = texts["TEXT"]["payment"]["collection"]["label"]
+        title = texts["TEXT"]["payment"]["collection"]["title"]
+        description = texts["TEXT"]["payment"]["collection"]["description"]
 
-    sent_invoice = await callback.message.answer_invoice(
-        title=title.format(target_name=user.first_name),
-        description=description.format(target_name=user.first_name),
-        payload=f"payment_add_to_collection|{target_id}|{amount}|{reaction}",
-        provider_token="",
-        currency="XTR",
-        prices=prices,
-        reply_markup=payment_keyboard(texts)
-    )
+        prices = [LabeledPrice(label=label.format(target_name=user.first_name), amount=amount)] #🏆 💫 ⭐ Избранное
 
-    # сохраняем в Кэш
-    await save_to_cache(callback.from_user.id, "collection_pay_message_id", message_id = sent_invoice.message_id)
+        sent_invoice = await callback.message.answer_invoice(
+            title=title.format(target_name=user.first_name),
+            description=description.format(target_name=user.first_name),
+            payload=f"payment_add_to_collection|{target_id}|{amount}|{reaction}",
+            provider_token="",
+            currency="XTR",
+            prices=prices,
+            reply_markup=payment_keyboard(texts)
+        )
 
-    await callback.answer()
+        # сохраняем в Кэш
+        await save_to_cache(callback.from_user.id, "collection_pay_message_id", message_id = sent_invoice.message_id)
+        await callback.answer(texts["TEXT"]["notifications"]["payment_sent"])
+
+    else:
+        pass
+
+    
 
 
 # ------------------------------------------------------------------- Оплата -------------------------------------------------------

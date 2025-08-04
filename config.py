@@ -10,7 +10,9 @@ __all__ = ['BOT_API_KEY',
            'PRICES',
            'NOTION_SITE',
            'opencagedata_API_KEY',
-           'Pictures'
+           'Pictures',
+           'TG_APP_API_ID',
+           'TG_APP_API_HASH'
            ]
 
 
@@ -20,6 +22,11 @@ config = dotenv_values(".env")
 
 BOT_API_KEY = config.get("BOT_API_KEY")
 ADMIN_ID = int(config.get("ADMIN_ID"))
+
+
+TG_APP_API_ID = int(config.get("TG_APP_API_ID"))
+TG_APP_API_HASH = config.get("TG_APP_API_HASH")
+
 
 SUPABASE_PASSWORD = config.get("SUPABASE_PASSWORD")
 SUPABASE_PASSWORD = quote_plus(SUPABASE_PASSWORD)

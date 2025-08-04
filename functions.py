@@ -7,6 +7,9 @@ from db_connect import AsyncSessionLocal
 import aiohttp
 from languages import get_texts
 from config import *
+from telethon.sync import TelegramClient
+from telethon.errors import UsernameNotOccupiedError
+import asyncio
 
 
 # TODO бан пользователя
@@ -31,6 +34,7 @@ __all__ = ['save_to_cache',
            'get_collection_targets',
            'get_intent_targets',
            'get_prev_next_ids',
+           'check_username'
            ]
 
 
@@ -467,4 +471,19 @@ async def pick_id(ids: list[int | None]) -> tuple[int | str, str | int, str | in
     back_id, next_id = ids
     chosen = next_id or back_id or "None"
     return chosen, back_id, next_id
+
+
+# проверяет действующий username или уже нет
+async def check_username(username: str) -> bool:
+    async with TelegramClient('check_session', TG_APP_API_ID, TG_APP_API_HASH) as client:
+            try:
+                await client.get_entity(username)
+                await asyncio.sleep(2)  # пауза, чтобы не попасть под бан
+                return True
+            except UsernameNotOccupiedError:
+                await asyncio.sleep(2)
+                return False
+            except Exception as e:
+                print(f"Ошибка: {e}")
+                return False
 
