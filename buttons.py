@@ -34,7 +34,8 @@ async def get_approval_button(texts: dict):
 
 async def reload_search_button(texts: dict):
     # Кнопка обновить поиск
-    button = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reload"], callback_data="reload_search")
+    unique_suffix = uuid4().hex[:4]
+    button = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reload"], callback_data=f"reload_search|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button]])
     
     return markup

@@ -559,7 +559,7 @@ async def handle_reaction(callback: types.CallbackQuery):
 
 
 # колбек повторить поиск
-@dp.callback_query(F.data == "reload_search")
+@dp.callback_query(lambda c: c.data.startswith("reload_search"))
 async def btn_reload_search(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
