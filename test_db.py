@@ -565,5 +565,5 @@ async def search_test9():
 
 
 if __name__ == "__main__":
-    asyncio.run(check_username_test())
+    asyncio.run(test_match_menu())
 

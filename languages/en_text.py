@@ -71,7 +71,10 @@ TEXT = {
         "SKIP": "You skipped {name}",
         "delete": "User has been removed ❌",
         "payment_sent": "Payment has been sent ⭐️",
-        "unavailable": "The account {name} is currently unavailable 🚫"
+        "unavailable": "The account {name} is currently unavailable 🚫",
+        "incognito" : {
+            True: "Incognito Mode is ON ✅",
+            False: "Incognito Mode is OFF 🚫"
     },
 
     "match_menu": {
@@ -112,7 +115,7 @@ TEXT = {
         }
     }
 }
-
+}
 
 BUTTONS_TEXT = {
     "begin": "Start Registration ✅",
@@ -161,9 +164,7 @@ BUTTONS_TEXT = {
     "incognito": {
         "not_active": "🫥 Go Incognito",
         "on": "✅ Incognito Mode: ON",
-        "off": "🚫 Incognito Mode: OFF",
-        True: "✅ Incognito Mode is ON",
-        False: "🚫 Incognito Mode is OFF"
+        "off": "🚫 Incognito Mode: OFF"
     },
 
     "profile": {
