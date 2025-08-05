@@ -480,28 +480,40 @@ async def cmd_edit_msg(message: types.Message, state: FSMContext):
 async def btn_start_search(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
+    username = callback.from_user.username
 
     # поиск первого подходящего собеседника, получение текста на языке пользователя
     target_user, texts = await asyncio.gather(
         find_first_matching_user(user_id),
         get_texts(user_lang)
     )
+
+    if not username or username == '':
+        picture = Pictures.NO_USERNAME_PICTURE
+        caption = texts['TEXT']["user_profile"]["username_error"]
+        markup = await reload_search_button(texts)
+        notification = texts['TEXT']["notifications"]["not_username"]
     
-    if target_user:
-        caption = await get_caption(target_user)
-
-        # показать анкету собеседника
-        await callback.message.edit_media(
-            media=types.InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
-            reply_markup = await get_btn_to_search(target_user.first_name, target_user.telegram_id, texts))
     else:
-        caption = texts['TEXT']["search_menu"]["not_found"]
-        notification = texts['TEXT']["notifications"]["not_found"]
+        if target_user:
+            picture = target_user.photo_id
+            caption, markup = await asyncio.gather(
+                get_caption(target_user),
+                get_btn_to_search(target_user.first_name, target_user.telegram_id, texts)
+                )
+            notification = ''
 
-        # изменение сообщения с текстом "не найдено" и отправка уведомления
-        await callback.message.edit_media(media=types.InputMediaPhoto(media=Pictures.SEARCH_NOT_FOUND_PICTURE, caption=caption, parse_mode = "HTML"),
-                                          reply_markup = await reload_search_button(texts))
-        await callback.answer(notification)
+        else:
+            picture = Pictures.SEARCH_NOT_FOUND_PICTURE
+            caption = texts['TEXT']["search_menu"]["not_found"]
+            markup = await reload_search_button(texts)
+            notification = texts['TEXT']["notifications"]["not_found"]
+
+    # изменение сообщения с текстом "не найдено" и отправка уведомления
+    await callback.message.edit_media(media=types.InputMediaPhoto(media=picture, caption=caption, parse_mode = "HTML"),
+                                      reply_markup = markup)
+    
+    await callback.answer(notification)
 
 
 # обработка колбека реакции
@@ -509,6 +521,7 @@ async def btn_start_search(callback: types.CallbackQuery):
 async def handle_reaction(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
+    username = callback.from_user.username
     
     _, reaction, target_name, target_tg_id = callback.data.split("|", 3)
 
@@ -522,24 +535,27 @@ async def handle_reaction(callback: types.CallbackQuery):
     
     await callback.answer(texts["TEXT"]["notifications"][reaction].format(name=target_name)) # уведомление сверху
 
-    if target_user:
-        # получение описания для анкеты и кнопок
-        caption, markup = await asyncio.gather(
-            get_caption(target_user),
-            get_btn_to_search(target_user.first_name, target_user.telegram_id, texts)
-        )
-
-        await callback.message.edit_media(
-            media=types.InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
-            reply_markup = markup)
+    if not username or username == '':
+        picture = Pictures.NO_USERNAME_PICTURE
+        caption = texts['TEXT']["user_profile"]["username_error"]
+        markup = await reload_search_button(texts)
+    
     else:
-        caption = texts['TEXT']["search_menu"]["not_found"]
-        notification = texts['TEXT']["notifications"]["not_found"]
+        if target_user:
+            picture = target_user.photo_id
+            # получение описания для анкеты и кнопок
+            caption, markup = await asyncio.gather(
+                get_caption(target_user),
+                get_btn_to_search(target_user.first_name, target_user.telegram_id, texts)
+            )
 
-        # изменение сообщения поиска и отправка уведомления
-        await callback.message.edit_media(media=types.InputMediaPhoto(media=Pictures.SEARCH_NOT_FOUND_PICTURE, caption=caption, parse_mode = "HTML"),
-                                          reply_markup = await reload_search_button(texts))
-        await callback.answer(notification)
+        else:
+            picture = Pictures.SEARCH_NOT_FOUND_PICTURE
+            caption = texts['TEXT']["search_menu"]["not_found"]
+            markup = await reload_search_button(texts)
+
+    await callback.message.edit_media(media=types.InputMediaPhoto(media=picture, caption=caption, parse_mode = "HTML"),
+                                      reply_markup = markup)
 
 
 # колбек повторить поиск
@@ -547,19 +563,33 @@ async def handle_reaction(callback: types.CallbackQuery):
 async def btn_reload_search(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
+    username = callback.from_user.username
 
     target_user, texts = await asyncio.gather(
         find_first_matching_user(user_id),
         get_texts(user_lang)
     )
-    
-    if target_user:
-        caption = await get_caption(target_user)
-        await callback.message.edit_media(
-            media=types.InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
-            reply_markup = await get_btn_to_search(target_user.first_name, target_user.telegram_id, texts))
+
+    if not username or username == '':
+        picture = Pictures.NO_USERNAME_PICTURE
+        caption = texts['TEXT']["user_profile"]["username_error"]
+        markup = await reload_search_button(texts)
+
     else:
-        await callback.answer(texts['TEXT']["notifications"]["not_found"]) # уведомление сверху
+
+        if target_user:
+            picture = target_user.photo_id
+            caption, markup = await asyncio.gather(
+                get_caption(target_user),
+                get_btn_to_search(target_user.first_name, target_user.telegram_id, texts)
+            )
+
+        else:
+            await callback.answer(texts['TEXT']["notifications"]["not_found"]) # уведомление сверху
+            return
+
+    await callback.message.edit_media(media=types.InputMediaPhoto(media=picture, caption=caption, parse_mode="HTML"),
+                                      reply_markup = markup)
 
 
 # ------------------------------------------------------------------ СОВПАДЕНИЯ ----------------------------------------------------------
