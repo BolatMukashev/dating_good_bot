@@ -600,6 +600,7 @@ async def btn_reload_search(callback: types.CallbackQuery):
 async def query_start__reload_btn_match_menu(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
+    username = callback.from_user.username
 
     # получение языка пользователя, кол-во реакции по категориям
     results = await asyncio.gather(
@@ -614,12 +615,21 @@ async def query_start__reload_btn_match_menu(callback: types.CallbackQuery):
     # Распаковка результатов
     texts, (_, match_count), (_, collection_count), (_, love_count), (_, sex_count), (_, chat_count) = results
 
-    markup = await get_matches_menu_buttons(match_count, collection_count, love_count, sex_count, chat_count, texts)
+    if not username or username == '':
+        picture = Pictures.NO_USERNAME_PICTURE
+        caption = texts['TEXT']["user_profile"]["username_error"]
+        markup = await get_matches_menu_buttons(match_count, collection_count, love_count, sex_count, chat_count, texts, username = False)
+        notification = texts['TEXT']["notifications"]["not_username"]
+    else:
+        picture = Pictures.MATCH_MENU_PICTURE
+        caption = ""
+        markup = await get_matches_menu_buttons(match_count, collection_count, love_count, sex_count, chat_count, texts)
+        notification = texts['TEXT']["notifications"]["reloaded"]
 
     # изменение сообщения и отправка уведомления
-    await callback.message.edit_media(media=InputMediaPhoto(media=Pictures.MATCH_MENU_PICTURE, caption="", parse_mode = "HTML"),
+    await callback.message.edit_media(media=InputMediaPhoto(media=picture, caption=caption, parse_mode = "HTML"),
                                       reply_markup = markup)
-    await callback.answer(texts['TEXT']["notifications"]["reloaded"])
+    await callback.answer(notification)
 
 
 # колбек кнопка мэтчи в меню Совпадений

@@ -52,7 +52,7 @@ async def get_btn_to_search(target_name, target_tg_id, texts: dict):
     return markup
 
 
-async def get_matches_menu_buttons(match_count: int, collection_count: int, love_count: int, sex_count: int, chat_count: int, texts: dict):
+async def get_matches_menu_buttons(match_count: int, collection_count: int, love_count: int, sex_count: int, chat_count: int, texts: dict, username: bool = True):
     # Кнопки match меню
 
     unique_suffix = uuid4().hex[:4]
@@ -62,7 +62,20 @@ async def get_matches_menu_buttons(match_count: int, collection_count: int, love
     button3 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["match_menu"]['sex'].format(sex_count=sex_count), callback_data=f"intentions|SEX")
     button4 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["match_menu"]['chat'].format(chat_count=chat_count), callback_data=f"intentions|CHAT")
     button5 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reload"], callback_data=f"match_menu_start_btn|{unique_suffix}")
+
     markup = InlineKeyboardMarkup(inline_keyboard=[[button0], [button1], [button2, button3, button4], [button5]])
+
+    if not username:
+         markup = InlineKeyboardMarkup(inline_keyboard=[[button5]])
+    
+    return markup
+
+
+async def error_matches_menu_button(texts: dict):
+    # Пустая категория, выход в меню Совпадений
+    unique_suffix = uuid4().hex[:4]
+    button1 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["return"], callback_data=f"match_menu_start_btn|{unique_suffix}")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button1]])
     
     return markup
 
