@@ -373,6 +373,15 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
         description = texts['TEXT']["payment"]["incognito"]["description"]
         prices = [LabeledPrice(label=label, amount=amount)]
 
+        # получение id сообщений
+        cached_messages = await get_cached_messages_ids(user_id)
+        pay_message_id = cached_messages.get('incognito_pay_message_id')
+        if pay_message_id:
+            try:
+                await bot.delete_message(chat_id=callback.message.chat.id, message_id=pay_message_id)
+            except TelegramBadRequest as e:
+                print(f"ошибка удаления сообщений: {e}")
+
         sent_invoice = await callback.message.answer_invoice(
             title=title,
             description=description,
@@ -382,8 +391,9 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
             prices=prices,
             reply_markup=payment_keyboard(texts)
         )
-
+        
         await save_to_cache(callback.from_user.id, "incognito_pay_message_id", message_id = sent_invoice.message_id) # сохраняем в Кэш
+
         await callback.answer(texts["TEXT"]["notifications"]["payment_sent"])
 
     else:
@@ -935,6 +945,14 @@ async def handle_intentions_pay(callback: types.CallbackQuery):
 
         prices = [LabeledPrice(label=label.format(target_name=target_user.first_name), amount=amount)] #🏆 💫 ⭐ Избранное
 
+        cached_messages = await get_cached_messages_ids(user_id)
+        pay_message_id = cached_messages.get('collection_pay_message_id')
+        if pay_message_id:
+            try:
+                await bot.delete_message(chat_id=callback.message.chat.id, message_id=pay_message_id)
+            except TelegramBadRequest as e:
+                print(f"ошибка удаления сообщений: {e}")
+
         sent_invoice = await callback.message.answer_invoice(
             title=title.format(target_name=target_user.first_name),
             description=description.format(target_name=target_user.first_name),
@@ -1049,8 +1067,9 @@ async def on_successful_payment(message: types.Message):
                                             message_id=cached_messages.get("start_message_id"),
                                             reply_markup=await get_profile_edit_buttons(True, True, texts))
 
-    # получаем id из Кэш и удаляем сообщение
-    payment_message_id = cached_messages.get("incognito_pay_message_id")
+        # получаем id из Кэш и удаляем сообщение
+        payment_message_id = cached_messages.get("incognito_pay_message_id")
+        
     await bot.delete_message(chat_id=message.chat.id, message_id=payment_message_id)
 
 
