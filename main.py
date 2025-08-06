@@ -118,12 +118,10 @@ async def query_retry_registration(callback: types.CallbackQuery):
         create_or_update_user(user_id, first_name, username)
     )
 
-    start_message_id = cached_messages.get("start_message_id")
-
     # изменяем стартовое сообщение
     await bot.edit_message_media(
         chat_id = callback.message.chat.id,
-        message_id = start_message_id,
+        message_id = cached_messages.get("start_message_id"),
         media = InputMediaPhoto(media = Pictures.USER_PROFILE_PICTURE,
                                 caption = texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
                                 parse_mode = "HTML"),
@@ -438,76 +436,49 @@ async def cmd_delete_profile(message: types.Message, state: FSMContext):
 # ------------------------------------------------------------------- Тест API Telegram -------------------------------------------------------
 
 
+# отправка тестового сообщения
+@dp.message(Command("test"))
+async def cmd_delete_msg(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    if user_id == ADMIN_ID:
+        msg = await message.answer_photo(photo=Pictures.TECHNICAL_WORK, caption="Тестовое сообщение")
+    
+    await save_to_cache(user_id, "test_message_id", message_id = msg.message_id)
+    
+    await message.delete()
+
+
 # проверка удаления сообщения (после 2 суток простоя)
 @dp.message(Command("test1"))
-async def cmd_delete_msg(message: types.Message, state: FSMContext):
+async def cmd_delete_msg1(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     if user_id == ADMIN_ID:
         cached_messages = await get_cached_messages_ids(user_id)
         try:
-            await bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("search_menu_message_id"))
+            await bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("test_message_id"))
         except TelegramBadRequest as e:
-            print(f"ошибка удаления сообщений: {e}")
+            print(f"ошибка удаления: {e}")
     
     await message.delete()
 
 
-# проверка удаления сообщения (после 2 суток простоя)
+# проверка изменения сообщения (после 2 суток простоя)
 @dp.message(Command("test2"))
-async def cmd_delete_msg(message: types.Message, state: FSMContext):
+async def cmd_edit_msg1(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
-    if user_id == ADMIN_ID:
-        cached_messages = await get_cached_messages_ids(user_id)
-        try:
-            await bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("match_menu_message_id"))
-        except TelegramBadRequest as e:
-            print(f"ошибка удаления сообщений: {e}")
-    
-    await message.delete()
-
-
-# проверка изменения сообщения (после 2 суток простоя)
-@dp.message(Command("test3"))
-async def cmd_edit_msg(message: types.Message, state: FSMContext):
-    user_id = message.from_user.id
-    user_lang = message.from_user.language_code
-    texts = await get_texts(user_lang)
-
     if user_id == ADMIN_ID:
         cached_messages = await get_cached_messages_ids(user_id)
         try:
             await bot.edit_message_media(chat_id=message.chat.id,
-                                   message_id=cached_messages.get("search_menu_message_id"),
-                                   media=InputMediaPhoto(media=Pictures.SEARCH_MENU_PICTURE,
-                                                         parse_mode="HTML",
-                                                         caption=texts['TEXT']['search_menu']['start']),
-                                   reply_markup = await get_start_button_search_menu(texts))
+                                         message_id=cached_messages.get("test_message_id"),
+                                         media=InputMediaPhoto(media=Pictures.USER_PROFILE_PICTURE,
+                                                               caption="Сообщение было изменено"))
         except TelegramBadRequest as e:
             print(f"ошибка удаления сообщений: {e}")
 
     await message.delete()
 
 
-# проверка изменения сообщения (после 2 суток простоя)
-@dp.message(Command("test4"))
-async def cmd_edit_msg(message: types.Message, state: FSMContext):
-    user_id = message.from_user.id
-    user_lang = message.from_user.language_code
-    texts = await get_texts(user_lang)
-    if user_id == ADMIN_ID:
-        cached_messages = await get_cached_messages_ids(user_id)
-        try:
-            await bot.edit_message_media(chat_id=message.chat.id,
-                                   message_id=cached_messages.get("match_menu_message_id"),
-                                   media=InputMediaPhoto(media=Pictures.MATCH_MENU_PICTURE,
-                                                         parse_mode="HTML",
-                                                         caption=texts['TEXT']['match_menu']['start']),
-                                   reply_markup = await get_start_button_match_menu(texts))
-        except TelegramBadRequest as e:
-            print(f"ошибка удаления сообщений: {e}")
-    await message.delete()
-
-    
 # ------------------------------------------------------------------ ПОИСК ----------------------------------------------------------
 
 

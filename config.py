@@ -100,6 +100,9 @@ class Pictures(str, Enum):
     SEARCH_MENU_PICTURE = "AgACAgIAAxkBAAIF52iEgJy1mLk8fDvsB2uA2-slCXkMAALg8TEbvvspSCFw2YgopGH3AQADAgADeQADNgQ"
     SEARCH_NOT_FOUND_PICTURE = "AgACAgIAAxkBAAIF9miEnSrHkCidRcpTxPqKNztY0py0AALf8jEbvvspSFIhwRpoR7CNAQADAgADeQADNgQ"
 
+    TECHNICAL_WORK = "AgACAgIAAxkBAAIG3miTKK35xSZwhBHvSvin06vNH7rYAAJm8DEbH5uYSJqRLKwys2yfAQADAgADeQADNgQ"
+    CLEANING = "AgACAgIAAxkBAAIG3WiTKJwDRse3hqjVAivbYj9MXs8RAAJl8DEbH5uYSGVJKvSV2lkTAQADAgADeQADNgQ"
+
     @classmethod
     def get_not_found_picture(cls, keyword: str):
         key = f"{keyword.upper()}_NOT_FOUND_PICTURE"
