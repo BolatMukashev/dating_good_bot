@@ -55,6 +55,7 @@ TEXT = {"user_profile": {
                "\nӨзі туралы: <i>{about_me}</i>",
 
     "get_location_message": "<i>Егер Telegram-ды компьютерде қолдансаң, бұл қадамды телефоныңда орында</i>",
+    "waiting": "Күту ...",
 },
 
 "notifications": {

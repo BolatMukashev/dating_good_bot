@@ -55,7 +55,8 @@ TEXT = {
                    "\n🔍 Looking for: {gender_search}"
                    "\nAbout me: <i>{about_me}</i>",
 
-        "get_location_message": "<i>If you're using Telegram on a computer, please complete this step on your mobile device</i>"
+        "get_location_message": "<i>If you're using Telegram on a computer, please complete this step on your mobile device</i>",
+        "waiting": "Waiting ...",
     },
 
     "notifications": {
