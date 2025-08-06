@@ -445,21 +445,38 @@ async def cmd_delete_msg(message: types.Message, state: FSMContext):
     if user_id == ADMIN_ID:
         cached_messages = await get_cached_messages_ids(user_id)
         try:
-            bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("search_menu_message_id"))
+            await bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("search_menu_message_id"))
         except TelegramBadRequest as e:
             print(f"ошибка удаления сообщений: {e}")
+    
+    await message.delete()
 
 
-# проверка изменения сообщения (после 2 суток простоя)
+# проверка удаления сообщения (после 2 суток простоя)
 @dp.message(Command("test2"))
-async def cmd_edit_msg(message: types.Message, state: FSMContext):
+async def cmd_delete_msg(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
-    user_lang = message.from_user.language_code
-    texts = get_texts(user_lang)
     if user_id == ADMIN_ID:
         cached_messages = await get_cached_messages_ids(user_id)
         try:
-            bot.edit_message_media(chat_id=message.chat.id,
+            await bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("match_menu_message_id"))
+        except TelegramBadRequest as e:
+            print(f"ошибка удаления сообщений: {e}")
+    
+    await message.delete()
+
+
+# проверка изменения сообщения (после 2 суток простоя)
+@dp.message(Command("test3"))
+async def cmd_edit_msg(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    user_lang = message.from_user.language_code
+    texts = await get_texts(user_lang)
+
+    if user_id == ADMIN_ID:
+        cached_messages = await get_cached_messages_ids(user_id)
+        try:
+            await bot.edit_message_media(chat_id=message.chat.id,
                                    message_id=cached_messages.get("search_menu_message_id"),
                                    media=InputMediaPhoto(media=Pictures.SEARCH_MENU_PICTURE,
                                                          parse_mode="HTML",
@@ -467,6 +484,28 @@ async def cmd_edit_msg(message: types.Message, state: FSMContext):
                                    reply_markup = await get_start_button_search_menu(texts))
         except TelegramBadRequest as e:
             print(f"ошибка удаления сообщений: {e}")
+
+    await message.delete()
+
+
+# проверка изменения сообщения (после 2 суток простоя)
+@dp.message(Command("test4"))
+async def cmd_edit_msg(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    user_lang = message.from_user.language_code
+    texts = await get_texts(user_lang)
+    if user_id == ADMIN_ID:
+        cached_messages = await get_cached_messages_ids(user_id)
+        try:
+            await bot.edit_message_media(chat_id=message.chat.id,
+                                   message_id=cached_messages.get("match_menu_message_id"),
+                                   media=InputMediaPhoto(media=Pictures.MATCH_MENU_PICTURE,
+                                                         parse_mode="HTML",
+                                                         caption=texts['TEXT']['match_menu']['start']),
+                                   reply_markup = await get_start_button_match_menu(texts))
+        except TelegramBadRequest as e:
+            print(f"ошибка удаления сообщений: {e}")
+    await message.delete()
 
     
 # ------------------------------------------------------------------ ПОИСК ----------------------------------------------------------
