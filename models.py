@@ -41,6 +41,7 @@ class User(Base):
     incognito_pay = Column(Boolean, default=False, nullable=False)
     incognito_switch = Column(Boolean, default=False, nullable=False)
     banned = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # Обратные связи
     reactions_sent = relationship('Reaction', foreign_keys='Reaction.telegram_id', back_populates='sender')
@@ -58,6 +59,7 @@ class Reaction(Base):
     telegram_id = Column(Integer, ForeignKey('users.telegram_id'), nullable=False)
     target_tg_id = Column(Integer, ForeignKey('users.telegram_id'), nullable=False)
     reaction = Column(String)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     sender = relationship('User', foreign_keys=[telegram_id], back_populates='reactions_sent')
     receiver = relationship('User', foreign_keys=[target_tg_id], back_populates='reactions_received')
@@ -82,7 +84,6 @@ class Payment(Base):
 
     buyer = relationship('User', foreign_keys=[telegram_id], back_populates='payments_made')
     target = relationship('User', foreign_keys=[target_tg_id], back_populates='payments_received')
-
 
 
 # Таблица кэш
