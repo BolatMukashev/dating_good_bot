@@ -12,6 +12,7 @@ from buttons import *
 from functions import *
 from languages import get_texts
 from aiogram.exceptions import TelegramBadRequest
+from datetime import datetime
 
 
 # ------------------------------------------------------------------- Настройка -------------------------------------------------------
@@ -284,9 +285,6 @@ async def handle_photo(message: types.Message):
 # ------------------------------------------------------------------ ИЗМЕНЕНИЕ АНКЕТЫ ----------------------------------------------------------
 
 
-# TODO проверить работу удаления и изменения/удаления через 2-3 дня
-
-
 # изменить анкету
 @dp.callback_query(F.data == "profile_edit")
 async def query_profile_edit(callback: types.CallbackQuery):
@@ -304,7 +302,7 @@ async def query_profile_edit(callback: types.CallbackQuery):
     match_menu_message_id = cached_messages.get("match_menu_message_id")
     search_menu_message_id = cached_messages.get("search_menu_message_id")
 
-    # удаляем сообщения
+    # удаляем или блокируем меню мэтч и меню поиска 
     try:
         await asyncio.gather(
             bot.delete_message(chat_id=callback.message.chat.id, message_id=match_menu_message_id),
@@ -316,7 +314,8 @@ async def query_profile_edit(callback: types.CallbackQuery):
             await bot.edit_message_media(chat_id=callback.message.chat.id, message_id=el,
                                          media=InputMediaPhoto(media=Pictures.CLEANING,
                                                                caption=texts['TEXT']['user_profile']['waiting']))
-
+            
+    # изменение стартового сообщения
     if not username:
         caption = texts['TEXT']['user_profile']['username_error']
         markup = await get_retry_registration_button(texts)
@@ -331,7 +330,7 @@ async def query_profile_edit(callback: types.CallbackQuery):
                                                        parse_mode="HTML"),
                                 reply_markup=markup)
     
-    # обновляем инфо о пользователе, удаляем записи по остальным полям, изменяем стартовое сообщение
+    # обновляем инфо о пользователе, удаляем записи по остальным полям в бд
     await asyncio.gather(
         create_or_update_user(user_id, first_name, username),
         update_user_fields(user_id, **{k: None for k in ["gender", "gender_search", "country", "country_local", "city", "city_local", "photo_id", "about_me"]})
@@ -469,7 +468,7 @@ async def cmd_edit_msg1(message: types.Message, state: FSMContext):
             await bot.edit_message_media(chat_id=message.chat.id,
                                          message_id=cached_messages.get("test_message_id"),
                                          media=InputMediaPhoto(media=Pictures.USER_PROFILE_PICTURE,
-                                                               caption="Сообщение было изменено"))
+                                                               caption=f"Сообщение было изменено {datetime.now()}"))
         except TelegramBadRequest as e:
             print(f"ошибка удаления сообщений: {e}")
 
