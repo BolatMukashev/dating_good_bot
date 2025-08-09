@@ -6,7 +6,7 @@ from sqlalchemy import select
 from functions import *
 from config import ADMIN_ID
 from db_connect import AsyncSessionLocal
-from functions import check_username_by_id
+from functions import set_login_by_username_checker
 
 
 fake = Faker("ru_RU")
@@ -556,6 +556,5 @@ async def search_test9():
 
 
 if __name__ == "__main__":
-    username = asyncio.run(check_username_by_id(ADMIN_ID))
-    print(username)
+    asyncio.run(set_login_by_username_checker(ADMIN_ID))
 
