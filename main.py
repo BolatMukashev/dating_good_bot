@@ -486,18 +486,22 @@ async def btn_start_search(callback: types.CallbackQuery):
     username = callback.from_user.username
 
     # поиск первого подходящего собеседника, получение текста на языке пользователя
-    target_user, texts = await asyncio.gather(
-        find_first_matching_user(user_id),
-        get_texts(user_lang)
-    )
+    texts = await get_texts(user_lang)
 
     if not username or username == '':
+        await update_user_fields(user_id, username=None)
+
         picture = Pictures.NO_USERNAME_PICTURE
         caption = texts['TEXT']["user_profile"]["username_error"]
         markup = await reload_search_button(texts)
         notification = texts['TEXT']["notifications"]["not_username"]
     
     else:
+        target_user, _ = await asyncio.gather(
+            find_first_matching_user(user_id),
+            update_user_fields(user_id, username=username)
+        )
+
         if target_user:
             picture = target_user.photo_id
             caption, markup = await asyncio.gather(
@@ -528,25 +532,30 @@ async def handle_reaction(callback: types.CallbackQuery):
     
     _, reaction, target_name, target_tg_id = callback.data.split("|", 3)
 
-    await add_reaction(user_id, int(target_tg_id), reaction)
-
-    # получение первого подходящего собеседника, получение текста на языке пользователя, добавление реакции в базу
-    target_user, texts = await asyncio.gather(
-        find_first_matching_user(user_id),
+    # получение текста на языке пользователя, добавление реакции в базу
+    texts, _ = await asyncio.gather(
         get_texts(user_lang),
+        add_reaction(user_id, int(target_tg_id), reaction),
     )
     
     await callback.answer(texts["TEXT"]["notifications"][reaction].format(name=target_name)) # уведомление сверху
 
     if not username or username == '':
+        await update_user_fields(user_id, username=None)
         picture = Pictures.NO_USERNAME_PICTURE
         caption = texts['TEXT']["user_profile"]["username_error"]
         markup = await reload_search_button(texts)
     
     else:
+
+        # получение первого подходящего собеседника, 
+        target_user, _ = await asyncio.gather(
+            find_first_matching_user(user_id),
+            update_user_fields(user_id, username=username)
+        )
+
         if target_user:
             picture = target_user.photo_id
-            # получение описания для анкеты и кнопок
             caption, markup = await asyncio.gather(
                 get_caption(target_user),
                 get_btn_to_search(target_user.first_name, target_user.telegram_id, texts)
@@ -568,17 +577,19 @@ async def btn_reload_search(callback: types.CallbackQuery):
     user_lang = callback.from_user.language_code
     username = callback.from_user.username
 
-    target_user, texts = await asyncio.gather(
-        find_first_matching_user(user_id),
-        get_texts(user_lang)
-    )
+    texts = await get_texts(user_lang)
 
     if not username or username == '':
+        await update_user_fields(user_id, username=None)
         picture = Pictures.NO_USERNAME_PICTURE
         caption = texts['TEXT']["user_profile"]["username_error"]
         markup = await reload_search_button(texts)
 
     else:
+        target_user, _ = await asyncio.gather(
+            find_first_matching_user(user_id),
+            update_user_fields(user_id, username=username)
+            )
 
         if target_user:
             picture = target_user.photo_id
@@ -588,8 +599,10 @@ async def btn_reload_search(callback: types.CallbackQuery):
             )
 
         else:
+            picture = Pictures.SEARCH_NOT_FOUND_PICTURE
+            caption = texts['TEXT']["search_menu"]["not_found"]
+            markup = await reload_search_button(texts)
             await callback.answer(texts['TEXT']["notifications"]["not_found"]) # уведомление сверху
-            return
 
     await callback.message.edit_media(media=types.InputMediaPhoto(media=picture, caption=caption, parse_mode="HTML"),
                                       reply_markup = markup)
@@ -605,25 +618,29 @@ async def query_start__reload_btn_match_menu(callback: types.CallbackQuery):
     user_lang = callback.from_user.language_code
     username = callback.from_user.username
 
-    # получение языка пользователя, кол-во реакции по категориям
-    results = await asyncio.gather(
-        get_texts(user_lang),
-        get_match_targets(user_id),
-        get_collection_targets(user_id),
-        get_intent_targets(user_id, "LOVE"),
-        get_intent_targets(user_id, "SEX"),
-        get_intent_targets(user_id, "CHAT"),
-    )
-
-    # Распаковка результатов
-    texts, (_, match_count), (_, collection_count), (_, love_count), (_, sex_count), (_, chat_count) = results
+    texts = await get_texts(user_lang)
 
     if not username or username == '':
+        await update_user_fields(user_id, username=None)
         picture = Pictures.NO_USERNAME_PICTURE
         caption = texts['TEXT']["user_profile"]["username_error"]
-        markup = await get_matches_menu_buttons(match_count, collection_count, love_count, sex_count, chat_count, texts, username = False)
+        markup = await get_empty_menu_buttons(texts)
         notification = texts['TEXT']["notifications"]["not_username"]
+
     else:
+        # получение языка пользователя, кол-во реакции по категориям
+        results = await asyncio.gather(
+            get_match_targets(user_id),
+            get_collection_targets(user_id),
+            get_intent_targets(user_id, "LOVE"),
+            get_intent_targets(user_id, "SEX"),
+            get_intent_targets(user_id, "CHAT"),
+            update_user_fields(user_id, username=username)
+        )
+
+        # Распаковка результатов
+        (_, match_count), (_, collection_count), (_, love_count), (_, sex_count), (_, chat_count), _ = results
+
         picture = Pictures.MATCH_MENU_PICTURE
         caption = ""
         markup = await get_matches_menu_buttons(match_count, collection_count, love_count, sex_count, chat_count, texts)

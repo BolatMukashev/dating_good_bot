@@ -21,7 +21,8 @@ __all__ = ['get_approval_button',
            'payment_keyboard',
            'reload_search_button',
            'empty_category_buttons',
-           'get_collection_user']
+           'get_collection_user',
+           'get_empty_menu_buttons']
 
 
 async def get_approval_button(texts: dict):
@@ -65,9 +66,14 @@ async def get_matches_menu_buttons(match_count: int, collection_count: int, love
 
     markup = InlineKeyboardMarkup(inline_keyboard=[[button0], [button1], [button2, button3, button4], [button5]])
 
-    if not username:
-         markup = InlineKeyboardMarkup(inline_keyboard=[[button5]])
-    
+    return markup
+
+
+async def get_empty_menu_buttons(texts: dict):
+    # Пустая кнопка match меню
+    unique_suffix = uuid4().hex[:4]
+    button0 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reload"], callback_data=f"match_menu_start_btn|{unique_suffix}")
+    markup = InlineKeyboardMarkup(inline_keyboard=[[button0]])
     return markup
 
 
