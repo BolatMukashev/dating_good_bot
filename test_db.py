@@ -6,7 +6,7 @@ from sqlalchemy import select
 from functions import *
 from config import ADMIN_ID
 from db_connect import AsyncSessionLocal
-from functions import check_username
+from functions import check_username_by_id
 
 
 fake = Faker("ru_RU")
@@ -14,15 +14,6 @@ fake = Faker("ru_RU")
 
 WOMAN_PHOTO = 'AgACAgIAAxkBAAIEXWhyM6aDeihjOMGDRT4wm2zQlBVnAAJ_AjIbE9uYS_5EbII1p1GkAQADAgADeQADNgQ'
 MAN_PHOTO = 'AgACAgIAAxkBAAIEZmhyNMfHJtQKJTEpyBvnzSn78uxBAALc8jEbht2QSwgCthHAoX1JAQADAgADeQADNgQ'
-
-
-async def check_username_test() -> str:
-    username = 'astana11b'
-    res = await check_username(username)
-    if res:
-        print(f"Все в порядке: {res}")
-    else:
-         print(f"Что то не так: {res}")
 
 
 async def add_new_fake_user(tg_id: int, gender: Gender, gender_search: Gender, random_country: bool = False, random_city: bool = False, about_me: str = None, incognito: bool = False, banned: bool = False):
@@ -565,5 +556,6 @@ async def search_test9():
 
 
 if __name__ == "__main__":
-    asyncio.run(test_match_menu())
+    username = asyncio.run(check_username_by_id(ADMIN_ID))
+    print(username)
 

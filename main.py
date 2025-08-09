@@ -939,16 +939,20 @@ async def handle_intentions_pay(callback: types.CallbackQuery):
         get_texts(user_lang)
     )
 
-    uname_check = await check_username(target_user.username)
+    target_username = await check_username_by_id(target_user.telegram_id)
 
-    if uname_check:
+    if target_username:
         label = texts["TEXT"]["payment"]["collection"]["label"]
         title = texts["TEXT"]["payment"]["collection"]["title"]
         description = texts["TEXT"]["payment"]["collection"]["description"]
 
         prices = [LabeledPrice(label=label.format(target_name=target_user.first_name), amount=amount)] #🏆 💫 ⭐ Избранное
 
-        cached_messages = await get_cached_messages_ids(user_id)
+        cached_messages, _ = await asyncio.gather(
+            get_cached_messages_ids(user_id),
+            update_user_fields(target_user.telegram_id, username = target_username)
+        )
+
         pay_message_id = cached_messages.get('collection_pay_message_id')
         if pay_message_id:
             try:
@@ -971,10 +975,11 @@ async def handle_intentions_pay(callback: types.CallbackQuery):
         await callback.answer(texts["TEXT"]["notifications"]["payment_sent"])
 
     else:
-        await update_user_fields(target_user.telegram_id, username = None)
-
-        # получение списка пользователей по реакции
-        target_users_ids, _,  = await get_intent_targets(user_id, reaction)
+        # получение списка пользователей по реакции, обновление инфо о пользователе
+        (target_users_ids, _), _ = await asyncio.gather(
+            get_intent_targets(user_id, reaction),
+            update_user_fields(target_user.telegram_id, username = None)
+        )
         
         if not target_users_ids:
             photo_id = Pictures.get_not_found_picture(reaction)

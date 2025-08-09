@@ -34,7 +34,7 @@ __all__ = ['save_to_cache',
            'get_collection_targets',
            'get_intent_targets',
            'get_prev_next_ids',
-           'check_username'
+           'check_username_by_id'
            ]
 
 
@@ -503,17 +503,14 @@ async def pick_id(ids: list[int | None]) -> tuple[int | str, str | int, str | in
     return chosen, back_id, next_id
 
 
-# проверяет действующий username или уже нет
-async def check_username(username: str) -> bool:
+# проверить какой у пользователя текущий username  
+async def check_username_by_id(user_id: int) -> str | None:
     async with TelegramClient('check_session', TG_APP_API_ID, TG_APP_API_HASH) as client:
-            try:
-                await client.get_entity(username)
-                await asyncio.sleep(2)  # пауза, чтобы не попасть под бан
-                return True
-            except UsernameNotOccupiedError:
-                await asyncio.sleep(2)
-                return False
-            except Exception as e:
-                print(f"Ошибка: {e}")
-                return False
+        try:
+            entity = await client.get_entity(user_id)
+            await asyncio.sleep(2)
+            return entity.username  # может быть None, если username не установлен
+        except Exception as e:
+            print(f"Ошибка: {e}")
+            return None
 
