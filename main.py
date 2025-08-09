@@ -939,7 +939,14 @@ async def handle_intentions_pay(callback: types.CallbackQuery):
         get_texts(user_lang)
     )
 
-    target_username = await check_username_by_id(target_user.telegram_id)
+    try:
+        target_username = await check_username_by_id(target_user.telegram_id)
+    except AuthRequiredError as e:
+        bot.send_message(chat_id=ADMIN_ID, text=f"⚠ Нужна авторизация : {e}")
+        target_username = target_user.username
+    except Exception as e:
+        bot.send_message(chat_id=ADMIN_ID, text=f"⚠ Ошибка авторизация : {e}")
+        target_username = target_user.username
 
     if target_username:
         label = texts["TEXT"]["payment"]["collection"]["label"]

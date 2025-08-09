@@ -34,7 +34,8 @@ __all__ = ['save_to_cache',
            'get_collection_targets',
            'get_intent_targets',
            'get_prev_next_ids',
-           'check_username_by_id'
+           'check_username_by_id',
+           'AuthRequiredError'
            ]
 
 
@@ -503,9 +504,17 @@ async def pick_id(ids: list[int | None]) -> tuple[int | str, str | int, str | in
     return chosen, back_id, next_id
 
 
+class AuthRequiredError(Exception):
+    """Ошибка: нет активной сессии Telethon"""
+    pass
+
+
 # проверить какой у пользователя текущий username  
 async def check_username_by_id(user_id: int) -> str | None:
     async with TelegramClient('check_session', TG_APP_API_ID, TG_APP_API_HASH) as client:
+        if not client.session.auth_key:
+            raise AuthRequiredError("Нет активной сессии — будет запрос номера и кода")
+        
         try:
             entity = await client.get_entity(user_id)
             await asyncio.sleep(2)
