@@ -475,6 +475,19 @@ async def cmd_edit_msg1(message: types.Message, state: FSMContext):
     await message.delete()
 
 
+# проверка проверялщика username
+@dp.message(Command("test3"))
+async def cmd_check_username(message: types.Message, state: FSMContext):
+
+    try:
+        target_username = await check_username_by_id(ADMIN_ID)
+        print(target_username)
+    except AuthRequiredError as e:
+        await bot.send_message(chat_id=ADMIN_ID, text=f"⚠ Нужна авторизация : {e}")
+    except Exception as e:
+        await bot.send_message(chat_id=ADMIN_ID, text=f"⚠ Ошибка авторизация : {e}")
+
+
 # ------------------------------------------------------------------ ПОИСК ----------------------------------------------------------
 
 
@@ -942,10 +955,10 @@ async def handle_intentions_pay(callback: types.CallbackQuery):
     try:
         target_username = await check_username_by_id(target_user.telegram_id)
     except AuthRequiredError as e:
-        bot.send_message(chat_id=ADMIN_ID, text=f"⚠ Нужна авторизация : {e}")
+        await bot.send_message(chat_id=ADMIN_ID, text=f"⚠ Нужна авторизация : {e}")
         target_username = target_user.username
     except Exception as e:
-        bot.send_message(chat_id=ADMIN_ID, text=f"⚠ Ошибка авторизация : {e}")
+        await bot.send_message(chat_id=ADMIN_ID, text=f"⚠ Ошибка авторизация : {e}")
         target_username = target_user.username
 
     if target_username:

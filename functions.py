@@ -509,17 +509,48 @@ class AuthRequiredError(Exception):
     pass
 
 
-# проверить какой у пользователя текущий username  
-async def check_username_by_id(user_id: int) -> str | None:
-    async with TelegramClient('check_session', TG_APP_API_ID, TG_APP_API_HASH) as client:
-        if not client.session.auth_key:
-            raise AuthRequiredError("Нет активной сессии — будет запрос номера и кода")
+# проверить какой у пользователя текущий username
+# async def check_username_by_id(user_id: int) -> str | None:
+#     async with TelegramClient('check_session', TG_APP_API_ID, TG_APP_API_HASH) as client:
+#         await client.connect()  # Подключаемся без авторизации
         
-        try:
-            entity = await client.get_entity(user_id)
-            await asyncio.sleep(2)
-            return entity.username  # может быть None, если username не установлен
-        except Exception as e:
-            print(f"Ошибка: {e}")
-            return None
+#         if not await client.is_user_authorized():
+#             raise AuthRequiredError("Нет активной сессии — будет запрос номера и кода")
+        
+#         try:
+#             entity = await client.get_entity(user_id)
+#             await asyncio.sleep(2)
+#             return entity.username  # Может быть None
+#         except Exception as e:
+#             print(f"Ошибка: {e}")
+#             return None
 
+import asyncio
+from pathlib import Path
+import telethon
+from telethon import TelegramClient
+
+# если у тебя своя AuthRequiredError — оставь её, иначе можно использовать Exception
+class AuthRequiredError(Exception):
+    pass
+
+async def check_username_by_id(user_id: int) -> str | None:
+    session_name = "check_session"
+    client = TelegramClient(session_name, TG_APP_API_ID, TG_APP_API_HASH)
+    try:
+        await client.connect()
+
+        is_auth = await client.is_user_authorized()
+        print("is_user_authorized:", is_auth)
+
+        if not is_auth:
+            await client.disconnect()
+            raise AuthRequiredError("Нет активной сессии — нужна авторизация")
+
+        # теперь безопасно делаем запрос
+        entity = await client.get_entity(user_id)
+        return getattr(entity, "username", None)
+
+    finally:
+        if client.is_connected():
+            await client.disconnect()
