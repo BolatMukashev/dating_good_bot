@@ -100,7 +100,7 @@ TEXT = {
     "search_menu": {
         "start": "🔍 Find a Match",
         "not_found": "No matches found in your region 😔"
-                     "\nPlease try again later."
+                     "\nPlease try again later ☕"
     },
 
     "payment": {

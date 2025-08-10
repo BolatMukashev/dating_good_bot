@@ -35,7 +35,8 @@ __all__ = ['save_to_cache',
            'get_intent_targets',
            'get_prev_next_ids',
            'check_username_by_id',
-           'AuthRequiredError'
+           'AuthRequiredError',
+           'delete_from_cache_by_id'
            ]
 
 
@@ -202,6 +203,24 @@ async def delete_from_cache(user_id: int, parameter: str) -> None:
             select(Cache).where(
                 Cache.telegram_id == user_id,
                 Cache.parameter == parameter
+            )
+        )
+        cache_entry = result.scalar_one_or_none()
+
+        if cache_entry:
+            await session.delete(cache_entry)
+            await session.commit()
+
+
+# Удалить запись из кэша по id
+# await delete_from_cache(user_id, 123)
+
+async def delete_from_cache_by_id(user_id: int, message_id: int) -> None:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(Cache).where(
+                Cache.telegram_id == user_id,
+                Cache.message_id == message_id
             )
         )
         cache_entry = result.scalar_one_or_none()

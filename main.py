@@ -303,17 +303,19 @@ async def query_profile_edit(callback: types.CallbackQuery):
     search_menu_message_id = cached_messages.get("search_menu_message_id")
 
     # удаляем или блокируем меню мэтч и меню поиска 
-    try:
-        await asyncio.gather(
-            bot.delete_message(chat_id=callback.message.chat.id, message_id=match_menu_message_id),
-            bot.delete_message(chat_id=callback.message.chat.id, message_id=search_menu_message_id)
-        )
-    except TelegramBadRequest as e:
-        print(f"ошибка удаления сообщений: {e}")
-        for el in [match_menu_message_id, search_menu_message_id]:
-            await bot.edit_message_media(chat_id=callback.message.chat.id, message_id=el,
-                                         media=InputMediaPhoto(media=Pictures.CLEANING,
-                                                               caption=texts['TEXT']['user_profile']['waiting']))
+    for message_id in [match_menu_message_id, search_menu_message_id]:
+        try:
+            await bot.delete_message(chat_id=callback.message.chat.id, message_id=message_id)
+        except TelegramBadRequest as e:
+            print(f"ошибка удаления сообщений: {e}")
+            try:
+                await bot.edit_message_media(chat_id=callback.message.chat.id, message_id=message_id,
+                                             media=InputMediaPhoto(media=Pictures.CLEANING,
+                                                                   caption=texts['TEXT']['user_profile']['waiting']))
+            except Exception as e:
+                print(f"ошибка изменения сообщений: {e}")
+        else:
+            await delete_from_cache_by_id(user_id, message_id)
             
     # изменение стартового сообщения
     if not username:
@@ -324,7 +326,7 @@ async def query_profile_edit(callback: types.CallbackQuery):
         markup = await get_approval_button(texts)
     
     await bot.edit_message_media(chat_id=callback.message.chat.id,
-                                 message_id=int(start_message_id),
+                                 message_id=start_message_id,
                                  media=InputMediaPhoto(media=Pictures.USER_PROFILE_PICTURE,
                                                        caption=caption,
                                                        parse_mode="HTML"),
@@ -1125,15 +1127,17 @@ async def handle_text(message: types.Message):
     )
 
     start_message_id = cached_messages.get("start_message_id")
+    match_menu_message_id = cached_messages.get("match_menu_message_id")
+    search_menu_message_id = cached_messages.get("search_menu_message_id")
 
     user_text = message.text
     if len(user_text) >= MIN_COUNT_SYMBOLS and len(user_text) <= MAX_COUNT_SYMBOLS:
         # обновить инфо о пользователе в базе, изменить стартовое сообщение
         await update_user_fields(user_id, about_me = user_text)
+        
         await bot.edit_message_media(chat_id=message.chat.id,
                                      message_id=start_message_id,
-                                     media=InputMediaPhoto(media=user.photo_id,
-                                                           parse_mode="HTML",
+                                     media=InputMediaPhoto(media=user.photo_id, parse_mode="HTML",
                                                            caption=texts['TEXT']["user_profile"]["profile"].format(first_name=user.first_name,
                                                                                                                  country_local=user.country_local,
                                                                                                                  city_local=user.city_local,
@@ -1142,21 +1146,35 @@ async def handle_text(message: types.Message):
                                                                                                                  gender_search=texts['GENDER_SEARCH_LABELS'][user.gender_search],
                                                                                                                  about_me=user_text)),
                                     reply_markup = await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch, texts))
+        
+        d = [{'parameter': 'match_menu_message_id',
+              'message_id': match_menu_message_id,
+              'photo_id': Pictures.MATCH_MENU_PICTURE,
+              'caption': texts['TEXT']['match_menu']['start'],
+              'markup': await get_start_button_match_menu(texts)},
 
-        match_menu = await message.answer_photo(photo=Pictures.MATCH_MENU_PICTURE,
-                                                caption=texts['TEXT']['match_menu']['start'],
-                                                parse_mode="HTML",
-                                                reply_markup=await get_start_button_match_menu(texts))
+              {'parameter': 'search_menu_message_id',
+               'message_id': search_menu_message_id,
+               'photo_id': Pictures.SEARCH_MENU_PICTURE,
+               'caption': texts['TEXT']['search_menu']['start'],
+               'markup': await get_start_button_search_menu(texts)}
+              ]
+        
+        for el in d:
+            parameter = el.get('parameter')
+            message_id = el.get('message_id')
+            caption = el.get('caption')
+            photo_id = el.get('photo_id')
+            markup = el.get('markup')
 
-        search_menu = await message.answer_photo(photo=Pictures.SEARCH_MENU_PICTURE,
-                                                caption=texts['TEXT']['search_menu']['start'],
-                                                parse_mode="HTML",
-                                                reply_markup=await get_start_button_search_menu(texts))
-        # запись в базу
-        await asyncio.gather(
-            save_to_cache(user_id, "match_menu_message_id", message_id = match_menu.message_id),
-            save_to_cache(user_id, "search_menu_message_id", message_id = search_menu.message_id)
-            )
+            if message_id:
+                await bot.edit_message_media(chat_id=message.chat.id,
+                                             message_id=message_id,
+                                             media=InputMediaPhoto(media=photo_id, parse_mode="HTML", caption=caption),
+                                             reply_markup = markup)
+            else:
+                msg = await message.answer_photo(photo=photo_id, caption=caption, parse_mode="HTML", reply_markup=markup)
+                await save_to_cache(user_id, parameter, message_id = msg.message_id)
 
     else:
         if len(user_text) < MIN_COUNT_SYMBOLS:
