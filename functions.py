@@ -92,9 +92,9 @@ async def find_first_matching_user(current_user_id: int) -> Optional[User]:
             User.telegram_id != current_user_id,
             gender_condition,
             search_condition,
-            User.username != None,
-            User.photo_id != None,
-            User.about_me != None,
+            User.username.is_not(None),
+            User.photo_id.is_not(None),
+            User.about_me.is_not(None),
             User.incognito_switch == False,
             User.banned == False,
             User.telegram_id.not_in(subquery),
@@ -440,7 +440,7 @@ async def get_collection_targets(user_id: int) -> tuple[list[int], int]:
             )
             .where(
                 Payment.telegram_id == user_id,
-                Payment.target_tg_id != None,
+                Payment.target_tg_id.is_not(None),
                 target_user.username.is_not(None),
                 target_user.username != "",
                 target_user.banned == False
@@ -478,7 +478,7 @@ async def get_intent_targets(user_id: int, intent: str) -> tuple[list[int], int]
             select(Payment.target_tg_id)
             .where(
                 Payment.telegram_id == user_id,
-                Payment.target_tg_id != None
+                Payment.target_tg_id.is_not(None),
             )
         )
 
