@@ -86,7 +86,7 @@ async def test_match_menu():
     await add_reaction(6666, ADMIN_ID, ReactionType.SKIP.value)
 
 
-async def test_delete_user_from_search():
+async def test_delete_profile():
     # появятся 4 пользователя во вкладках Совпадение, Свидание, Постель, Чат. Нужно их удалить. Они должны исчезнуть из вкладок
     # сценарий SKIP
     await add_new_fake_user(7111, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в MATCH и удалить✅")
@@ -101,6 +101,18 @@ async def test_delete_user_from_search():
 
     await add_new_fake_user(7114, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в CHAT и удалить✅")
     await add_reaction(7114, ADMIN_ID, ReactionType.CHAT.value)
+
+
+async def test_banned():
+    pass
+
+
+async def test_incognito():
+    pass
+
+
+async def test_not_username():
+    pass
 
 
 async def search_test1():

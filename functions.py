@@ -40,9 +40,11 @@ __all__ = ['save_to_cache',
            ]
 
 
+# ПОИСК. Получаем первого подходящего пользователя
+
 async def find_first_matching_user(current_user_id: int) -> Optional[User]:
     async with AsyncSessionLocal() as session:
-        # ПОИСК. Получаем первого подходящего пользователя
+        
         result = await session.execute(
             select(User).where(User.telegram_id == current_user_id)
         )
@@ -91,6 +93,8 @@ async def find_first_matching_user(current_user_id: int) -> Optional[User]:
             gender_condition,
             search_condition,
             User.username != None,
+            User.photo_id != None,
+            User.about_me != None,
             User.incognito_switch == False,
             User.banned == False,
             User.telegram_id.not_in(subquery),
