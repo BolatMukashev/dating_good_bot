@@ -7,12 +7,7 @@ from db_connect import AsyncSessionLocal
 import aiohttp
 from languages import get_texts
 from config import *
-from telethon.sync import TelegramClient
-from telethon.errors import UsernameNotOccupiedError
-import asyncio
-
-
-# TODO бан пользователя
+from aiogram import Bot
 
 
 __all__ = ['save_to_cache',
@@ -34,9 +29,8 @@ __all__ = ['save_to_cache',
            'get_collection_targets',
            'get_intent_targets',
            'get_prev_next_ids',
-           'check_username_by_id',
-           'AuthRequiredError',
-           'delete_from_cache_by_id'
+           'delete_from_cache_by_id',
+           'check_username_relevance'
            ]
 
 
@@ -527,43 +521,8 @@ async def pick_id(ids: list[int | None]) -> tuple[int | str, str | int, str | in
     return chosen, back_id, next_id
 
 
-class AuthRequiredError(Exception):
-    """Ошибка: нет активной сессии Telethon"""
-    pass
-
-
-async def set_login_by_username_checker(user_id: int) -> str | None:
-    async with TelegramClient('check_session', TG_APP_API_ID, TG_APP_API_HASH) as client:
-        await client.connect()  # Подключаемся без авторизации
-               
-        try:
-            entity = await client.get_entity(user_id)
-            await asyncio.sleep(2)
-            return entity.username  # Может быть None
-        except Exception as e:
-            print(f"Ошибка: {e}")
-            return None
-        finally:
-            await client.disconnect()
-
-
 #проверить какой у пользователя текущий username
-async def check_username_by_id(user_id: int) -> str | None:
-    client = TelegramClient("check_session", TG_APP_API_ID, TG_APP_API_HASH)
-    try:
-        await client.connect()
-
-        is_auth = await client.is_user_authorized()
-        print("is_user_authorized:", is_auth)
-
-        if not is_auth:
-            await client.disconnect()
-            raise AuthRequiredError("Нет активной сессии — нужна авторизация")
-
-        # теперь безопасно делаем запрос
-        entity = await client.get_entity(user_id)
-        return getattr(entity, "username", None)
-
-    finally:
-        if client.is_connected():
-            await client.disconnect()
+async def check_username_relevance(bot: Bot, user_id: int) -> bool:
+    chat = await bot.get_chat(user_id)
+    current_username = chat.username  # Может быть None
+    return current_username

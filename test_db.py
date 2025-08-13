@@ -4,16 +4,16 @@ import random
 from faker import Faker
 from sqlalchemy import select
 from functions import *
-from config import ADMIN_ID
+from config import ADMIN_ID, ASTANA_ID
 from db_connect import AsyncSessionLocal
-from functions import set_login_by_username_checker, PaymentType
+from functions import PaymentType
 
 
 fake = Faker("ru_RU")
 
 
-WOMAN_PHOTO = 'AgACAgIAAxkBAAIEXWhyM6aDeihjOMGDRT4wm2zQlBVnAAJ_AjIbE9uYS_5EbII1p1GkAQADAgADeQADNgQ'
-MAN_PHOTO = 'AgACAgIAAxkBAAIEZmhyNMfHJtQKJTEpyBvnzSn78uxBAALc8jEbht2QSwgCthHAoX1JAQADAgADeQADNgQ'
+WOMAN_PHOTO = 'AgACAgIAAxkBAANAaJxzC1LXxMRklNAlqZHX7aHRNegAAhH8MRss9OlITkDWlNLPt0QBAAMCAAN5AAM2BA'
+MAN_PHOTO = 'AgACAgIAAxkBAANBaJxzHSOjS6JUNH35BQQc7fvpG98AAhL8MRss9OlItbHQ9eaLS3QBAAMCAAN5AAM2BA'
 
 
 async def add_new_fake_user(tg_id: int, gender: Gender, gender_search: Gender, random_country: bool = False, random_city: bool = False, about_me: str = None, incognito: bool = False, banned: bool = False, username: str = 'astana11b'):
@@ -66,8 +66,8 @@ async def test_match_menu():
     await add_reaction(ADMIN_ID, 1111, ReactionType.LOVE.value)
 
     # сценарий COLLECTION
-    await add_new_fake_user(2222, Gender.WOMAN, Gender.MAN, about_me = "Ты должен добавить меня в коллекцию ✅")
-    await add_reaction(2222, ADMIN_ID, ReactionType.SEX.value)
+    await add_new_fake_user(ASTANA_ID, Gender.WOMAN, Gender.MAN, about_me = "Ты должен добавить меня в коллекцию ✅")
+    await add_reaction(ASTANA_ID, ADMIN_ID, ReactionType.SEX.value)
 
     # сценарий LOVE
     await add_new_fake_user(3333, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в LOVE ✅")
@@ -677,5 +677,5 @@ search_test9()
 """
 
 if __name__ == "__main__":
-    asyncio.run(search_test1())
+    asyncio.run(test_match_menu())
 

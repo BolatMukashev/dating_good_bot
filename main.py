@@ -40,8 +40,24 @@ storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
 
-# ------------------------------------------------------------------- АНКЕТА -------------------------------------------------------
+# ------------------------------------------------------------------- ТЕСТ ЗАПУСК -------------------------------------------------------
 
+
+# # Команда Старт
+# @dp.message(Command("start"))
+# async def cmd_start(message: types.Message):
+#     await message.answer("hello")
+
+
+# # обработка фото
+# @dp.message(F.photo)
+# async def handle_photo(message: types.Message):
+#     photo = message.photo[-1]
+#     file_id = photo.file_id
+
+#     await message.answer(f"{file_id}")
+
+# ------------------------------------------------------------------- АНКЕТА -------------------------------------------------------
 
 # Команда Старт
 @dp.message(Command("start"))
@@ -404,7 +420,7 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
 
 # Команда Удаление
 @dp.message(Command("delete_profile"))
-async def cmd_delete_profile(message: types.Message, state: FSMContext):
+async def cmd_delete_profile(message: types.message):
     user_id = message.from_user.id
 
     # получение id сообщений
@@ -436,7 +452,7 @@ async def cmd_delete_profile(message: types.Message, state: FSMContext):
 
 # отправка тестового сообщения
 @dp.message(Command("test"))
-async def cmd_delete_msg(message: types.Message, state: FSMContext):
+async def cmd_delete_msg(message: types.Message):
     user_id = message.from_user.id
     if user_id == ADMIN_ID:
         msg = await message.answer_photo(photo=Pictures.TECHNICAL_WORK, caption="Тестовое сообщение")
@@ -448,7 +464,7 @@ async def cmd_delete_msg(message: types.Message, state: FSMContext):
 
 # проверка удаления сообщения (после 2 суток простоя)
 @dp.message(Command("test1"))
-async def cmd_delete_msg1(message: types.Message, state: FSMContext):
+async def cmd_delete_msg1(message: types.Message):
     user_id = message.from_user.id
     if user_id == ADMIN_ID:
         cached_messages = await get_cached_messages_ids(user_id)
@@ -462,7 +478,7 @@ async def cmd_delete_msg1(message: types.Message, state: FSMContext):
 
 # проверка изменения сообщения (после 2 суток простоя)
 @dp.message(Command("test2"))
-async def cmd_edit_msg1(message: types.Message, state: FSMContext):
+async def cmd_edit_msg1(message: types.Message):
     user_id = message.from_user.id
     if user_id == ADMIN_ID:
         cached_messages = await get_cached_messages_ids(user_id)
@@ -474,20 +490,18 @@ async def cmd_edit_msg1(message: types.Message, state: FSMContext):
         except TelegramBadRequest as e:
             print(f"ошибка удаления сообщений: {e}")
 
+    
+
+
+# проверка username
+@dp.message(Command("test4"))
+async def cmd_check_username(message: types.Message):
+    user_id = message.from_user.id
+    if user_id == ADMIN_ID:
+        result = await check_username_relevance(bot, ADMIN_ID)
+        print("Актуален?" , result)
+
     await message.delete()
-
-
-# проверка проверялщика username
-@dp.message(Command("test3"))
-async def cmd_check_username(message: types.Message, state: FSMContext):
-
-    try:
-        target_username = await check_username_by_id(ADMIN_ID)
-        print(target_username)
-    except AuthRequiredError as e:
-        await bot.send_message(chat_id=ADMIN_ID, text=f"⚠ Нужна авторизация : {e}")
-    except Exception as e:
-        await bot.send_message(chat_id=ADMIN_ID, text=f"⚠ Ошибка авторизация : {e}")
 
 
 # ------------------------------------------------------------------ ПОИСК ----------------------------------------------------------
@@ -954,21 +968,14 @@ async def handle_intentions_pay(callback: types.CallbackQuery):
         get_texts(user_lang)
     )
 
-    try:
-        target_username = await check_username_by_id(target_user.telegram_id)
-    except AuthRequiredError as e:
-        await bot.send_message(chat_id=ADMIN_ID, text=f"⚠ Нужна авторизация : {e}")
-        target_username = target_user.username
-    except Exception as e:
-        await bot.send_message(chat_id=ADMIN_ID, text=f"⚠ Ошибка авторизация : {e}")
-        target_username = target_user.username
+    target_username = await check_username_relevance(bot, target_user.telegram_id)
 
     if target_username:
-        label = texts["TEXT"]["payment"]["collection"]["label"]
-        title = texts["TEXT"]["payment"]["collection"]["title"]
-        description = texts["TEXT"]["payment"]["collection"]["description"]
+        label = texts["TEXT"]["payment"]["collection"]["label"].format(target_name=target_user.first_name)
+        title = texts["TEXT"]["payment"]["collection"]["title"].format(target_name=target_user.first_name)
+        description = texts["TEXT"]["payment"]["collection"]["description"].format(target_name=target_user.first_name)
 
-        prices = [LabeledPrice(label=label.format(target_name=target_user.first_name), amount=amount)] #🏆 💫 ⭐ Избранное
+        prices = [LabeledPrice(label=label, amount=amount)] #🏆 💫 ⭐ Избранное
 
         cached_messages, _ = await asyncio.gather(
             get_cached_messages_ids(user_id),
@@ -983,8 +990,8 @@ async def handle_intentions_pay(callback: types.CallbackQuery):
                 print(f"ошибка удаления сообщений: {e}")
 
         sent_invoice = await callback.message.answer_invoice(
-            title=title.format(target_name=target_user.first_name),
-            description=description.format(target_name=target_user.first_name),
+            title=title,
+            description=description,
             payload=f"payment_add_to_collection|{target_id}|{amount}|{reaction}",
             provider_token="",
             currency="XTR",

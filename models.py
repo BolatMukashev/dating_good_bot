@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Index, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Index, UniqueConstraint, BigInteger
 from sqlalchemy.orm import relationship, DeclarativeBase
 from enum import Enum
 from sqlalchemy import Enum as SQLEnum
@@ -26,7 +26,7 @@ class User(Base):
     __tablename__ = 'users'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    telegram_id = Column(Integer, unique=True, nullable=False)
+    telegram_id = Column(BigInteger, unique=True, nullable=False)
     first_name = Column(String)
     username = Column(String)
     gender = Column(SQLEnum(Gender, name="gender_enum", native_enum=False), nullable=True)
@@ -56,8 +56,8 @@ class Reaction(Base):
     __tablename__ = 'reactions'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    telegram_id = Column(Integer, ForeignKey('users.telegram_id'), nullable=False)
-    target_tg_id = Column(Integer, ForeignKey('users.telegram_id'), nullable=False)
+    telegram_id = Column(BigInteger, ForeignKey('users.telegram_id'), nullable=False)
+    target_tg_id = Column(BigInteger, ForeignKey('users.telegram_id'), nullable=False)
     reaction = Column(String)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
@@ -76,8 +76,8 @@ class Payment(Base):
     __tablename__ = 'payments'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    telegram_id = Column(Integer, ForeignKey('users.telegram_id'), nullable=False)
-    target_tg_id = Column(Integer, ForeignKey('users.telegram_id'), nullable=True)
+    telegram_id = Column(BigInteger, ForeignKey('users.telegram_id'), nullable=False)
+    target_tg_id = Column(BigInteger, ForeignKey('users.telegram_id'), nullable=True)
     amount = Column(Integer, nullable=False)
     type = Column(SQLEnum(PaymentType, name="payment_type_enum", native_enum=False), nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
@@ -91,7 +91,7 @@ class Cache(Base):
     __tablename__ = 'cache'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    telegram_id = Column(Integer, ForeignKey('users.telegram_id'), nullable=False)
+    telegram_id = Column(BigInteger, ForeignKey('users.telegram_id'), nullable=False)
     parameter = Column(String)
     message_id = Column(Integer)
 
