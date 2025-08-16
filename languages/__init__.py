@@ -1,4 +1,4 @@
-from . import ru_text, en_text, kz_text
+from . import ru_text, en_text, kz_text, pt_br_text
 
 LANGUAGES = {
     "ru": {
@@ -15,12 +15,19 @@ LANGUAGES = {
         "GENDER_EMOJI": en_text.GENDER_EMOJI,
         "GENDER_SEARCH_LABELS": en_text.GENDER_SEARCH_LABELS,
     },
-    "kz": {
+    "kk": {
         "TEXT": kz_text.TEXT,
         "BUTTONS_TEXT": kz_text.BUTTONS_TEXT,
         "GENDER_LABELS": kz_text.GENDER_LABELS,
         "GENDER_EMOJI": kz_text.GENDER_EMOJI,
         "GENDER_SEARCH_LABELS": kz_text.GENDER_SEARCH_LABELS,
+    },
+    "pt-br": { 
+        "TEXT": pt_br_text.TEXT, 
+        "BUTTONS_TEXT": pt_br_text.BUTTONS_TEXT,
+        "GENDER_LABELS": pt_br_text.GENDER_LABELS,
+        "GENDER_EMOJI": pt_br_text.GENDER_EMOJI,
+        "GENDER_SEARCH_LABELS": pt_br_text.GENDER_SEARCH_LABELS,
     }
 }
 
