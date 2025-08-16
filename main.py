@@ -490,8 +490,6 @@ async def cmd_edit_msg1(message: types.Message):
         except TelegramBadRequest as e:
             print(f"ошибка удаления сообщений: {e}")
 
-    
-
 
 # проверка username
 @dp.message(Command("test4"))
@@ -500,6 +498,17 @@ async def cmd_check_username(message: types.Message):
     if user_id == ADMIN_ID:
         result = await check_username_relevance(bot, ADMIN_ID)
         print("Актуален?" , result)
+
+    await message.delete()
+
+
+# проверка username
+@dp.message(Command("test5"))
+async def cmd_check_id(message: types.Message):
+    user_id = message.from_user.id
+    target_user_id = ASTANA_ID
+    if user_id == ADMIN_ID:
+        await message.answer("Проверка", reply_markup= await test_button(target_user_id))
 
     await message.delete()
 
@@ -967,8 +976,11 @@ async def handle_intentions_pay(callback: types.CallbackQuery):
         get_user_by_id(target_id),
         get_texts(user_lang)
     )
-
-    target_username = await check_username_relevance(bot, target_user.telegram_id)
+    try:
+        target_username = await check_username_relevance(bot, target_user.telegram_id)
+    except Exception as e:
+        print(f"Ошибка получения username: {e}")
+        target_username = target_user.username
 
     if target_username:
         label = texts["TEXT"]["payment"]["collection"]["label"].format(target_name=target_user.first_name)

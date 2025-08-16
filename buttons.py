@@ -22,7 +22,8 @@ __all__ = ['get_approval_button',
            'reload_search_button',
            'empty_category_buttons',
            'get_collection_user',
-           'get_empty_menu_buttons']
+           'get_empty_menu_buttons',
+           'test_button']
 
 
 async def get_approval_button(texts: dict):
@@ -220,3 +221,10 @@ def payment_keyboard(texts: dict):
     builder.button(text=texts["BUTTONS_TEXT"]["pay"], pay=True)
     
     return builder.as_markup()
+
+
+async def test_button(target_user_id):
+        button1 = InlineKeyboardButton(text="Проверка", callback_data=f"pass", url=f"tg://user?id={target_user_id}?text=Привет чепушила")
+        markup = InlineKeyboardMarkup(inline_keyboard=[[button1]])
+        
+        return markup

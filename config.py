@@ -5,6 +5,7 @@ from enum import Enum
 
 __all__ = ['BOT_API_KEY',
            'ADMIN_ID',
+           'ASTANA_ID',
            'MIN_COUNT_SYMBOLS',
            'MAX_COUNT_SYMBOLS',
            'PRICES',
