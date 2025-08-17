@@ -68,6 +68,7 @@ async def cmd_start(message: types.Message):
     username = message.from_user.username
 
     # получение текста на языке пользователя и удаление сообщения /start
+    print(user_lang)
     texts = await get_texts(user_lang)
     await message.delete()
 
