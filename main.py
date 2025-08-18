@@ -1,27 +1,16 @@
 import logging
 import asyncio
-from db_connect import async_engine
 from aiogram.types import InputMediaPhoto, LabeledPrice
 from aiogram.filters.command import Command
-from aiogram.fsm.context import FSMContext
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
 from config import *
-from models import Gender, Base, PaymentType, ReactionType
+from models import Gender, PaymentType, ReactionType
 from buttons import *
 from functions import *
 from languages import get_texts
 from aiogram.exceptions import TelegramBadRequest
 from datetime import datetime
-
-
-# ------------------------------------------------------------------- Настройка -------------------------------------------------------
-
-
-# TODO Supabase - SQL bd Postgres
-# оптимизация
-# Локализация
-
 
 # dating_good_bot
 # Twint - Twin + Intent — совпадение намерений
@@ -29,6 +18,7 @@ from datetime import datetime
 # FeelMatch
 # Fibly – лёгкое, запоминающееся (feel + match) 
 
+# ------------------------------------------------------------------- Настройка -------------------------------------------------------
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -73,7 +63,8 @@ async def cmd_start(message: types.Message):
     await message.delete()
 
     if not username:
-        picture = Pictures.NO_USERNAME_PICTURE
+        picture = Pictures.NO_USERNAME_PICTURE.value
+        print(picture)
         caption = texts["TEXT"]['user_profile']['username_error']
         markup = await get_retry_registration_button(texts)
 
@@ -92,7 +83,8 @@ async def cmd_start(message: types.Message):
                                                                         gender_search=texts['GENDER_SEARCH_LABELS'][user.gender_search],
                                                                         about_me=user.about_me)
         else:
-            picture = Pictures.USER_PROFILE_PICTURE
+            picture = Pictures.USER_PROFILE_PICTURE.value
+            print(f"профиль: {picture}")
             caption = texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE)
             markup = await get_approval_button(texts)
 
@@ -102,12 +94,12 @@ async def cmd_start(message: types.Message):
     # если уже зарегистрирован в базе
     if user.about_me and username:
 
-        match_menu = await message.answer_photo(photo=Pictures.MATCH_MENU_PICTURE,
+        match_menu = await message.answer_photo(photo=Pictures.MATCH_MENU_PICTURE.value,
                                                 caption=texts['TEXT']['match_menu']['start'],
                                                 parse_mode="HTML",
                                                 reply_markup=await get_start_button_match_menu(texts))
 
-        search_menu = await message.answer_photo(photo=Pictures.SEARCH_MENU_PICTURE,
+        search_menu = await message.answer_photo(photo=Pictures.SEARCH_MENU_PICTURE.value,
                                                 caption=texts['TEXT']['search_menu']['start'],
                                                 parse_mode="HTML",
                                                 reply_markup=await get_start_button_search_menu(texts))
@@ -140,7 +132,7 @@ async def query_retry_registration(callback: types.CallbackQuery):
     await bot.edit_message_media(
         chat_id = callback.message.chat.id,
         message_id = cached_messages.get("start_message_id"),
-        media = InputMediaPhoto(media = Pictures.USER_PROFILE_PICTURE,
+        media = InputMediaPhoto(media = Pictures.USER_PROFILE_PICTURE.value,
                                 caption = texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
                                 parse_mode = "HTML"),
         reply_markup = await get_approval_button(texts))
@@ -327,7 +319,7 @@ async def query_profile_edit(callback: types.CallbackQuery):
             print(f"ошибка удаления сообщений: {e}")
             try:
                 await bot.edit_message_media(chat_id=callback.message.chat.id, message_id=message_id,
-                                             media=InputMediaPhoto(media=Pictures.CLEANING,
+                                             media=InputMediaPhoto(media=Pictures.CLEANING.value,
                                                                    caption=texts['TEXT']['user_profile']['waiting']))
             except Exception as e:
                 print(f"ошибка изменения сообщений: {e}")
@@ -344,7 +336,7 @@ async def query_profile_edit(callback: types.CallbackQuery):
     
     await bot.edit_message_media(chat_id=callback.message.chat.id,
                                  message_id=start_message_id,
-                                 media=InputMediaPhoto(media=Pictures.USER_PROFILE_PICTURE,
+                                 media=InputMediaPhoto(media=Pictures.USER_PROFILE_PICTURE.value,
                                                        caption=caption,
                                                        parse_mode="HTML"),
                                 reply_markup=markup)
@@ -456,7 +448,7 @@ async def cmd_delete_profile(message: types.message):
 async def cmd_delete_msg(message: types.Message):
     user_id = message.from_user.id
     if user_id == ADMIN_ID:
-        msg = await message.answer_photo(photo=Pictures.TECHNICAL_WORK, caption="Тестовое сообщение")
+        msg = await message.answer_photo(photo=Pictures.TECHNICAL_WORK.value, caption="Тестовое сообщение")
     
     await save_to_cache(user_id, "test_message_id", message_id = msg.message_id)
     
@@ -486,7 +478,7 @@ async def cmd_edit_msg1(message: types.Message):
         try:
             await bot.edit_message_media(chat_id=message.chat.id,
                                          message_id=cached_messages.get("test_message_id"),
-                                         media=InputMediaPhoto(media=Pictures.USER_PROFILE_PICTURE,
+                                         media=InputMediaPhoto(media=Pictures.USER_PROFILE_PICTURE.value,
                                                                caption=f"Сообщение было изменено {datetime.now()}"))
         except TelegramBadRequest as e:
             print(f"ошибка удаления сообщений: {e}")
@@ -514,6 +506,18 @@ async def cmd_check_id(message: types.Message):
     await message.delete()
 
 
+
+# проверка изображений
+@dp.message(Command("test6"))
+async def cmd_check_image(message: types.Message):
+    for picture in Pictures:
+        print(picture.name, picture.value)
+        try:
+            await message.answer_photo(photo=picture.value)
+        except Exception as e:
+            print(f"Ошбика с фото {picture.name} - {e}")
+
+
 # ------------------------------------------------------------------ ПОИСК ----------------------------------------------------------
 
 
@@ -530,7 +534,7 @@ async def btn_start_search(callback: types.CallbackQuery):
     if not username or username == '':
         await update_user_fields(user_id, username=None)
 
-        picture = Pictures.NO_USERNAME_PICTURE
+        picture = Pictures.NO_USERNAME_PICTURE.value
         caption = texts['TEXT']["user_profile"]["username_error"]
         markup = await reload_search_button(texts)
         notification = texts['TEXT']["notifications"]["not_username"]
@@ -550,7 +554,7 @@ async def btn_start_search(callback: types.CallbackQuery):
             notification = ''
 
         else:
-            picture = Pictures.SEARCH_NOT_FOUND_PICTURE
+            picture = Pictures.SEARCH_NOT_FOUND_PICTURE.value
             caption = texts['TEXT']["search_menu"]["not_found"]
             markup = await reload_search_button(texts)
             notification = texts['TEXT']["notifications"]["not_found"]
@@ -581,7 +585,7 @@ async def handle_reaction(callback: types.CallbackQuery):
 
     if not username or username == '':
         await update_user_fields(user_id, username=None)
-        picture = Pictures.NO_USERNAME_PICTURE
+        picture = Pictures.NO_USERNAME_PICTURE.value
         caption = texts['TEXT']["user_profile"]["username_error"]
         markup = await reload_search_button(texts)
     
@@ -601,7 +605,7 @@ async def handle_reaction(callback: types.CallbackQuery):
             )
 
         else:
-            picture = Pictures.SEARCH_NOT_FOUND_PICTURE
+            picture = Pictures.SEARCH_NOT_FOUND_PICTURE.value
             caption = texts['TEXT']["search_menu"]["not_found"]
             markup = await reload_search_button(texts)
 
@@ -620,7 +624,7 @@ async def btn_reload_search(callback: types.CallbackQuery):
 
     if not username or username == '':
         await update_user_fields(user_id, username=None)
-        picture = Pictures.NO_USERNAME_PICTURE
+        picture = Pictures.NO_USERNAME_PICTURE.value
         caption = texts['TEXT']["user_profile"]["username_error"]
         markup = await reload_search_button(texts)
 
@@ -638,7 +642,7 @@ async def btn_reload_search(callback: types.CallbackQuery):
             )
 
         else:
-            picture = Pictures.SEARCH_NOT_FOUND_PICTURE
+            picture = Pictures.SEARCH_NOT_FOUND_PICTURE.value
             caption = texts['TEXT']["search_menu"]["not_found"]
             markup = await reload_search_button(texts)
             await callback.answer(texts['TEXT']["notifications"]["not_found"]) # уведомление сверху
@@ -661,7 +665,7 @@ async def query_start__reload_btn_match_menu(callback: types.CallbackQuery):
 
     if not username or username == '':
         await update_user_fields(user_id, username=None)
-        picture = Pictures.NO_USERNAME_PICTURE
+        picture = Pictures.NO_USERNAME_PICTURE.value
         caption = texts['TEXT']["user_profile"]["username_error"]
         markup = await get_empty_menu_buttons(texts)
         notification = texts['TEXT']["notifications"]["not_username"]
@@ -680,7 +684,7 @@ async def query_start__reload_btn_match_menu(callback: types.CallbackQuery):
         # Распаковка результатов
         (_, match_count), (_, collection_count), (_, love_count), (_, sex_count), (_, chat_count), _ = results
 
-        picture = Pictures.MATCH_MENU_PICTURE
+        picture = Pictures.MATCH_MENU_PICTURE.value
         caption = ""
         markup = await get_matches_menu_buttons(match_count, collection_count, love_count, sex_count, chat_count, texts)
         notification = texts['TEXT']["notifications"]["reloaded"]
@@ -704,7 +708,7 @@ async def query_matches(callback: types.CallbackQuery):
     )
 
     if not target_users_ids:
-        photo_id = Pictures.MATCH_NOT_FOUND_PICTURE
+        photo_id = Pictures.MATCH_NOT_FOUND_PICTURE.value
         caption = texts['TEXT']['match_menu']['match_empty']
         markup = await empty_category_buttons(texts)
     else:
@@ -776,7 +780,7 @@ async def query_skip_user(callback: types.CallbackQuery):
     if reaction == "MATCH":
 
         if chosen_id == "None":
-            photo_id = Pictures.MATCH_NOT_FOUND_PICTURE
+            photo_id = Pictures.MATCH_NOT_FOUND_PICTURE.value
             caption = texts['TEXT']['match_menu']['match_empty']
             markup = await empty_category_buttons(texts)
         else:
@@ -844,7 +848,7 @@ async def query_collection(callback: types.CallbackQuery):
     )
 
     if not target_users_ids:
-        photo_id = Pictures.COLLECTION_NOT_FOUND_PICTURE
+        photo_id = Pictures.COLLECTION_NOT_FOUND_PICTURE.value
         caption = texts['TEXT']['match_menu']['collection_empty']
         markup = await empty_category_buttons(texts)
 
@@ -1169,13 +1173,13 @@ async def handle_text(message: types.Message):
         
         d = [{'parameter': 'match_menu_message_id',
               'message_id': match_menu_message_id,
-              'photo_id': Pictures.MATCH_MENU_PICTURE,
+              'photo_id': Pictures.MATCH_MENU_PICTURE.value,
               'caption': texts['TEXT']['match_menu']['start'],
               'markup': await get_start_button_match_menu(texts)},
 
               {'parameter': 'search_menu_message_id',
                'message_id': search_menu_message_id,
-               'photo_id': Pictures.SEARCH_MENU_PICTURE,
+               'photo_id': Pictures.SEARCH_MENU_PICTURE.value,
                'caption': texts['TEXT']['search_menu']['start'],
                'markup': await get_start_button_search_menu(texts)}
               ]
@@ -1217,19 +1221,3 @@ async def delete_unwanted(message: types.Message):
         await message.delete()
     except Exception as e:
         print(f"⚠️ Не удалось удалить сообщение: {e}")
-
-
-# ------------------------------------------------------------------- Активация бота -------------------------------------------------------
-
-
-async def main():
-    async with async_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    await dp.start_polling(bot)
-
-
-if __name__ == '__main__':
-    import asyncio
-    asyncio.run(main())
-
