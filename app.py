@@ -9,13 +9,6 @@ from aiogram import Bot
 from main import logger, bot, dp
 
 
-# ------------------------------------------------------------------- Настройка -------------------------------------------------------
-
-# Webhook settings
-WEBHOOK_PATH = f"/bot/{BOT_API_KEY}"
-WEBHOOK_URL = f"{WEBHOOK_BASE_URL}{WEBHOOK_PATH}"
-
-
 # ------------------------------------------------------------------- Активация бота -------------------------------------------------------
 async def on_startup(bot: Bot) -> None:
     """Функция выполняется при старте приложения"""
@@ -123,10 +116,10 @@ if __name__ == '__main__':
         
         # Для локального тестирования webhook
         if LOCAL_WEBHOOK == 'true':
-            web.run_app(app, host='localhost', port=8000)
+            web.run_app(app, host='0.0.0.0', port=8080)
         else:
             # Для продакшена (например, на Heroku, Railway, etc.)
-            port = int(os.getenv('PORT', 8000))
+            port = int(os.getenv('PORT', 8080))
             web.run_app(app, host='0.0.0.0', port=port)
 
             

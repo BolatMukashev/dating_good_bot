@@ -447,7 +447,7 @@ async def cmd_delete_profile(message: types.message):
 @dp.message(Command("test"))
 async def cmd_delete_msg(message: types.Message):
     user_id = message.from_user.id
-    if user_id == ADMIN_ID:
+    if user_id in ADMINS:
         msg = await message.answer_photo(photo=Pictures.TECHNICAL_WORK.value, caption="Тестовое сообщение")
     
     await save_to_cache(user_id, "test_message_id", message_id = msg.message_id)
@@ -459,7 +459,7 @@ async def cmd_delete_msg(message: types.Message):
 @dp.message(Command("test1"))
 async def cmd_delete_msg1(message: types.Message):
     user_id = message.from_user.id
-    if user_id == ADMIN_ID:
+    if user_id in ADMINS:
         cached_messages = await get_cached_messages_ids(user_id)
         try:
             await bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("test_message_id"))
@@ -473,7 +473,7 @@ async def cmd_delete_msg1(message: types.Message):
 @dp.message(Command("test2"))
 async def cmd_edit_msg1(message: types.Message):
     user_id = message.from_user.id
-    if user_id == ADMIN_ID:
+    if user_id in ADMINS:
         cached_messages = await get_cached_messages_ids(user_id)
         try:
             await bot.edit_message_media(chat_id=message.chat.id,
@@ -488,7 +488,7 @@ async def cmd_edit_msg1(message: types.Message):
 @dp.message(Command("test4"))
 async def cmd_check_username(message: types.Message):
     user_id = message.from_user.id
-    if user_id == ADMIN_ID:
+    if user_id in ADMINS:
         result = await check_username_relevance(bot, ADMIN_ID)
         print("Актуален?" , result)
 
@@ -500,7 +500,7 @@ async def cmd_check_username(message: types.Message):
 async def cmd_check_id(message: types.Message):
     user_id = message.from_user.id
     target_user_id = ASTANA_ID
-    if user_id == ADMIN_ID:
+    if user_id in ADMINS:
         await message.answer("Проверка", reply_markup= await test_button(target_user_id))
 
     await message.delete()
@@ -510,12 +510,14 @@ async def cmd_check_id(message: types.Message):
 # проверка изображений
 @dp.message(Command("test6"))
 async def cmd_check_image(message: types.Message):
-    for picture in Pictures:
-        print(picture.name, picture.value)
-        try:
-            await message.answer_photo(photo=picture.value)
-        except Exception as e:
-            print(f"Ошбика с фото {picture.name} - {e}")
+    user_id = message.from_user.id
+    if user_id in ADMINS:
+        for picture in Pictures:
+            print(picture.name, picture.value)
+            try:
+                await message.answer_photo(photo=picture.value)
+            except Exception as e:
+                print(f"Ошбика с фото {picture.name} - {e}")
 
 
 # ------------------------------------------------------------------ ПОИСК ----------------------------------------------------------

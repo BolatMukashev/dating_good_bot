@@ -18,3 +18,5 @@ pip-log.txt
 my_database.db
 *.session
 *.session-journal
+
+ngrok*
