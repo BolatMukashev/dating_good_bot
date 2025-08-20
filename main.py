@@ -11,12 +11,15 @@ from functions import *
 from languages import get_texts
 from aiogram.exceptions import TelegramBadRequest
 from datetime import datetime
+from languages.desc import DESCRIPTIONS, SHORT_DESCRIPTIONS, NAMES
+
 
 # dating_good_bot
 # Twint - Twin + Intent — совпадение намерений
 # Intendy	Intent + -y = дружелюбно
 # FeelMatch
 # Fibly – лёгкое, запоминающееся (feel + match) 
+
 
 # ------------------------------------------------------------------- Настройка -------------------------------------------------------
 
@@ -518,6 +521,39 @@ async def cmd_check_image(message: types.Message):
                 await message.answer_photo(photo=picture.value)
             except Exception as e:
                 print(f"Ошбика с фото {picture.name} - {e}")
+
+
+# проверка изображений
+@dp.message(Command("set_description"))
+async def cmd_set_description(message: types.Message):
+    user_id = message.from_user.id
+    if user_id in ADMINS:
+        # установка описания для бота на разных языках
+        for lang, text in DESCRIPTIONS.items():
+            try:
+                await bot.set_my_description(description=text, language_code=lang)
+            except Exception as e:
+                print(f"Ошбика установки описания для языка {lang} - {e}")
+            else:
+                print("Описание для бота установлено ✅")
+
+        # установка короткого описания для бота на разных языках
+        for lang, text in SHORT_DESCRIPTIONS.items():
+            try:
+                await bot.set_my_short_description(short_description=text, language_code=lang)
+            except Exception as e:
+                print(f"Ошбика установки короткого описания для языка {lang} - {e}")
+            else:
+                print("Короткое описание для бота установлено ✅")
+
+        # установка имени бота на разных языках
+        for lang, name in NAMES.items():
+            try:
+                await bot.set_my_name(name=name, language_code=lang)
+            except Exception as e:
+                print(f"Ошбика установки имени для языка {lang} - {e}")
+            else:
+                print("Название бота установлено ✅")
 
 
 # ------------------------------------------------------------------ ПОИСК ----------------------------------------------------------

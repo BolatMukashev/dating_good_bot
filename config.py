@@ -17,7 +17,7 @@ __all__ = ['BOT_API_KEY',
            'NOTION_SITE',
            'opencagedata_API_KEY',
            'PRICES',
-           'Pictures',
+           'Pictures'
            ]
 
 
@@ -110,7 +110,6 @@ PRICES = {'en': {'name': 'английский', 'incognito': 100, 'add_to_colle
           'el': {'name': 'греческий', 'incognito': 50, 'add_to_collection': 20},
           }
 
-
 # хранилища file_id для продакшена
 class Pictures_Prod(str, Enum):
     USER_PROFILE_PICTURE = "AgACAgIAAxkBAAMVaKGT-YS_kjeJWJ2YUcvCSzQPLM4AAk35MRusuAhJ7JHdGZsONPMBAAMCAAN5AAM2BA"
@@ -161,6 +160,4 @@ class Pictures_Test(str, Enum):
 
 # выбор источника
 Pictures = Pictures_Test if TESTING else Pictures_Prod
-
-print(Pictures.USER_PROFILE_PICTURE.value)
 
