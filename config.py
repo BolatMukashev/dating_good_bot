@@ -20,44 +20,47 @@ __all__ = ['BOT_API_KEY',
            'Pictures'
            ]
 
-
 config = dotenv_values(".env")
 
-TESTING = bool(int(config.get("TESTING")))
+ # вернет false если Yandex и true если PC
+LOCAL_WEBHOOK = os.environ.get("LOCAL_WEBHOOK") or config.get('LOCAL_WEBHOOK', 'false').lower()
 
-mode = config.get('BOT_MODE', 'webhook').lower()
-LOCAL_WEBHOOK = config.get('LOCAL_WEBHOOK', 'false').lower()
+if LOCAL_WEBHOOK == 'true':
+    TESTING = True
+    mode = config.get('BOT_MODE', 'webhook').lower()
+    BOT_API_KEY = config.get("FIBLY_DATING_BOT") if not TESTING else config.get("DATING_GOOD_BOT")
+    WEBHOOK_NGROK_URL = config.get('WEBHOOK_NGROK_URL')
+    W_URL = WEBHOOK_NGROK_URL
+    ADMIN_ID = int(config.get("ADMIN_ID"))
+    ASTANA_ID = int(config.get("ASTANA_ID"))
+    SUPABASE_PASSWORD = config.get("SUPABASE_PASSWORD")
+    opencagedata_API_KEY = config.get("opencagedata_API_KEY")
+else:
+    TESTING = False
+    mode = 'webhook'
+    BOT_API_KEY = os.environ.get("BOT_API_KEY")
+    WEBHOOK_YANDEX_URL = os.environ.get('WEBHOOK_BASE_URL')  # Например: https://yourdomain.com
+    WEBHOOK_SECRET = os.environ.get('WEBHOOK_SECRET')  # Опционально для безопасности
+    W_URL = WEBHOOK_YANDEX_URL
+    ADMIN_ID = int(os.environ.get("ADMIN_ID"))
+    ASTANA_ID = int(os.environ.get("ASTANA_ID"))
+    SUPABASE_PASSWORD = os.environ.get("SUPABASE_PASSWORD")
+    opencagedata_API_KEY = os.environ.get("opencagedata_API_KEY")
 
-BOT_API_KEY = config.get("FIBLY_DATING_BOT") if not TESTING else config.get("DATING_GOOD_BOT")
-
-
-# Webhook настройки
-WEBHOOK_YANDEX_URL = config.get('WEBHOOK_BASE_URL')  # Например: https://yourdomain.com
-WEBHOOK_SECRET = config.get('WEBHOOK_SECRET', 'your-secret-key')  # Опционально для безопасности
-WEBHOOK_NGROK_URL = config.get('WEBHOOK_NGROK_URL')
-
-W_URL = WEBHOOK_NGROK_URL if LOCAL_WEBHOOK == 'true' else WEBHOOK_YANDEX_URL
 
 WEBHOOK_PATH = f"/bot/{BOT_API_KEY}"
 WEBHOOK_URL = f"{W_URL}{WEBHOOK_PATH}"
 
 # ngrok http 127.0.0.1:8080 - поднять webhood локально на 8080 порту
 
-# админы
-ADMIN_ID = int(config.get("ADMIN_ID"))
-ASTANA_ID = int(config.get("ASTANA_ID"))
-
+# настройка админки
 ADMINS = [ADMIN_ID, ASTANA_ID]
 
 # настройка базы данных
-SUPABASE_PASSWORD = config.get("SUPABASE_PASSWORD")
 SUPABASE_PASSWORD = quote_plus(SUPABASE_PASSWORD)
 DATABASE_URL = f"postgresql+asyncpg://postgres:{SUPABASE_PASSWORD}@db.epqowkqlqrigguetfiww.supabase.co:5432/postgres"
 
 # DATABASE_URL = "sqlite+aiosqlite:///my_database.db"
-
-#настройка определения гелолокации
-opencagedata_API_KEY = config.get("opencagedata_API_KEY")
 
 MIN_COUNT_SYMBOLS = 15
 MAX_COUNT_SYMBOLS = 100

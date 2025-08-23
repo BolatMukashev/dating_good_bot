@@ -10,6 +10,8 @@ from buttons import *
 from functions import *
 from languages import get_texts
 from aiogram.exceptions import TelegramBadRequest
+from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
 from datetime import datetime
 from languages.desc import DESCRIPTIONS, SHORT_DESCRIPTIONS, NAMES
 
@@ -28,7 +30,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Инициализация бота и диспетчера
-bot = Bot(token=BOT_API_KEY)
+bot = Bot(token=BOT_API_KEY, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
@@ -36,19 +38,19 @@ dp = Dispatcher(storage=storage)
 # ------------------------------------------------------------------- ТЕСТ ЗАПУСК -------------------------------------------------------
 
 
-# Команда Старт
-@dp.message(Command("start"))
-async def cmd_start(message: types.Message):
-    await message.answer("hello")
+# # Команда Старт
+# @dp.message(Command("start"))
+# async def cmd_start(message: types.Message):
+#     await message.answer("hello")
 
 
-# обработка фото
-@dp.message(F.photo)
-async def handle_photo(message: types.Message):
-    photo = message.photo[-1]
-    file_id = photo.file_id
+# # обработка фото
+# @dp.message(F.photo)
+# async def handle_photo(message: types.Message):
+#     photo = message.photo[-1]
+#     file_id = photo.file_id
 
-    await message.answer(f"{file_id}")
+#     await message.answer(f"{file_id}")
 
 # ------------------------------------------------------------------- АНКЕТА -------------------------------------------------------
 
@@ -90,7 +92,7 @@ async def cmd_start(message: types.Message):
             caption = texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE)
             markup = await get_approval_button(texts)
 
-    starting_message = await message.answer_photo(photo=picture, caption=caption, parse_mode="HTML", reply_markup=markup)
+    starting_message = await message.answer_photo(photo=picture, caption=caption, reply_markup=markup)
     await save_to_cache(user_id, "start_message_id", message_id = starting_message.message_id) # запись в базу
 
     # если уже зарегистрирован в базе
@@ -98,12 +100,10 @@ async def cmd_start(message: types.Message):
 
         match_menu = await message.answer_photo(photo=Pictures.MATCH_MENU_PICTURE.value,
                                                 caption=texts['TEXT']['match_menu']['start'],
-                                                parse_mode="HTML",
                                                 reply_markup=await get_start_button_match_menu(texts))
 
         search_menu = await message.answer_photo(photo=Pictures.SEARCH_MENU_PICTURE.value,
                                                 caption=texts['TEXT']['search_menu']['start'],
-                                                parse_mode="HTML",
                                                 reply_markup=await get_start_button_search_menu(texts))
         # запись в базу
         await asyncio.gather(
@@ -135,8 +135,7 @@ async def query_retry_registration(callback: types.CallbackQuery):
         chat_id = callback.message.chat.id,
         message_id = cached_messages.get("start_message_id"),
         media = InputMediaPhoto(media = Pictures.USER_PROFILE_PICTURE.value,
-                                caption = texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE),
-                                parse_mode = "HTML"),
+                                caption = texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE)),
         reply_markup = await get_approval_button(texts))
 
 
@@ -150,12 +149,11 @@ async def query_18years(callback: types.CallbackQuery):
     # обновляем инфо о пользователе в базе, кидаем уведомление, меняем стартовое сообщение
     await update_user_fields(user_id, eighteen_years_and_approval=True)
     await callback.answer(text=texts['TEXT']['notifications']['18year'])
-    await callback.message.edit_caption(caption=texts['TEXT']['user_profile']['step_2'], parse_mode="HTML", reply_markup=None)
+    await callback.message.edit_caption(caption=texts['TEXT']['user_profile']['step_2'], reply_markup=None)
 
     # отдельно отправляем сообщение с обычной клавиатурой для геолокации
     location_message = await callback.message.answer(texts['TEXT']['user_profile']['get_location_message'],
-                                                     reply_markup= await get_location_button(texts),
-                                                     parse_mode="HTML")
+                                                     reply_markup= await get_location_button(texts))
     
     await save_to_cache(user_id, "location_message_id", message_id = location_message.message_id) # запись в базу
 
@@ -206,8 +204,7 @@ async def handle_location(message: types.Message):
             chat_id = message.chat.id,
             message_id = start_message_id,
             caption = texts['TEXT']['user_profile']['step_3'],
-            reply_markup = await get_gender_buttons(texts),
-            parse_mode = "HTML"
+            reply_markup = await get_gender_buttons(texts)
         )
 
 
@@ -231,8 +228,7 @@ async def query_gender(callback: types.CallbackQuery):
     # уведомление и переход к следующему шагу
     await callback.answer(text=texts['TEXT']['notifications']['gender'].format(user_gender=gender_label))
     await callback.message.edit_caption(caption=texts['TEXT']['user_profile']['step_4'],
-                                      reply_markup=await get_gender_search_buttons(texts),
-                                      parse_mode="HTML")
+                                      reply_markup=await get_gender_search_buttons(texts))
 
 
 # выбора поиска: "Ищу Мужчину / Женщину / Пол не важен"
@@ -257,7 +253,7 @@ async def query_gender_search(callback: types.CallbackQuery):
 
     # Уведомление и переход к следующему шагу
     await callback.answer(text=texts['TEXT']['notifications']['gender_search'].format(gender_search=texts['GENDER_SEARCH_LABELS'][selected_gender_search]))
-    await callback.message.edit_caption(caption=texts['TEXT']['user_profile']['step_5'], reply_markup=None, parse_mode="HTML")
+    await callback.message.edit_caption(caption=texts['TEXT']['user_profile']['step_5'], reply_markup=None)
 
 
 # обработка фото
@@ -289,8 +285,7 @@ async def handle_photo(message: types.Message):
 
     await bot.edit_message_caption(chat_id=message.chat.id,
                                    message_id=cached_messages.get("start_message_id"),
-                                   caption=texts['TEXT']['user_profile']['step_6'],
-                                   parse_mode="HTML")
+                                   caption=texts['TEXT']['user_profile']['step_6'])
 
 
 # ------------------------------------------------------------------ ИЗМЕНЕНИЕ АНКЕТЫ ----------------------------------------------------------
@@ -339,8 +334,7 @@ async def query_profile_edit(callback: types.CallbackQuery):
     await bot.edit_message_media(chat_id=callback.message.chat.id,
                                  message_id=start_message_id,
                                  media=InputMediaPhoto(media=Pictures.USER_PROFILE_PICTURE.value,
-                                                       caption=caption,
-                                                       parse_mode="HTML"),
+                                                       caption=caption),
                                 reply_markup=markup)
     
     # обновляем инфо о пользователе, удаляем записи по остальным полям в бд
@@ -597,7 +591,7 @@ async def btn_start_search(callback: types.CallbackQuery):
             notification = texts['TEXT']["notifications"]["not_found"]
 
     # изменение сообщения с текстом "не найдено" и отправка уведомления
-    await callback.message.edit_media(media=types.InputMediaPhoto(media=picture, caption=caption, parse_mode = "HTML"),
+    await callback.message.edit_media(media=types.InputMediaPhoto(media=picture, caption=caption),
                                       reply_markup = markup)
     
     await callback.answer(notification)
@@ -646,7 +640,7 @@ async def handle_reaction(callback: types.CallbackQuery):
             caption = texts['TEXT']["search_menu"]["not_found"]
             markup = await reload_search_button(texts)
 
-    await callback.message.edit_media(media=types.InputMediaPhoto(media=picture, caption=caption, parse_mode = "HTML"),
+    await callback.message.edit_media(media=types.InputMediaPhoto(media=picture, caption=caption),
                                       reply_markup = markup)
 
 
@@ -684,7 +678,7 @@ async def btn_reload_search(callback: types.CallbackQuery):
             markup = await reload_search_button(texts)
             await callback.answer(texts['TEXT']["notifications"]["not_found"]) # уведомление сверху
 
-    await callback.message.edit_media(media=types.InputMediaPhoto(media=picture, caption=caption, parse_mode="HTML"),
+    await callback.message.edit_media(media=types.InputMediaPhoto(media=picture, caption=caption),
                                       reply_markup = markup)
 
 
@@ -727,7 +721,7 @@ async def query_start__reload_btn_match_menu(callback: types.CallbackQuery):
         notification = texts['TEXT']["notifications"]["reloaded"]
 
     # изменение сообщения и отправка уведомления
-    await callback.message.edit_media(media=InputMediaPhoto(media=picture, caption=caption, parse_mode = "HTML"),
+    await callback.message.edit_media(media=InputMediaPhoto(media=picture, caption=caption),
                                       reply_markup = markup)
     await callback.answer(notification)
 
@@ -764,7 +758,7 @@ async def query_matches(callback: types.CallbackQuery):
             get_match_user(target_user, [prev_id, next_id], texts)
         )
 
-    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
+    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
                                       reply_markup = markup)
 
 
@@ -797,7 +791,7 @@ async def query_matches_navigation(callback: types.CallbackQuery):
         get_match_user(target_user, [prev_id, next_id], texts)
     )
 
-    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
+    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
                                       reply_markup = markup)
 
 
@@ -837,7 +831,7 @@ async def query_skip_user(callback: types.CallbackQuery):
                 get_match_user(target_user, [prev_id, next_id], texts)
             )
 
-        await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
+        await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
                                         reply_markup = markup)
     else:
 
@@ -859,7 +853,7 @@ async def query_skip_user(callback: types.CallbackQuery):
                 get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
             )
 
-        await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
+        await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
                                         reply_markup = markup)
 
 
@@ -902,7 +896,7 @@ async def query_collection(callback: types.CallbackQuery):
             get_collection_user(target_user, [prev_id, next_id], texts)
         )
 
-    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
+    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
                                       reply_markup = markup)
     
 
@@ -933,7 +927,7 @@ async def query_collection_navigation(callback: types.CallbackQuery):
         get_collection_user(target_user, [prev_id, next_id], texts)
     )
 
-    await callback.message.edit_media(media=InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
+    await callback.message.edit_media(media=InputMediaPhoto(media=target_user.photo_id, caption=caption),
                                       reply_markup = markup)
 
 
@@ -969,7 +963,7 @@ async def handle_who_wants(callback: types.CallbackQuery):
             get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
         )
 
-    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
+    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
                                       reply_markup = markup)
 
 
@@ -1000,7 +994,7 @@ async def query_wants_navigation(callback: types.CallbackQuery):
         get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
     )
 
-    await callback.message.edit_media(media=InputMediaPhoto(media=target_user.photo_id, caption=caption, parse_mode = "HTML"),
+    await callback.message.edit_media(media=InputMediaPhoto(media=target_user.photo_id, caption=caption),
                                       reply_markup = markup)
 
 
@@ -1082,7 +1076,7 @@ async def handle_intentions_pay(callback: types.CallbackQuery):
                 get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
             )
         
-        await callback.message.edit_media(media=types.InputMediaPhoto(media=photo_id, caption=caption, parse_mode = "HTML"),
+        await callback.message.edit_media(media=types.InputMediaPhoto(media=photo_id, caption=caption),
                                           reply_markup = markup)
         
         await callback.answer(texts["TEXT"]["notifications"]["unavailable"].format(name=target_user.first_name))
@@ -1140,7 +1134,7 @@ async def on_successful_payment(message: types.Message):
 
         await bot.edit_message_media(chat_id=message.chat.id,
                                      message_id=cached_messages.get("match_menu_message_id"),
-                                     media=InputMediaPhoto(media=photo_id, parse_mode="HTML", caption=caption),
+                                     media=InputMediaPhoto(media=photo_id, caption=caption),
                                      reply_markup = markup)
 
     elif payload.startswith("payment_incognito"):
@@ -1198,7 +1192,7 @@ async def handle_text(message: types.Message):
         
         await bot.edit_message_media(chat_id=message.chat.id,
                                      message_id=start_message_id,
-                                     media=InputMediaPhoto(media=user.photo_id, parse_mode="HTML",
+                                     media=InputMediaPhoto(media=user.photo_id,
                                                            caption=texts['TEXT']["user_profile"]["profile"].format(first_name=user.first_name,
                                                                                                                  country_local=user.country_local,
                                                                                                                  city_local=user.city_local,
@@ -1231,10 +1225,10 @@ async def handle_text(message: types.Message):
             if message_id:
                 await bot.edit_message_media(chat_id=message.chat.id,
                                              message_id=message_id,
-                                             media=InputMediaPhoto(media=photo_id, parse_mode="HTML", caption=caption),
+                                             media=InputMediaPhoto(media=photo_id, caption=caption),
                                              reply_markup = markup)
             else:
-                msg = await message.answer_photo(photo=photo_id, caption=caption, parse_mode="HTML", reply_markup=markup)
+                msg = await message.answer_photo(photo=photo_id, caption=caption, reply_markup=markup)
                 await save_to_cache(user_id, parameter, message_id = msg.message_id)
 
     else:
@@ -1244,7 +1238,7 @@ async def handle_text(message: types.Message):
         if len(user_text) > MAX_COUNT_SYMBOLS:
             caption=texts['TEXT']['user_profile']['max_count_symbols_error'].format(MAX_COUNT_SYMBOLS=MAX_COUNT_SYMBOLS, text_length=len(user_text))
 
-        await bot.edit_message_caption(chat_id=message.chat.id, message_id=start_message_id, caption=caption, reply_markup = None, parse_mode="HTML")
+        await bot.edit_message_caption(chat_id=message.chat.id, message_id=start_message_id, caption=caption, reply_markup = None)
     
     await message.delete() # удаляем сообщение пользователя
 
