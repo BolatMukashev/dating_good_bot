@@ -5,3 +5,8 @@ curl \
   --url https://api.telegram.org/bot<токен_бота>/setWebhook \
   --header 'content-type: application/json' \
   --data '{"url": "<домен_API-шлюза>/<path>"}'
+
+
+  чтобы выключить: curl -F "url=" https://api.telegram.org/bot<ТОКЕН_БОТА>/setWebhook
+
+  чтобы проверить наличие: curl https://api.telegram.org/bot<ТОКЕН_БОТА>/getWebhookInfo

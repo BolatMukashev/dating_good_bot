@@ -39,8 +39,7 @@ else:
     TESTING = False
     mode = 'webhook'
     BOT_API_KEY = os.environ.get("BOT_API_KEY")
-    WEBHOOK_YANDEX_URL = os.environ.get('WEBHOOK_BASE_URL')  # Например: https://yourdomain.com
-    WEBHOOK_SECRET = os.environ.get('WEBHOOK_SECRET')  # Опционально для безопасности
+    WEBHOOK_YANDEX_URL = os.environ.get('WEBHOOK_YANDEX_URL')
     W_URL = WEBHOOK_YANDEX_URL
     ADMIN_ID = int(os.environ.get("ADMIN_ID"))
     ASTANA_ID = int(os.environ.get("ASTANA_ID"))
