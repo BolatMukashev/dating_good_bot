@@ -1,18 +1,5 @@
 import json
-
-from aiogram import (Bot, Dispatcher)
-from aiogram.enums import ParseMode
-from aiogram.client.default import DefaultBotProperties
-
-from routers import router as main_router
-from config import BOT_API_KEY
-
-bot = Bot(
-    token=BOT_API_KEY,
-    default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-)
-dp = Dispatcher()
-dp.include_router(main_router)
+from main import dp, bot
 
 
 async def handler(event, context):
