@@ -87,7 +87,7 @@ PRICES = {'en': {'name': 'английский', 'incognito': 100, 'add_to_colle
           'pt-br': {'name': 'португальский (бразильский)', 'incognito': 100, 'add_to_collection': 40},
           'hr': {'name': 'хорватский', 'incognito': 100, 'add_to_collection': 40},
 
-          'ru': {'name': 'русский', 'incognito': 1, 'add_to_collection': 1},
+          'ru': {'name': 'русский', 'incognito': 50, 'add_to_collection': 20},
           'ar': {'name': 'арабский', 'incognito': 50, 'add_to_collection': 20},
           'be': {'name': 'белорусский', 'incognito': 50, 'add_to_collection': 20},
           'ca': {'name': 'каталанский', 'incognito': 50, 'add_to_collection': 20},
@@ -124,6 +124,8 @@ class Pictures_Prod(str, Enum):
     SEARCH_NOT_FOUND_PICTURE = "AgACAgIAAxkBAAMbaKGUEsQeOhHoz79XJsRjqcp8QoYAAlH5MRusuAhJcRwlfZJgKQ0BAAMCAAN5AAM2BA"
     TECHNICAL_WORK = "AgACAgIAAxkBAAMXaKGT_hj7GqZJD6nWmSytTKLccb4AAk75MRusuAhJYdQvHsYYQboBAAMCAAN5AAM2BA"
     CLEANING = "AgACAgIAAxkBAAMTaKGT9IdOHAPuaiiJushDOyBAGksAAkz5MRusuAhJlo_8NWfcVMgBAAMCAAN5AAM2BA"
+    TEST_WOMAN_PHOTO = 'AgACAgIAAxkBAAOCaKmlRELVQSWTwe8fYiAOG0ATb48AAvv6MRtWY0hJaF7Nb2KgvR4BAAMCAAN5AAM2BA'
+    TEST_MAN_PHOTO = 'AgACAgIAAxkBAAOEaKmlTfk_zoowi3nvLn0H6nBjA0wAAvz6MRtWY0hJCGHdJY2l2KMBAAMCAAN5AAM2BA'
 
     @classmethod
     def get_not_found_picture(cls, keyword: str):
@@ -148,6 +150,8 @@ class Pictures_Test(str, Enum):
     SEARCH_NOT_FOUND_PICTURE = "AgACAgIAAxkBAAIHVmihnq1CVVuIrAoYRToT1obAHhPBAAJR-TEbrLgISSseECDUyKDcAQADAgADeQADNgQ"
     TECHNICAL_WORK = "AgACAgIAAxkBAAIHVGihnqm5KJQ7Ca7ExH653K2I-PkHAAJO-TEbrLgIST0X30t2oBWvAQADAgADeQADNgQ"
     CLEANING = "AgACAgIAAxkBAAIHUGihnpdOoJjL_rerlt9wfUqAFPLVAAJM-TEbrLgISXHM9RXBqrniAQADAgADeQADNgQ"
+    TEST_WOMAN_PHOTO = 'AgACAgIAAxkBAAIHamippc9sfn7tJyE5T1ObMBA48vWLAAL7-jEbVmNISUraejU8gaXpAQADAgADeQADNgQ'
+    TEST_MAN_PHOTO = 'AgACAgIAAxkBAAIHbGippdbmtdhVtvS2JWncbLGC3uD1AAL8-jEbVmNISeKz3YI3q8qXAQADAgADeQADNgQ'
 
     @classmethod
     def get_not_found_picture(cls, keyword: str):

@@ -36,19 +36,19 @@ dp = Dispatcher(storage=storage)
 # ------------------------------------------------------------------- ТЕСТ ЗАПУСК -------------------------------------------------------
 
 
-# # Команда Старт
-# @dp.message(Command("start"))
-# async def cmd_start(message: types.Message):
-#     await message.answer("hello")
+# Команда Старт
+@dp.message(Command("start"))
+async def cmd_start(message: types.Message):
+    await message.answer("hello")
 
 
-# # обработка фото
-# @dp.message(F.photo)
-# async def handle_photo(message: types.Message):
-#     photo = message.photo[-1]
-#     file_id = photo.file_id
+# обработка фото
+@dp.message(F.photo)
+async def handle_photo(message: types.Message):
+    photo = message.photo[-1]
+    file_id = photo.file_id
 
-#     await message.answer(f"{file_id}")
+    await message.answer(f"{file_id}")
 
 # ------------------------------------------------------------------- АНКЕТА -------------------------------------------------------
 
@@ -61,13 +61,13 @@ async def cmd_start(message: types.Message):
     username = message.from_user.username
 
     # получение текста на языке пользователя и удаление сообщения /start
-    print(user_lang)
+    # print(user_lang)
+
     texts = await get_texts(user_lang)
     await message.delete()
 
     if not username:
         picture = Pictures.NO_USERNAME_PICTURE.value
-        print(picture)
         caption = texts["TEXT"]['user_profile']['username_error']
         markup = await get_retry_registration_button(texts)
 
@@ -87,7 +87,6 @@ async def cmd_start(message: types.Message):
                                                                         about_me=user.about_me)
         else:
             picture = Pictures.USER_PROFILE_PICTURE.value
-            print(f"профиль: {picture}")
             caption = texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE)
             markup = await get_approval_button(texts)
 

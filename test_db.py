@@ -4,16 +4,12 @@ import random
 from faker import Faker
 from sqlalchemy import select
 from functions import *
-from config import ADMIN_ID, ASTANA_ID
+from config import ADMIN_ID, ASTANA_ID, Pictures
 from db_connect import AsyncSessionLocal
 from functions import PaymentType
 
 
 fake = Faker("ru_RU")
-
-
-WOMAN_PHOTO = 'AgACAgIAAxkBAANAaJxzC1LXxMRklNAlqZHX7aHRNegAAhH8MRss9OlITkDWlNLPt0QBAAMCAAN5AAM2BA'
-MAN_PHOTO = 'AgACAgIAAxkBAANBaJxzHSOjS6JUNH35BQQc7fvpG98AAhL8MRss9OlItbHQ9eaLS3QBAAMCAAN5AAM2BA'
 
 
 async def add_new_fake_user(tg_id: int, gender: Gender, gender_search: Gender, random_country: bool = False, random_city: bool = False, about_me: str = None, incognito: bool = False, banned: bool = False, username: str = 'astana11b'):
@@ -22,10 +18,10 @@ async def add_new_fake_user(tg_id: int, gender: Gender, gender_search: Gender, r
             tg_id = random.randint(10000, 99999)
         if gender == Gender.MAN:
             first_name=fake.first_name_male()
-            photo_id = MAN_PHOTO
+            photo_id = Pictures.TEST_MAN_PHOTO.value
         else:
             first_name=fake.first_name_female()
-            photo_id = WOMAN_PHOTO
+            photo_id = Pictures.TEST_WOMAN_PHOTO.value
 
         country = "Kazakhstan" if not random_country else fake.country()
         city = "Oral" if not random_city else fake.city()
