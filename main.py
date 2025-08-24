@@ -54,6 +54,7 @@ dp = Dispatcher(storage=storage)
 
 # ------------------------------------------------------------------- АНКЕТА -------------------------------------------------------
 
+
 # Команда Старт
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):

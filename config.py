@@ -22,48 +22,44 @@ __all__ = ['BOT_API_KEY',
 
 config = dotenv_values(".env")
 
- # вернет false если Yandex и true если PC
-LOCAL_WEBHOOK = os.environ.get("LOCAL_WEBHOOK") or config.get('LOCAL_WEBHOOK', 'false').lower()
+# вернет false если Yandex и true если PC
+LOCAL_WEBHOOK = bool(int(os.environ.get("LOCAL_WEBHOOK"))) or bool(int(config.get('LOCAL_WEBHOOK')))
 
-if LOCAL_WEBHOOK == 'true':
-    TESTING = True
-    BOT_MODE = config.get('BOT_MODE', 'webhook').lower()
-    BOT_API_KEY = config.get("FIBLY_DATING_BOT") if not TESTING else config.get("DATING_GOOD_BOT")
-    WEBHOOK_NGROK_URL = config.get('WEBHOOK_NGROK_URL')
-    W_URL = WEBHOOK_NGROK_URL
-    ADMIN_ID = int(config.get("ADMIN_ID"))
-    ASTANA_ID = int(config.get("ASTANA_ID"))
-    SUPABASE_PASSWORD = config.get("SUPABASE_PASSWORD")
-    opencagedata_API_KEY = config.get("opencagedata_API_KEY")
-else:
-    TESTING = False
-    BOT_MODE = 'webhook'
-    BOT_API_KEY = os.environ.get("FIBLY_DATING_BOT")
-    WEBHOOK_YANDEX_URL = os.environ.get('WEBHOOK_YANDEX_URL')
-    W_URL = WEBHOOK_YANDEX_URL
-    ADMIN_ID = int(os.environ.get("ADMIN_ID"))
-    ASTANA_ID = int(os.environ.get("ASTANA_ID"))
-    SUPABASE_PASSWORD = os.environ.get("SUPABASE_PASSWORD")
-    opencagedata_API_KEY = os.environ.get("opencagedata_API_KEY")
+BOT_API_KEY = config.get("DATING_GOOD_BOT") if LOCAL_WEBHOOK else os.environ.get("FIBLY_DATING_BOT")
 
+# webhook settings
+BOT_MODE = 'webhook'
+WEBHOOK_URL = config.get('WEBHOOK_NGROK_URL') if LOCAL_WEBHOOK else os.environ.get('WEBHOOK_YANDEX_URL')
 
 WEBHOOK_PATH = f"/bot/{BOT_API_KEY}"
-WEBHOOK_URL = f"{W_URL}{WEBHOOK_PATH}"
+WEBHOOK_URL = f"{WEBHOOK_URL}{WEBHOOK_PATH}"
 
 # ngrok http 127.0.0.1:8080 - поднять webhood локально на 8080 порту
 
-# настройка админки
+# admin settings
+ADMIN_ID = int(os.environ.get("ADMIN_ID")) or int(config.get("ADMIN_ID"))
+ASTANA_ID = int(os.environ.get("ASTANA_ID")) or int(config.get("ASTANA_ID"))
 ADMINS = [ADMIN_ID, ASTANA_ID]
 
+
 # настройка базы данных
+SUPABASE_PASSWORD = config.get("SUPABASE_PASSWORD")
 SUPABASE_PASSWORD = quote_plus(SUPABASE_PASSWORD)
 DATABASE_URL = f"postgresql+asyncpg://postgres:{SUPABASE_PASSWORD}@db.epqowkqlqrigguetfiww.supabase.co:5432/postgres"
 
+#ydb
+YDB_ENDPOINT = os.environ.get("YDB_ENDPOINT") or config.get('YDB_ENDPOINT')
+YDB_PATH = os.environ.get("YDB_PATH") or config.get('YDB_PATH')
+YDB_TOKEN = os.environ.get("YDB_TOKEN") or config.get('YDB_TOKEN')
+
 # DATABASE_URL = "sqlite+aiosqlite:///my_database.db"
+
+
+# other settings
+opencagedata_API_KEY = os.environ.get("opencagedata_API_KEY") or config.get("opencagedata_API_KEY")
 
 MIN_COUNT_SYMBOLS = 15
 MAX_COUNT_SYMBOLS = 100
-
 
 NOTION_SITE = "https://www.notion.so/bolat-mukashev/dating_good_bot-22fa2ae3a2a3806c8b5cc903786b7336?source=copy_link"
 
@@ -165,5 +161,5 @@ class Pictures_Test(str, Enum):
 
 
 # выбор источника
-Pictures = Pictures_Test if TESTING else Pictures_Prod
+Pictures = Pictures_Test if LOCAL_WEBHOOK else Pictures_Prod
 
