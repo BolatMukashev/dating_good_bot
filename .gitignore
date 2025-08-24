@@ -20,3 +20,4 @@ my_database.db
 *.session-journal
 
 ngrok*
+*.mp4

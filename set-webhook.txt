@@ -4,7 +4,9 @@ curl \
   --request POST \
   --url https://api.telegram.org/bot<токен_бота>/setWebhook \
   --header 'content-type: application/json' \
-  --data '{"url": "<домен_API-шлюза>/<path>"}'
+  --data '{"url": "<домен_API-шлюза>/tg-bot",
+          "max_connections": 100
+  }'
 
 
   чтобы выключить: curl -F "url=" https://api.telegram.org/bot<ТОКЕН_БОТА>/setWebhook

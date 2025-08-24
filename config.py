@@ -7,7 +7,7 @@ import os
 __all__ = ['BOT_API_KEY',
            'WEBHOOK_URL',
            'WEBHOOK_PATH',
-           'mode',
+           'BOT_MODE',
            'LOCAL_WEBHOOK',
            'ADMINS',
            'ADMIN_ID',
@@ -27,7 +27,7 @@ LOCAL_WEBHOOK = os.environ.get("LOCAL_WEBHOOK") or config.get('LOCAL_WEBHOOK', '
 
 if LOCAL_WEBHOOK == 'true':
     TESTING = True
-    mode = config.get('BOT_MODE', 'webhook').lower()
+    BOT_MODE = config.get('BOT_MODE', 'webhook').lower()
     BOT_API_KEY = config.get("FIBLY_DATING_BOT") if not TESTING else config.get("DATING_GOOD_BOT")
     WEBHOOK_NGROK_URL = config.get('WEBHOOK_NGROK_URL')
     W_URL = WEBHOOK_NGROK_URL
@@ -37,8 +37,8 @@ if LOCAL_WEBHOOK == 'true':
     opencagedata_API_KEY = config.get("opencagedata_API_KEY")
 else:
     TESTING = False
-    mode = 'webhook'
-    BOT_API_KEY = os.environ.get("BOT_API_KEY")
+    BOT_MODE = 'webhook'
+    BOT_API_KEY = os.environ.get("FIBLY_DATING_BOT")
     WEBHOOK_YANDEX_URL = os.environ.get('WEBHOOK_YANDEX_URL')
     W_URL = WEBHOOK_YANDEX_URL
     ADMIN_ID = int(os.environ.get("ADMIN_ID"))

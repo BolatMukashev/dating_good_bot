@@ -105,7 +105,7 @@ async def main_polling():
 if __name__ == '__main__':
     # Проверяем переменную окружения для выбора режима
     
-    if mode == 'polling':
+    if BOT_MODE == 'polling':
         # Локальная разработка - используем polling
         logger.info("🔧 Режим разработки: Polling")
         asyncio.run(main_polling())
