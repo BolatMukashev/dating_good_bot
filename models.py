@@ -16,6 +16,14 @@ class Gender(str, Enum):
     ANY = "ANY"
 
 
+# виды реакций
+class ReactionType(str, Enum):
+    LOVE = "LOVE"
+    SEX = "SEX"
+    CHAT = "CHAT"
+    SKIP = "SKIP"
+
+
 # Новый стиль декларативной базы для современного SQLAlchemy
 class Base(DeclarativeBase):
     pass
@@ -97,13 +105,3 @@ class Cache(Base):
 
     user = relationship('User', foreign_keys=[telegram_id], back_populates='caches')
 
-
-# Примечание: создание таблиц теперь происходит в основном коде через async engine
-
-
-# виды реакций
-class ReactionType(str, Enum):
-    LOVE = "LOVE"
-    SEX = "SEX"
-    CHAT = "CHAT"
-    SKIP = "SKIP"

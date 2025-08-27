@@ -7,6 +7,7 @@ import os
 __all__ = ['BOT_API_KEY',
            'WEBHOOK_URL',
            'WEBHOOK_PATH',
+           'PORT',
            'BOT_MODE',
            'LOCAL_WEBHOOK',
            'ADMINS',
@@ -23,7 +24,7 @@ __all__ = ['BOT_API_KEY',
 config = dotenv_values(".env")
 
 # вернет false если Yandex и true если PC
-LOCAL_WEBHOOK = bool(int(os.environ.get("LOCAL_WEBHOOK"))) or bool(int(config.get('LOCAL_WEBHOOK')))
+LOCAL_WEBHOOK = False if os.environ.get("LOCAL_WEBHOOK") else True
 
 BOT_API_KEY = config.get("DATING_GOOD_BOT") if LOCAL_WEBHOOK else os.environ.get("FIBLY_DATING_BOT")
 
@@ -33,12 +34,14 @@ WEBHOOK_URL = config.get('WEBHOOK_NGROK_URL') if LOCAL_WEBHOOK else os.environ.g
 
 WEBHOOK_PATH = f"/bot/{BOT_API_KEY}"
 WEBHOOK_URL = f"{WEBHOOK_URL}{WEBHOOK_PATH}"
+PORT = int(os.environ.get("PORT")) if os.environ.get("PORT") else int(config.get("PORT"))
 
 # ngrok http 127.0.0.1:8080 - поднять webhood локально на 8080 порту
 
+
 # admin settings
-ADMIN_ID = int(os.environ.get("ADMIN_ID")) or int(config.get("ADMIN_ID"))
-ASTANA_ID = int(os.environ.get("ASTANA_ID")) or int(config.get("ASTANA_ID"))
+ADMIN_ID = int(os.environ.get("ADMIN_ID")) if os.environ.get("ADMIN_ID") else int(config.get("ADMIN_ID"))
+ASTANA_ID = int(os.environ.get("ASTANA_ID")) if os.environ.get("ASTANA_ID") else int(config.get("ASTANA_ID"))
 ADMINS = [ADMIN_ID, ASTANA_ID]
 
 
@@ -46,6 +49,7 @@ ADMINS = [ADMIN_ID, ASTANA_ID]
 SUPABASE_PASSWORD = config.get("SUPABASE_PASSWORD")
 SUPABASE_PASSWORD = quote_plus(SUPABASE_PASSWORD)
 DATABASE_URL = f"postgresql+asyncpg://postgres:{SUPABASE_PASSWORD}@db.epqowkqlqrigguetfiww.supabase.co:5432/postgres"
+
 
 #ydb
 YDB_ENDPOINT = os.environ.get("YDB_ENDPOINT") or config.get('YDB_ENDPOINT')

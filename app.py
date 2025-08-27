@@ -115,11 +115,11 @@ if __name__ == '__main__':
         app = create_app()
         
         # Для локального тестирования webhook
-        if LOCAL_WEBHOOK == 'true':
-            web.run_app(app, host='0.0.0.0', port=8080)
+        if LOCAL_WEBHOOK:
+            web.run_app(app, host='0.0.0.0', port=PORT)
         else:
             # Для продакшена (например, на Heroku, Railway, etc.)
-            port = int(os.getenv('PORT', 8080))
+            port = int(os.getenv('PORT', PORT))
             web.run_app(app, host='0.0.0.0', port=port)
 
             
