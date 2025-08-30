@@ -2,7 +2,7 @@ import asyncio
 import ydb
 import ydb.aio
 from enum import Enum
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from config import YDB_ENDPOINT, YDB_PATH, YDB_TOKEN
 from dataclasses import dataclass
 
@@ -371,19 +371,152 @@ async def create_tables_on_ydb():
         await client.create_users_table()
         print("Table 'USERS' created successfully!")
 
+    async with CacheClient() as client:
+        await client.create_cache_table()
+        print("Table 'CACHE' created successfully!")
+
+
+@dataclass
+class Cache:
+    telegram_id: int = None
+    parameter: Optional[str] = None
+    message_id: Optional[int] = None
+
+
+class CacheClient(YDBClient):
+    def __init__(self, endpoint: str = YDB_ENDPOINT, database: str = YDB_PATH, token: str = YDB_TOKEN):
+        super().__init__(endpoint, database, token)
+        self.table_name = "cache"
+        self.table_schema = """
+            CREATE TABLE `cache` (
+                `telegram_id` Int64 NOT NULL,
+                `parameter` Utf8,
+                `message_id` Int32,
+                PRIMARY KEY (`telegram_id`, `parameter`)
+            )
+        """
+        
+    async def create_cache_table(self):
+        """
+        Создание таблицы cache
+        """
+        await self.create_table(self.table_name, self.table_schema)
+    
+    async def insert_cache(self, cache: Cache) -> Cache:
+        """
+        Вставка записи в кэш
+        """
+        await self.execute_query(
+            """
+            DECLARE $telegram_id AS Int64;
+            DECLARE $parameter AS Utf8?;
+            DECLARE $message_id AS Int32?;
+
+            UPSERT INTO cache (telegram_id, parameter, message_id)
+            VALUES ($telegram_id, $parameter, $message_id);
+            """,
+            self._to_params(cache)
+        )
+
+    async def get_cache_by_telegram_id(self, telegram_id: int) -> List[Cache]:
+        """
+        Получение всех записей кэша для пользователя
+        """
+        result = await self.execute_query(
+            """
+            DECLARE $telegram_id AS Int64;
+
+            SELECT telegram_id, parameter, message_id
+            FROM cache
+            WHERE telegram_id = $telegram_id
+            ORDER BY parameter;
+            """,
+            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Int64)}
+        )
+
+        rows = result[0].rows
+        return [self._row_to_cache(row) for row in rows]
+
+    async def delete_cache_by_telegram_id(self, telegram_id: int) -> None:
+        """
+        Удаление всех записей кэша для пользователя
+        """
+        await self.execute_query(
+            """
+            DECLARE $telegram_id AS Int64;
+            DELETE FROM cache WHERE telegram_id = $telegram_id;
+            """,
+            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Int64)}
+        )
+
+    async def delete_cache_by_telegram_id_and_parameter(self, telegram_id: int, parameter: str) -> None:
+        """
+        Удаление записи кэша по telegram_id и параметру
+        """
+        await self.execute_query(
+            """
+            DECLARE $telegram_id AS Int64;
+            DECLARE $parameter AS Utf8;
+            DELETE FROM cache WHERE telegram_id = $telegram_id AND parameter = $parameter;
+            """,
+            {
+                "$telegram_id": (telegram_id, ydb.PrimitiveType.Int64),
+                "$parameter": (parameter, ydb.PrimitiveType.Utf8)
+            }
+        )
+
+    # --- helpers ---
+    def _row_to_cache(self, row) -> Cache:
+        return Cache(
+            telegram_id=row["telegram_id"],
+            parameter=row.get("parameter"),
+            message_id=row.get("message_id"),
+        )
+
+    def _to_params(self, cache: Cache) -> dict:
+        return {
+            "$telegram_id": (cache.telegram_id, ydb.PrimitiveType.Int64),
+            "$parameter": (cache.parameter, ydb.OptionalType(ydb.PrimitiveType.Utf8)),
+            "$message_id": (cache.message_id, ydb.OptionalType(ydb.PrimitiveType.Int32)),
+        }
+
+
+async def example_cache_usage():
+    """
+    Пример использования CacheClient
+    """
+    async with CacheClient() as cache_client:
+        # Создание таблицы
+        await cache_client.create_cache_table()
+
+        # Создание новой записи кэша
+        new_cache = Cache(telegram_id=123, parameter="test", message_id=123)
+        await cache_client.insert_cache(new_cache)
+
+        # Получение всех записей для пользователя и итерация по ним
+        user_caches = await cache_client.get_cache_by_telegram_id(123)
+        user_state =  next((cache for cache in user_caches if cache.parameter == "user_state"), None)
+        print(user_state)
+
+        await cache_client.delete_cache_by_telegram_id_and_parameter(123, "test")
+
 
 async def main():
     """
     Демонстрация различных способов использования
     """
-    print("=== Using context manager ===")
-    # await example_with_context_manager()
-    async with UserClient() as client:
-        await client.create_users_table()
-        user = await client.get_user_by_id(123)
-        if user:
-            user.about_me = 'Нуб'
-            await client.update_user(user)
+    print("=== Cache Client Demo ===")
+    await example_cache_usage()
+
+
+    # print("=== Using context manager ===")
+    # # await example_with_context_manager()
+    # async with UserClient() as client:
+    #     await client.create_users_table()
+    #     user = await client.get_user_by_id(123)
+    #     if user:
+    #         user.about_me = 'Нуб'
+    #         await client.update_user(user)
 
 
 if __name__ == "__main__":
