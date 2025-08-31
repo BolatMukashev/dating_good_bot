@@ -319,29 +319,41 @@ async def query_profile_edit(callback: types.CallbackQuery):
     username = callback.from_user.username
     user_lang = callback.from_user.language_code
 
-    texts = await get_texts(user_lang)
-
-    # получаем id сообщений из Кэш
-    cached_messages = await get_cached_messages_ids(user_id)
+    # получаем id сообщений из кэша и текст на языке пользователя
+    async with CacheClient() as cache_client:
+        cached_messages, texts = await asyncio.gather(
+            cache_client.get_cache_by_telegram_id(user_id),
+            get_texts(user_lang)
+        )
 
     start_message_id = cached_messages.get("start_message_id")
-    match_menu_message_id = cached_messages.get("match_menu_message_id")
-    search_menu_message_id = cached_messages.get("search_menu_message_id")
+
+    # пары параметр → id сообщения
+    messages_to_delete = {
+        "match_menu_message_id": cached_messages.get("match_menu_message_id"),
+        "search_menu_message_id": cached_messages.get("search_menu_message_id"),
+    }
 
     # удаляем или блокируем меню мэтч и меню поиска 
-    for message_id in [match_menu_message_id, search_menu_message_id]:
+    for parameter, message_id in messages_to_delete.items():
+        if not message_id:
+            continue
         try:
             await bot.delete_message(chat_id=callback.message.chat.id, message_id=message_id)
         except TelegramBadRequest as e:
             print(f"ошибка удаления сообщений: {e}")
             try:
-                await bot.edit_message_media(chat_id=callback.message.chat.id, message_id=message_id,
+                await bot.edit_message_media(chat_id=callback.message.chat.id,
+                                             message_id=message_id,
                                              media=InputMediaPhoto(media=Pictures.CLEANING.value,
-                                                                   caption=texts['TEXT']['user_profile']['waiting']))
+                                                                   caption=texts['TEXT']['user_profile']['waiting'])
+                                            )
             except Exception as e:
                 print(f"ошибка изменения сообщений: {e}")
         else:
-            await delete_from_cache_by_id(user_id, message_id)
+            # теперь удаляем из кэша по telegram_id + parameter
+            async with CacheClient() as cache_client:
+                await cache_client.delete_cache_by_telegram_id_and_parameter(user_id, parameter)
             
     # изменение стартового сообщения
     if not username:
@@ -355,13 +367,26 @@ async def query_profile_edit(callback: types.CallbackQuery):
                                  message_id=start_message_id,
                                  media=InputMediaPhoto(media=Pictures.USER_PROFILE_PICTURE.value,
                                                        caption=caption),
-                                reply_markup=markup)
+                                 reply_markup=markup)
     
     # обновляем инфо о пользователе, удаляем записи по остальным полям в бд
-    await asyncio.gather(
-        create_or_update_user(user_id, first_name, username),
-        update_user_fields(user_id, **{k: None for k in ["gender", "gender_search", "country", "country_local", "city", "city_local", "photo_id", "about_me"]})
-    )
+    async with UserClient() as user_client:
+        user = await user_client.get_user_by_id(user_id)
+        empty_user = User(telegram_id = user_id,
+                          first_name = first_name,
+                          username = username,
+                          gender= None,
+                          gender_search= None,
+                          country= None,
+                          city= None,
+                          country_local= None,
+                          city_local= None,
+                          photo_id=None,
+                          about_me=None,
+                          incognito_pay = user.incognito_pay,
+                          incognito_switch = user.incognito_switch,
+                          banned = user.banned)
+        await user_client.insert_user(empty_user)
 
 
 # ------------------------------------------------------------------ ИНКОГНИТО ----------------------------------------------------------

@@ -3,7 +3,7 @@ import ydb
 import ydb.aio
 from enum import Enum
 from typing import Optional, Dict, Any, List
-from config import YDB_ENDPOINT, YDB_PATH, YDB_TOKEN
+from config import YDB_ENDPOINT, YDB_PATH, YDB_TOKEN, ADMIN_ID
 from dataclasses import dataclass
 
 
@@ -371,18 +371,17 @@ async def example_user_usage():
     Пример использования с async context manager (рекомендуемый способ)
     """
     async with UserClient() as client:
-        # Создание таблицы
-        await client.create_users_table()
-
-        # # Создание нового пользователя
-        # new_user = User(telegram_id=123, first_name="Alex", username="alex123")
-        # user = await client.insert_user(new_user)
+        # Создание нового пользователя
+        # new_user = User(telegram_id=ADMIN_ID, first_name="Alex", username="alex123")
+        # await client.insert_user(new_user)
         # print(f"Created user: {user.username}")
 
-        # # Получение пользователя
-        # user = await client.get_user_by_id(123)
+        await client.delete_user(ADMIN_ID)
+
+        # Получение пользователя
+        # user = await client.get_user_by_id(ADMIN_ID)
         # if user:
-        #     print(f"Found user: {user.first_name}")
+        #     print(f"Found user: {user}")
 
         # # Обновление пользователя
         # user.incognito_pay = True
@@ -390,7 +389,7 @@ async def example_user_usage():
         # updated = await client.update_user(user)
         # print(f"Updated user: {updated.first_name}, incognito: {updated.incognito_pay}")
 
-        await client.update_user_fields(123, banned = True)
+        # await client.update_user_fields(123, banned = True)
 
 
 @dataclass
@@ -505,19 +504,16 @@ async def example_cache_usage():
     Пример использования CacheClient
     """
     async with CacheClient() as cache_client:
-        # Создание таблицы
-        await cache_client.create_cache_table()
-
         # Создание новой записи кэша
-        new_cache = Cache(telegram_id=123, parameter="test", message_id=123)
-        await cache_client.insert_cache(new_cache)
+        # new_cache = Cache(telegram_id=123, parameter="test", message_id=123)
+        # await cache_client.insert_cache(new_cache)
 
-        # Получение всех записей для пользователя и итерация по ним
-        user_caches = await cache_client.get_cache_by_telegram_id(123)
-        user_state =  user_caches.get("user_state")
-        print(user_state)
+        # # Получение всех записей для пользователя и итерация по ним
+        # user_caches = await cache_client.get_cache_by_telegram_id(123)
+        # user_state =  user_caches.get("user_state")
+        # print(user_state)
 
-        await cache_client.delete_cache_by_telegram_id_and_parameter(123, "test")
+        await cache_client.delete_cache_by_telegram_id(ADMIN_ID)
 
 
 async def main():
@@ -526,6 +522,7 @@ async def main():
     """
     print("=== Cache Client Demo ===")
     await example_user_usage()
+    await example_cache_usage()
 
 
     # print("=== Using context manager ===")
@@ -550,4 +547,4 @@ async def create_tables_on_ydb():
 
 
 if __name__ == "__main__":
-    asyncio.run(create_tables_on_ydb())
+    asyncio.run(main())

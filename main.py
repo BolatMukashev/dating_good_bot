@@ -304,10 +304,11 @@ async def query_profile_edit(callback: types.CallbackQuery):
     username = callback.from_user.username
     user_lang = callback.from_user.language_code
 
-    texts = await get_texts(user_lang)
-
-    # получаем id сообщений из Кэш
-    cached_messages = await get_cached_messages_ids(user_id)
+    # получаем id сообщений из Кэш и текст на языке пользователя
+    cached_messages, texts = await asyncio.gather(
+        get_cached_messages_ids(user_id),
+        get_texts(user_lang)
+    )
 
     start_message_id = cached_messages.get("start_message_id")
     match_menu_message_id = cached_messages.get("match_menu_message_id")
