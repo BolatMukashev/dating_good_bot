@@ -63,9 +63,9 @@ async def cmd_start(message: types.Message):
     first_name = message.from_user.first_name
     username = message.from_user.username
 
-    # получение текста на языке пользователя и удаление сообщения /start
     # print(user_lang)
 
+    # получение текста на языке пользователя и удаление сообщения /start
     texts = await get_texts(user_lang)
     await message.delete()
 
@@ -145,10 +145,14 @@ async def query_retry_registration(callback: types.CallbackQuery):
 async def query_18years(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
-    texts = await get_texts(user_lang)
 
-    # обновляем инфо о пользователе в базе, кидаем уведомление, меняем стартовое сообщение
-    await update_user_fields(user_id, eighteen_years_and_approval=True)
+    # получаем язык пользователя, обновляем инфо о пользователе в базе
+    texts, _ = await asyncio.gather(
+        get_texts(user_lang),
+        update_user_fields(user_id, eighteen_years_and_approval=True)
+    )
+
+    # кидаем уведомление, меняем стартовое сообщение
     await callback.answer(text=texts['TEXT']['notifications']['18year'])
     await callback.message.edit_caption(caption=texts['TEXT']['user_profile']['step_2'], reply_markup=None)
 

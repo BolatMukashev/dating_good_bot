@@ -7,45 +7,15 @@ from config import YDB_ENDPOINT, YDB_PATH, YDB_TOKEN
 from dataclasses import dataclass
 
 
+__all__ = ['User',
+           'UserClient',
+           'Cache',
+           'CacheClient',
+           ]
+
+
 # yc iam create-token   (12 часов действует)
-
-
-class PaymentType(str, Enum):
-    INCOGNITO = "incognito"
-    COLLECTION = "collection"
-
-
-class Gender(str, Enum):
-    MAN = "MAN"
-    WOMAN = "WOMAN"
-    ANY = "ANY"
-
-
-# виды реакций
-class ReactionType(str, Enum):
-    LOVE = "LOVE"
-    SEX = "SEX"
-    CHAT = "CHAT"
-    SKIP = "SKIP"
-
-
-@dataclass
-class User:
-    telegram_id: int
-    first_name: Optional[str] = None
-    username: Optional[str] = None
-    gender: Optional[str] = None
-    gender_search: Optional[str] = None
-    country: Optional[str] = None
-    country_local: Optional[str] = None
-    city: Optional[str] = None
-    city_local: Optional[str] = None
-    photo_id: Optional[str] = None
-    about_me: Optional[str] = None
-    eighteen_years_and_approval: Optional[bool] = False
-    incognito_pay: Optional[bool] = False
-    incognito_switch: Optional[bool] = False
-    banned: Optional[bool] = False
+# ngrok http 127.0.0.1:8080 - поднять webhood локально на 8080 порту
 
 
 class YDBClient:
@@ -148,6 +118,25 @@ class YDBClient:
         """
         self._ensure_connected()
         return await self.pool.execute_with_retries(query, params)
+
+
+@dataclass
+class User:
+    telegram_id: int
+    first_name: Optional[str] = None
+    username: Optional[str] = None
+    gender: Optional[str] = None
+    gender_search: Optional[str] = None
+    country: Optional[str] = None
+    country_local: Optional[str] = None
+    city: Optional[str] = None
+    city_local: Optional[str] = None
+    photo_id: Optional[str] = None
+    about_me: Optional[str] = None
+    eighteen_years_and_approval: Optional[bool] = False
+    incognito_pay: Optional[bool] = False
+    incognito_switch: Optional[bool] = False
+    banned: Optional[bool] = False
 
 
 class UserClient(YDBClient):
@@ -285,6 +274,45 @@ class UserClient(YDBClient):
             self._to_params(user)
         )
         return await self.get_user_by_id(user.telegram_id)
+    
+    async def update_user_fields(self, user_id: int, **fields: Any) -> bool:
+        """
+        Обновление выбранных полей пользователя по user_id.
+        Возвращает True, если обновления были, иначе False.
+        """
+        if not fields:
+            return False
+
+        # собираем SET-часть динамически
+        set_clauses = []
+        params = {"$telegram_id": (user_id, ydb.PrimitiveType.Int64)}
+
+        for idx, (field, value) in enumerate(fields.items(), start=1):
+            param_name = f"${field}"
+            set_clauses.append(f"{field} = {param_name}")
+
+            # подбираем тип под значение (примерно, можно вынести в мапу типов)
+            if isinstance(value, bool):
+                params[param_name] = (value, ydb.PrimitiveType.Bool)
+            elif isinstance(value, int):
+                params[param_name] = (value, ydb.PrimitiveType.Int64)
+            else:  # строки и None → Utf8?
+                params[param_name] = (value, ydb.OptionalType(ydb.PrimitiveType.Utf8))
+
+        set_query = ", ".join(set_clauses)
+
+        query = f"""
+            DECLARE $telegram_id AS Int64;
+            {"".join([f"DECLARE {p} AS {('Bool' if isinstance(v[1], ydb.PrimitiveType) and v[1] == ydb.PrimitiveType.Bool else 'Utf8?')};\n" for p, v in params.items() if p != "$telegram_id"])}
+
+            UPDATE users
+            SET {set_query}
+            WHERE telegram_id = $telegram_id;
+        """
+
+        await self.execute_query(query, params)
+        return True
+
 
     async def delete_user(self, telegram_id: int) -> None:
         """
@@ -338,9 +366,7 @@ class UserClient(YDBClient):
         }
 
 
-# Примеры использования:
-
-async def example_with_context_manager():
+async def example_user_usage():
     """
     Пример использования с async context manager (рекомендуемый способ)
     """
@@ -348,32 +374,23 @@ async def example_with_context_manager():
         # Создание таблицы
         await client.create_users_table()
 
-        # Создание нового пользователя
-        new_user = User(telegram_id=123, first_name="Alex", username="alex123")
-        user = await client.insert_user(new_user)
-        print(f"Created user: {user.username}")
+        # # Создание нового пользователя
+        # new_user = User(telegram_id=123, first_name="Alex", username="alex123")
+        # user = await client.insert_user(new_user)
+        # print(f"Created user: {user.username}")
 
-        # Получение пользователя
-        user = await client.get_user_by_id(123)
-        if user:
-            print(f"Found user: {user.first_name}")
+        # # Получение пользователя
+        # user = await client.get_user_by_id(123)
+        # if user:
+        #     print(f"Found user: {user.first_name}")
 
-        # Обновление пользователя
-        user.incognito_pay = True
-        user.about_me = "Люблю Python 🐍"
-        updated = await client.update_user(user)
-        print(f"Updated user: {updated.first_name}, incognito: {updated.incognito_pay}")
+        # # Обновление пользователя
+        # user.incognito_pay = True
+        # user.about_me = "Люблю Python 🐍"
+        # updated = await client.update_user(user)
+        # print(f"Updated user: {updated.first_name}, incognito: {updated.incognito_pay}")
 
-
-async def create_tables_on_ydb():
-    # Создание всех таблиц в базе
-    async with UserClient() as client:
-        await client.create_users_table()
-        print("Table 'USERS' created successfully!")
-
-    async with CacheClient() as client:
-        await client.create_cache_table()
-        print("Table 'CACHE' created successfully!")
+        await client.update_user_fields(123, banned = True)
 
 
 @dataclass
@@ -418,15 +435,16 @@ class CacheClient(YDBClient):
             self._to_params(cache)
         )
 
-    async def get_cache_by_telegram_id(self, telegram_id: int) -> List[Cache]:
+    async def get_cache_by_telegram_id(self, telegram_id: int) -> dict[str, int]:
         """
-        Получение всех записей кэша для пользователя
+        Получение всех записей кэша для пользователя в виде словаря:
+        {parameter: message_id}
         """
         result = await self.execute_query(
             """
             DECLARE $telegram_id AS Int64;
 
-            SELECT telegram_id, parameter, message_id
+            SELECT parameter, message_id
             FROM cache
             WHERE telegram_id = $telegram_id
             ORDER BY parameter;
@@ -435,7 +453,8 @@ class CacheClient(YDBClient):
         )
 
         rows = result[0].rows
-        return [self._row_to_cache(row) for row in rows]
+        return {row["parameter"]: row["message_id"] for row in rows}
+
 
     async def delete_cache_by_telegram_id(self, telegram_id: int) -> None:
         """
@@ -495,7 +514,7 @@ async def example_cache_usage():
 
         # Получение всех записей для пользователя и итерация по ним
         user_caches = await cache_client.get_cache_by_telegram_id(123)
-        user_state =  next((cache for cache in user_caches if cache.parameter == "user_state"), None)
+        user_state =  user_caches.get("user_state")
         print(user_state)
 
         await cache_client.delete_cache_by_telegram_id_and_parameter(123, "test")
@@ -506,7 +525,7 @@ async def main():
     Демонстрация различных способов использования
     """
     print("=== Cache Client Demo ===")
-    await example_cache_usage()
+    await example_user_usage()
 
 
     # print("=== Using context manager ===")
@@ -519,5 +538,16 @@ async def main():
     #         await client.update_user(user)
 
 
+async def create_tables_on_ydb():
+    # Создание всех таблиц в базе
+    async with UserClient() as client:
+        await client.create_users_table()
+        print("Table 'USERS' created successfully!")
+
+    async with CacheClient() as client:
+        await client.create_cache_table()
+        print("Table 'CACHE' created successfully!")
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(create_tables_on_ydb())

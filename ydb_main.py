@@ -14,7 +14,7 @@ from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from datetime import datetime
 from languages.desc import DESCRIPTIONS, SHORT_DESCRIPTIONS, NAMES
-from ydb_functions import UserClient, User
+from ydb_functions import *
 
 
 # ------------------------------------------------------------------- Настройка -------------------------------------------------------
@@ -57,9 +57,9 @@ async def cmd_start(message: types.Message):
     first_name = message.from_user.first_name
     username = message.from_user.username
 
-    # получение текста на языке пользователя и удаление сообщения /start
     # print(user_lang)
 
+    # получение текста на языке пользователя и удаление сообщения /start
     texts = await get_texts(user_lang)
     await message.delete()
 
@@ -91,7 +91,9 @@ async def cmd_start(message: types.Message):
             markup = await get_approval_button(texts)
 
     starting_message = await message.answer_photo(photo=picture, caption=caption, reply_markup=markup)
-    # await save_to_cache(user_id, "start_message_id", message_id = starting_message.message_id) # запись в базу
+    async with CacheClient() as cache_client:
+        new_cache = Cache(telegram_id=user_id, parameter="start_message_id", message_id=starting_message.message_id)
+        await cache_client.insert_cache(new_cache)
 
     # если уже зарегистрирован в базе
     if user.about_me and username:
@@ -104,10 +106,13 @@ async def cmd_start(message: types.Message):
                                                 caption=texts['TEXT']['search_menu']['start'],
                                                 reply_markup=await get_start_button_search_menu(texts))
         # запись в базу
-        # await asyncio.gather(
-        #     save_to_cache(user_id, "match_menu_message_id", message_id = match_menu.message_id),
-        #     save_to_cache(user_id, "search_menu_message_id", message_id = search_menu.message_id)
-        # )
+        async with CacheClient() as cache_client:
+            new_cache1 = Cache(telegram_id=user_id, parameter="match_menu_message_id", message_id=match_menu.message_id)
+            new_cache2 = Cache(telegram_id=user_id, parameter="search_menu_message_id", message_id=search_menu.message_id)
+            await asyncio.gather(
+                await cache_client.insert_cache(new_cache1),
+                await cache_client.insert_cache(new_cache2)
+            )
 
 
 # повторная регистрация, если нет username
@@ -122,11 +127,14 @@ async def query_retry_registration(callback: types.CallbackQuery):
         return
     
     # получаем id стартового сообщения, обновляем инфу о пользователе, получаем текст на языке пользователя
-    cached_messages, texts, _ = await asyncio.gather(
-        get_cached_messages_ids(user_id),
-        get_texts(user_lang),
-        create_or_update_user(user_id, first_name, username)
-    )
+    async with CacheClient() as cache_client, UserClient() as user_client:
+        cached_messages, texts, _ = await asyncio.gather(
+            cache_client.get_cache_by_telegram_id(user_id),
+            get_texts(user_lang),
+            user_client.insert_user(
+                User(telegram_id=user_id, first_name=first_name, username=username)
+            )
+        )
 
     # изменяем стартовое сообщение
     await bot.edit_message_media(
@@ -142,10 +150,15 @@ async def query_retry_registration(callback: types.CallbackQuery):
 async def query_18years(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
-    texts = await get_texts(user_lang)
 
-    # обновляем инфо о пользователе в базе, кидаем уведомление, меняем стартовое сообщение
-    await update_user_fields(user_id, eighteen_years_and_approval=True)
+    # получаем язык пользователя, обновляем инфо о пользователе в базе
+    async with UserClient() as client:
+        texts, _ = await asyncio.gather(
+            get_texts(user_lang),
+            client.update_user_fields(user_id, eighteen_years_and_approval=True)
+        )
+
+    # кидаем уведомление, меняем стартовое сообщение
     await callback.answer(text=texts['TEXT']['notifications']['18year'])
     await callback.message.edit_caption(caption=texts['TEXT']['user_profile']['step_2'], reply_markup=None)
 
@@ -153,7 +166,9 @@ async def query_18years(callback: types.CallbackQuery):
     location_message = await callback.message.answer(texts['TEXT']['user_profile']['get_location_message'],
                                                      reply_markup= await get_location_button(texts))
     
-    await save_to_cache(user_id, "location_message_id", message_id = location_message.message_id) # запись в базу
+    async with CacheClient() as cache_client:
+        new_cache = Cache(telegram_id=user_id, parameter="location_message_id", message_id=location_message.message_id)
+        await cache_client.insert_cache(new_cache)
 
 
 # подтверждение локации
@@ -165,10 +180,11 @@ async def handle_location(message: types.Message):
     longitude = message.location.longitude
 
     # получение инфо о пользователе, получение текста на языке пользователя, удаление сообщения с локацией
-    user, texts = await asyncio.gather(
-        get_user_by_id(user_id),
-        get_texts(user_lang)
-    )
+    async with UserClient() as user_client:
+        user, texts = await asyncio.gather(
+            user_client.get_user_by_id(user_id),
+            get_texts(user_lang)
+        )
 
     await message.delete()
 
@@ -187,14 +203,16 @@ async def handle_location(message: types.Message):
         )
 
    # Получаем message_id из кэш
-    cached_messages = await get_cached_messages_ids(user_id)
-    start_message_id = cached_messages.get("start_message_id")
+    async with CacheClient() as cache_client:
+        cached_messages = await cache_client.get_cache_by_telegram_id(user_id)
+        start_message_id = cached_messages.get("start_message_id")
 
     # обновляем инфо о пользователе, удаляем кэш
-    await asyncio.gather(
-        update_user_fields(user_id, country=country_en, city=city_en, country_local=country_local, city_local=city_local),
-        delete_from_cache(user_id, "location_message_id")
-    )
+    async with UserClient() as user_client, CacheClient() as cache_client:
+        await asyncio.gather(
+            user_client.update_user_fields(user_id, country=country_en, city=city_en, country_local=country_local, city_local=city_local),
+            cache_client.delete_cache_by_telegram_id_and_parameter(user_id, "location_message_id")
+        )
 
     # удаляем сообщение о геолокации, изменяем стартовое сообщение
     await bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("location_message_id"))
@@ -215,10 +233,11 @@ async def query_gender(callback: types.CallbackQuery):
     selected_gender = Gender(callback.data) # Преобразуем строку в Enum
 
     # получение текста на языке пользователя, обновление инфо о пользователе
-    texts, _ = await asyncio.gather(
-        get_texts(user_lang),
-        update_user_fields(user_id, gender=selected_gender)
-    )
+    async with UserClient() as user_client:
+        texts, _ = await asyncio.gather(
+            get_texts(user_lang),
+            user_client.update_user_fields(user_id, gender=selected_gender)
+        )
 
     # получаем локализованную подпись
     gender_label = texts['GENDER_LABELS'][selected_gender]
@@ -244,10 +263,11 @@ async def query_gender_search(callback: types.CallbackQuery):
     selected_gender_search = search_map[callback.data]
 
     # получаем текст на языке пользователя, обновляем в базе инфо о пользователе
-    texts, _ = await asyncio.gather(
-        get_texts(user_lang),
-        update_user_fields(user_id, gender_search=selected_gender_search)
-    )
+    async with UserClient() as user_client:
+        texts, _ = await asyncio.gather(
+            get_texts(user_lang),
+            user_client.update_user_fields(user_id, gender_search=selected_gender_search)
+        )
 
     # Уведомление и переход к следующему шагу
     await callback.answer(text=texts['TEXT']['notifications']['gender_search'].format(gender_search=texts['GENDER_SEARCH_LABELS'][selected_gender_search]))
@@ -263,10 +283,11 @@ async def handle_photo(message: types.Message):
     file_id = photo.file_id
 
     # получение инфо о пользователе, получение текста на языке пользователя, удаление сообщения с фото
-    user, texts = await asyncio.gather(
-        get_user_by_id(user_id),
-        get_texts(user_lang)
-    )
+    async with UserClient() as user_client:
+        user, texts = await asyncio.gather(
+            user_client.get_user_by_id(user_id),
+            get_texts(user_lang)
+        )
 
     await message.delete()
 
@@ -276,10 +297,11 @@ async def handle_photo(message: types.Message):
         return
     
     # получение id стартового сообщения, обновление инфо о пользователе
-    cached_messages, _ = await asyncio.gather(
-        get_cached_messages_ids(user_id),
-        update_user_fields(user_id, photo_id = file_id)
-    )
+    async with UserClient() as user_client, CacheClient() as cache_client:
+        cached_messages, _ = await asyncio.gather(
+            cache_client.get_cache_by_telegram_id(user_id),
+            user_client.update_user_fields(user_id, photo_id = file_id)
+        )
 
     await bot.edit_message_caption(chat_id=message.chat.id,
                                    message_id=cached_messages.get("start_message_id"),
@@ -1166,7 +1188,8 @@ async def handle_text(message: types.Message):
     user_lang = message.from_user.language_code
 
     # получение инфо о пользователе
-    user = await get_user_by_id(user_id)
+    async with UserClient() as user_client:
+        user = await user_client.get_user_by_id(user_id)
 
     # защита от повторов, удаление текста
     if user.about_me or not user.photo_id:
@@ -1174,10 +1197,11 @@ async def handle_text(message: types.Message):
         return
     
     # получение id стартового сообщения, текста на языке пользователя
-    cached_messages, texts = await asyncio.gather(
-        get_cached_messages_ids(user_id),
-        get_texts(user_lang)
-    )
+    async with CacheClient() as cache_client:
+        cached_messages, texts = await asyncio.gather(
+            cache_client.get_cache_by_telegram_id(user_id),
+            get_texts(user_lang)
+        )
 
     start_message_id = cached_messages.get("start_message_id")
     match_menu_message_id = cached_messages.get("match_menu_message_id")
@@ -1186,7 +1210,8 @@ async def handle_text(message: types.Message):
     user_text = message.text
     if len(user_text) >= MIN_COUNT_SYMBOLS and len(user_text) <= MAX_COUNT_SYMBOLS:
         # обновить инфо о пользователе в базе, изменить стартовое сообщение
-        await update_user_fields(user_id, about_me = user_text)
+        async with UserClient() as user_client:
+            await user_client.update_user_fields(user_id, about_me = user_text)
         
         await bot.edit_message_media(chat_id=message.chat.id,
                                      message_id=start_message_id,
@@ -1227,7 +1252,9 @@ async def handle_text(message: types.Message):
                                              reply_markup = markup)
             else:
                 msg = await message.answer_photo(photo=photo_id, caption=caption, reply_markup=markup)
-                await save_to_cache(user_id, parameter, message_id = msg.message_id)
+                async with CacheClient() as cache_client:
+                    new_cache = Cache(user_id, parameter, message_id = msg.message_id)
+                    await cache_client.insert_cache(new_cache)
 
     else:
         if len(user_text) < MIN_COUNT_SYMBOLS:
