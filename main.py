@@ -421,22 +421,20 @@ async def cmd_delete_profile(message: types.message):
     # получение id сообщений
     cached_messages = await get_cached_messages_ids(user_id)
 
+    message_ids = ["start_message_id", "match_menu_message_id", "search_menu_message_id"]
+
     # удаление сообщений и пользователя из базы
-    try:
-        await asyncio.gather(
-            bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("start_message_id")),
-            bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("match_menu_message_id")),
-            bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("search_menu_message_id")),
-        )
-    except TelegramBadRequest as e:
-        print(f"ошибка удаления сообщений: {e}")
-    else:
-        # await delete_from_cache(user_id, "start_message_id")
-        # await delete_from_cache(user_id, "match_menu_message_id")
-        # await delete_from_cache(user_id, "search_menu_message_id")
-        delete_user_by_id(user_id)
-    finally:
-        await message.delete()
+    for el in message_ids:
+        try:
+            bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get(el))
+        except TelegramBadRequest as e:
+            print(f"ошибка удаления сообщений: {e}")
+        finally:
+            await delete_from_cache(user_id, el)
+
+    await delete_user_by_id(user_id)
+
+    await message.delete()
 
 
 # ------------------------------------------------------------------- Бан аккаунта -------------------------------------------------------

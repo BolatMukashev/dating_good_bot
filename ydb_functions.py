@@ -366,32 +366,6 @@ class UserClient(YDBClient):
         }
 
 
-async def example_user_usage():
-    """
-    Пример использования с async context manager (рекомендуемый способ)
-    """
-    async with UserClient() as client:
-        # Создание нового пользователя
-        # new_user = User(telegram_id=ADMIN_ID, first_name="Alex", username="alex123")
-        # await client.insert_user(new_user)
-        # print(f"Created user: {user.username}")
-
-        await client.delete_user(ADMIN_ID)
-
-        # Получение пользователя
-        # user = await client.get_user_by_id(ADMIN_ID)
-        # if user:
-        #     print(f"Found user: {user}")
-
-        # # Обновление пользователя
-        # user.incognito_pay = True
-        # user.about_me = "Люблю Python 🐍"
-        # updated = await client.update_user(user)
-        # print(f"Updated user: {updated.first_name}, incognito: {updated.incognito_pay}")
-
-        # await client.update_user_fields(123, banned = True)
-
-
 @dataclass
 class Cache:
     telegram_id: int = None
@@ -499,6 +473,32 @@ class CacheClient(YDBClient):
         }
 
 
+async def example_user_usage():
+    """
+    Пример использования с async context manager (рекомендуемый способ)
+    """
+    async with UserClient() as client:
+        # Создание нового пользователя
+        # new_user = User(telegram_id=ADMIN_ID, first_name="Alex", username="alex123")
+        # await client.insert_user(new_user)
+        # print(f"Created user: {user.username}")
+
+        await client.delete_user(ADMIN_ID)
+
+        # Получение пользователя
+        # user = await client.get_user_by_id(ADMIN_ID)
+        # if user:
+        #     print(f"Found user: {user}")
+
+        # # Обновление пользователя
+        # user.incognito_pay = True
+        # user.about_me = "Люблю Python 🐍"
+        # updated = await client.update_user(user)
+        # print(f"Updated user: {updated.first_name}, incognito: {updated.incognito_pay}")
+
+        # await client.update_user_fields(123, banned = True)
+
+
 async def example_cache_usage():
     """
     Пример использования CacheClient
@@ -523,16 +523,6 @@ async def main():
     print("=== Cache Client Demo ===")
     await example_user_usage()
     await example_cache_usage()
-
-
-    # print("=== Using context manager ===")
-    # # await example_with_context_manager()
-    # async with UserClient() as client:
-    #     await client.create_users_table()
-    #     user = await client.get_user_by_id(123)
-    #     if user:
-    #         user.about_me = 'Нуб'
-    #         await client.update_user(user)
 
 
 async def create_tables_on_ydb():

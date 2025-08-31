@@ -412,7 +412,8 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
         prices = [LabeledPrice(label=label, amount=amount)]
 
         # получение id сообщений
-        cached_messages = await get_cached_messages_ids(user_id)
+        async with CacheClient() as cache_client:
+            cached_messages = await cache_client.get_cache_by_telegram_id(user_id)
         pay_message_id = cached_messages.get('incognito_pay_message_id')
         if pay_message_id:
             try:
@@ -429,18 +430,20 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
             prices=prices,
             reply_markup=payment_keyboard(texts)
         )
-        
-        await save_to_cache(callback.from_user.id, "incognito_pay_message_id", message_id = sent_invoice.message_id) # сохраняем в Кэш
+        async with CacheClient() as cache_client:
+            new_cache = Cache(telegram_id=user_id, parameter="incognito_pay_message_id", message_id=sent_invoice.message_id)
+            await cache_client.insert_cache(new_cache)
 
         await callback.answer(texts["TEXT"]["notifications"]["payment_sent"])
 
     else:
-        if action == "ON":
-            await update_user_fields(user_id, incognito_switch=False)
-        else:
-            await update_user_fields(user_id, incognito_switch=True)
-
-    user = await get_user_by_id(user_id) # получение инфо о пользователе
+        # получение инфо о пользователе и изменение статуса в бд
+        async with UserClient() as user_client:
+            user = await user_client.get_user_by_id(user_id)
+            if action == "ON":
+                await user_client.update_user_fields(user_id, incognito_switch=False)
+            else:
+                await user_client.update_user_fields(user_id, incognito_switch=True)
 
     # изменение клавиатуры у стартового сообщения, отправка уведомления
     await bot.edit_message_reply_markup(chat_id=callback.message.chat.id,
@@ -458,24 +461,23 @@ async def cmd_delete_profile(message: types.message):
     user_id = message.from_user.id
 
     # получение id сообщений
-    cached_messages = await get_cached_messages_ids(user_id)
+    async with CacheClient() as cache_client:
+        cached_messages = await cache_client.get_cache_by_telegram_id(user_id)
+
+    message_ids = ["start_message_id", "match_menu_message_id", "search_menu_message_id"]
 
     # удаление сообщений и пользователя из базы
-    try:
-        await asyncio.gather(
-            bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("start_message_id")),
-            bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("match_menu_message_id")),
-            bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("search_menu_message_id")),
-        )
-    except TelegramBadRequest as e:
-        print(f"ошибка удаления сообщений: {e}")
-    else:
-        # await delete_from_cache(user_id, "start_message_id")
-        # await delete_from_cache(user_id, "match_menu_message_id")
-        # await delete_from_cache(user_id, "search_menu_message_id")
-        delete_user_by_id(user_id)
-    finally:
-        await message.delete()
+    for el in message_ids:
+        try:
+            bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get(el))
+        except TelegramBadRequest as e:
+            print(f"ошибка удаления сообщений: {e}")
+        
+    async with CacheClient() as cache_client, UserClient() as user_client:
+        await cache_client.delete_cache_by_telegram_id(user_id)
+        await user_client.delete_user(user_id)
+        
+    await message.delete()
 
 
 # ------------------------------------------------------------------- Бан аккаунта -------------------------------------------------------
