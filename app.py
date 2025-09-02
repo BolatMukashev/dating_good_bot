@@ -6,7 +6,7 @@ from models import Base
 from config import *
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiogram import Bot
-from ydb_main import logger, bot, dp
+from ydb_logic import logger, bot, dp
 
 
 # ------------------------------------------------------------------- Активация бота -------------------------------------------------------

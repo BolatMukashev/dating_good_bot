@@ -5,17 +5,42 @@ from enum import Enum
 from typing import Optional, Dict, Any, List
 from config import YDB_ENDPOINT, YDB_PATH, YDB_TOKEN, ADMIN_ID
 from dataclasses import dataclass
-
-
-__all__ = ['User',
-           'UserClient',
-           'Cache',
-           'CacheClient',
-           ]
+from datetime import datetime, timezone, timedelta
 
 
 # yc iam create-token   (12 часов действует)
 # ngrok http 127.0.0.1:8080 - поднять webhood локально на 8080 порту
+
+
+__all__ = ['User',
+           'UserClient',
+           'Gender',
+           'Cache',
+           'CacheClient',
+           'Payment',
+           'PaymentClient',
+           'PaymentType',
+           'ReactionType'
+           ]
+
+
+class PaymentType(str, Enum):
+    INCOGNITO = "incognito"
+    COLLECTION = "collection"
+
+
+class Gender(str, Enum):
+    MAN = "MAN"
+    WOMAN = "WOMAN"
+    ANY = "ANY"
+
+
+# виды реакций
+class ReactionType(str, Enum):
+    LOVE = "LOVE"
+    SEX = "SEX"
+    CHAT = "CHAT"
+    SKIP = "SKIP"
 
 
 class YDBClient:
@@ -428,7 +453,6 @@ class CacheClient(YDBClient):
         rows = result[0].rows
         return {row["parameter"]: row["message_id"] for row in rows}
 
-
     async def delete_cache_by_telegram_id(self, telegram_id: int) -> None:
         """
         Удаление всех записей кэша для пользователя
@@ -473,56 +497,130 @@ class CacheClient(YDBClient):
         }
 
 
-async def example_user_usage():
-    """
-    Пример использования с async context manager (рекомендуемый способ)
-    """
-    async with UserClient() as client:
-        # Создание нового пользователя
-        # new_user = User(telegram_id=ADMIN_ID, first_name="Alex", username="alex123")
-        # await client.insert_user(new_user)
-        # print(f"Created user: {user.username}")
-
-        await client.delete_user(ADMIN_ID)
-
-        # Получение пользователя
-        # user = await client.get_user_by_id(ADMIN_ID)
-        # if user:
-        #     print(f"Found user: {user}")
-
-        # # Обновление пользователя
-        # user.incognito_pay = True
-        # user.about_me = "Люблю Python 🐍"
-        # updated = await client.update_user(user)
-        # print(f"Updated user: {updated.first_name}, incognito: {updated.incognito_pay}")
-
-        # await client.update_user_fields(123, banned = True)
+@dataclass
+class Payment:
+    telegram_id: int
+    amount: int
+    payment_type: str
+    id: Optional[int] = None
+    target_tg_id: Optional[int] = None
+    created_at: Optional[int] = None  # Храним как timestamp (секунды с эпохи)
 
 
-async def example_cache_usage():
-    """
-    Пример использования CacheClient
-    """
-    async with CacheClient() as cache_client:
-        # Создание новой записи кэша
-        # new_cache = Cache(telegram_id=123, parameter="test", message_id=123)
-        # await cache_client.insert_cache(new_cache)
+class PaymentClient(YDBClient):
+    def __init__(self, endpoint: str = YDB_ENDPOINT, database: str = YDB_PATH, token: str = YDB_TOKEN):
+        super().__init__(endpoint, database, token)
+        self.table_name = "payments"
+        self.table_schema = """
+            CREATE TABLE `payments` (
+                `id` Uint64 NOT NULL,
+                `telegram_id` Uint64 NOT NULL,
+                `target_tg_id` Uint64,
+                `amount` Uint32 NOT NULL,
+                `type` Utf8 NOT NULL,
+                `created_at` Uint64 NOT NULL,
+                PRIMARY KEY (`id`)
+            )
+        """
+    
+    async def create_payments_table(self):
+        """
+        Создание таблицы payments
+        """
+        await self.create_table(self.table_name, self.table_schema)
+    
+    async def insert_payment(self, payment: Payment) -> Payment:
+        """
+        Вставка нового платежа с автогенерацией ID
+        """
+        # Генерируем ID как timestamp в микросекундах для уникальности
+        if payment.id is None:
+            payment.id = int(datetime.now(timezone.utc).timestamp() * 1000000)
+        
+        if payment.created_at is None:
+            payment.created_at = int(datetime.now(timezone.utc).timestamp())
+        
+        await self.execute_query(
+            """
+            DECLARE $id AS Uint64;
+            DECLARE $telegram_id AS Uint64;
+            DECLARE $target_tg_id AS Uint64?;
+            DECLARE $amount AS Uint32;
+            DECLARE $type AS Utf8;
+            DECLARE $created_at AS Uint64;
 
-        # # Получение всех записей для пользователя и итерация по ним
-        # user_caches = await cache_client.get_cache_by_telegram_id(123)
-        # user_state =  user_caches.get("user_state")
-        # print(user_state)
+            INSERT INTO payments (id, telegram_id, target_tg_id, amount, type, created_at)
+            VALUES ($id, $telegram_id, $target_tg_id, $amount, $type, $created_at);
+            """,
+            self._to_params(payment)
+        )
+        return await self.get_payment_by_id(payment.id)
 
-        await cache_client.delete_cache_by_telegram_id(ADMIN_ID)
+    async def get_payments_by_user(self, telegram_id: int, limit: int = 100) -> List[Payment]:
+        """
+        Получение всех платежей пользователя (как плательщика)
+        """
+        result = await self.execute_query(
+            """
+            DECLARE $telegram_id AS Uint64;
+            DECLARE $limit AS Uint64;
 
+            SELECT id, telegram_id, target_tg_id, amount, type, created_at
+            FROM payments
+            WHERE telegram_id = $telegram_id
+            ORDER BY created_at DESC
+            LIMIT $limit;
+            """,
+            {
+                "$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64),
+                "$limit": (limit, ydb.PrimitiveType.Uint64)
+            }
+        )
 
-async def main():
-    """
-    Демонстрация различных способов использования
-    """
-    print("=== Cache Client Demo ===")
-    await example_user_usage()
-    await example_cache_usage()
+        return [self._row_to_payment(row) for row in result[0].rows]
+
+    async def delete_payment(self, payment_id: int) -> None:
+        """
+        Удаление платежа по ID
+        """
+        await self.execute_query(
+            """
+            DECLARE $id AS Uint64;
+            DELETE FROM payments WHERE id = $id;
+            """,
+            {"$id": (payment_id, ydb.PrimitiveType.Uint64)}
+        )
+
+    # --- helpers ---
+    def _row_to_payment(self, row) -> Payment:
+        return Payment(
+            id=row["id"],
+            telegram_id=row["telegram_id"],
+            target_tg_id=row.get("target_tg_id"),
+            amount=row["amount"],
+            payment_type=row["type"],
+            created_at=row["created_at"],
+        )
+    
+    @staticmethod
+    def timestamp_to_datetime(timestamp: int) -> datetime:
+        """Конвертация timestamp в datetime объект"""
+        return datetime.fromtimestamp(timestamp, tz=timezone.utc)
+    
+    @staticmethod
+    def datetime_to_timestamp(dt: datetime) -> int:
+        """Конвертация datetime в timestamp"""
+        return int(dt.timestamp())
+
+    def _to_params(self, payment: Payment) -> dict:
+        return {
+            "$id": (payment.id, ydb.PrimitiveType.Uint64),
+            "$telegram_id": (payment.telegram_id, ydb.PrimitiveType.Uint64),
+            "$target_tg_id": (payment.target_tg_id, ydb.OptionalType(ydb.PrimitiveType.Uint64)),
+            "$amount": (payment.amount, ydb.PrimitiveType.Uint32),
+            "$type": (payment.payment_type, ydb.PrimitiveType.Utf8),
+            "$created_at": (payment.created_at, ydb.PrimitiveType.Uint64),
+        }
 
 
 async def create_tables_on_ydb():
@@ -535,6 +633,11 @@ async def create_tables_on_ydb():
         await client.create_cache_table()
         print("Table 'CACHE' created successfully!")
 
+    async with PaymentClient() as client:
+        await client.create_payments_table()
+        print("Table 'PAYMENTS' created successfully!")
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(create_tables_on_ydb())
+

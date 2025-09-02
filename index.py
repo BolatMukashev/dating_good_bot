@@ -1,5 +1,5 @@
 import json
-from ydb_main import dp, bot
+from ydb_logic import dp, bot
 
 
 async def handler(event, context):

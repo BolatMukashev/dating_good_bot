@@ -3,7 +3,7 @@ from models import ReactionType, User
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from uuid import uuid4
-from functions import pick_id
+from postgresql_functions import pick_id
 
 
 __all__ = ['get_approval_button',

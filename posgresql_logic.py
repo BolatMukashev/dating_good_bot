@@ -7,7 +7,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from config import *
 from models import Gender, PaymentType, ReactionType
 from buttons import *
-from functions import *
+from postgresql_functions import *
 from languages import get_texts
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.enums import ParseMode
@@ -520,7 +520,7 @@ async def cmd_check_image(message: types.Message):
                 print(f"Ошбика с фото {picture.name} - {e}")
 
 
-# проверка изображений
+# установка описания
 @dp.message(Command("set_description"))
 async def cmd_set_description(message: types.Message):
     user_id = message.from_user.id
@@ -1106,6 +1106,7 @@ async def on_successful_payment(message: types.Message):
     # получение id сообщений
     cached_messages = await get_cached_messages_ids(user_id)
 
+    # добавление в коллекцию
     if payload.startswith("payment_add_to_collection"):
         _, target_id, amount, reaction = payload.split("|")
 
@@ -1141,6 +1142,7 @@ async def on_successful_payment(message: types.Message):
                                      media=InputMediaPhoto(media=photo_id, caption=caption),
                                      reply_markup = markup)
 
+    # активация инкогнито
     elif payload.startswith("payment_incognito"):
         _, amount = payload.split("|")
         

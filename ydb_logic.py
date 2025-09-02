@@ -5,9 +5,8 @@ from aiogram.filters.command import Command
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.storage.memory import MemoryStorage
 from config import *
-from models import Gender, PaymentType, ReactionType
 from buttons import *
-from functions import *
+from postgresql_functions import *
 from languages import get_texts
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.enums import ParseMode
@@ -493,7 +492,9 @@ async def cmd_delete_msg(message: types.Message):
     if user_id in ADMINS:
         msg = await message.answer_photo(photo=Pictures.TECHNICAL_WORK.value, caption="Тестовое сообщение")
     
-    await save_to_cache(user_id, "test_message_id", message_id = msg.message_id)
+    async with CacheClient() as cache_client:
+        new_cache = Cache(telegram_id=user_id, parameter="test_message_id", message_id=msg.message_id)
+        await cache_client.insert_cache(new_cache)
     
     await message.delete()
 
@@ -503,7 +504,9 @@ async def cmd_delete_msg(message: types.Message):
 async def cmd_delete_msg1(message: types.Message):
     user_id = message.from_user.id
     if user_id in ADMINS:
-        cached_messages = await get_cached_messages_ids(user_id)
+        async with CacheClient() as cache_client:
+             cached_messages = await cache_client.get_cache_by_telegram_id(user_id)
+
         try:
             await bot.delete_message(chat_id=message.chat.id, message_id=cached_messages.get("test_message_id"))
         except TelegramBadRequest as e:
@@ -517,7 +520,9 @@ async def cmd_delete_msg1(message: types.Message):
 async def cmd_edit_msg1(message: types.Message):
     user_id = message.from_user.id
     if user_id in ADMINS:
-        cached_messages = await get_cached_messages_ids(user_id)
+        async with CacheClient() as cache_client:
+             cached_messages = await cache_client.get_cache_by_telegram_id(user_id)
+
         try:
             await bot.edit_message_media(chat_id=message.chat.id,
                                          message_id=cached_messages.get("test_message_id"),
@@ -549,7 +554,6 @@ async def cmd_check_id(message: types.Message):
     await message.delete()
 
 
-
 # проверка изображений
 @dp.message(Command("test6"))
 async def cmd_check_image(message: types.Message):
@@ -563,7 +567,7 @@ async def cmd_check_image(message: types.Message):
                 print(f"Ошбика с фото {picture.name} - {e}")
 
 
-# проверка изображений
+# установка описания
 @dp.message(Command("set_description"))
 async def cmd_set_description(message: types.Message):
     user_id = message.from_user.id
@@ -1147,29 +1151,39 @@ async def on_successful_payment(message: types.Message):
     texts = await get_texts(user_lang)
 
     # получение id сообщений
-    cached_messages = await get_cached_messages_ids(user_id)
+    async with CacheClient() as cache_client:
+        cached_messages = await cache_client.get_cache_by_telegram_id(user_id)
 
+    # добавление в коллекцию
     if payload.startswith("payment_add_to_collection"):
         _, target_id, amount, reaction = payload.split("|")
 
-        await add_payment(user_id, int(amount), PaymentType.COLLECTION, int(target_id))
+        async with PaymentClient() as payment_client:
+            new_payment = Payment(telegram_id=user_id, amount=int(amount), payment_type=PaymentType.COLLECTION.value, target_tg_id=int(target_id))
+            await payment_client.insert_payment(new_payment)
+
+        async with CacheClient() as cache_client:
+            cached_messages = await cache_client.get_cache_by_telegram_id(user_id)
 
         payment_message_id = cached_messages.get("collection_pay_message_id")
 
-        # получение списка пользователей из коллекции, получение id сообщений, добавление платежа в бд 
+        # получение списка пользователей из коллекции, получение id сообщений, добавление платежа в бд
+        # ///////////////////////////// 000000000
         target_users_ids, _,  = await get_intent_targets(user_id, reaction)
         
-        await delete_from_cache(user_id, "collection_pay_message_id")
+        async with CacheClient() as cache_client:
+            await cache_client.delete_cache_by_telegram_id_and_parameter(user_id, "collection_pay_message_id")
 
         if not target_users_ids:
             photo_id = Pictures.get_not_found_picture(reaction)
             caption = texts['TEXT']['match_menu']['empty'][reaction]
             markup = await empty_category_buttons(texts)
         else:
-            target_user, (prev_id, next_id) = await asyncio.gather(
-                get_user_by_id(target_users_ids[0]),
-                get_prev_next_ids(target_users_ids[0], target_users_ids)
-            )
+            async with UserClient() as user_client:
+                target_user, (prev_id, next_id) = await asyncio.gather(
+                    user_client.get_user_by_id(target_users_ids[0]),
+                    get_prev_next_ids(target_users_ids[0], target_users_ids)
+                )
 
             photo_id = target_user.photo_id
 
@@ -1177,22 +1191,25 @@ async def on_successful_payment(message: types.Message):
             caption, markup = await asyncio.gather(
                 get_caption(target_user),
                 get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
-            )
+            ) #/////////////////////////////////////////
 
         await bot.edit_message_media(chat_id=message.chat.id,
                                      message_id=cached_messages.get("match_menu_message_id"),
                                      media=InputMediaPhoto(media=photo_id, caption=caption),
                                      reply_markup = markup)
 
+    # активация инкогнито
     elif payload.startswith("payment_incognito"):
         _, amount = payload.split("|")
         
         # добавление инфо о платеже в базу, обновление статусов у пользователя, удаление кэша
-        await asyncio.gather(
-            add_payment(user_id, int(amount), PaymentType.INCOGNITO),
-            update_user_fields(user_id, incognito_pay=True, incognito_switch=True),
-            delete_from_cache(user_id, "incognito_pay_message_id")
-        )
+        async with PaymentClient() as payment_client, UserClient() as user_client, CacheClient() as cache_client:
+            new_payment = Payment(user_id, int(amount), PaymentType.INCOGNITO)
+            await asyncio.gather(
+                payment_client.insert_payment(new_payment),
+                user_client.update_user_fields(user_id, incognito_pay=True, incognito_switch=True),
+                cache_client.delete_cache_by_telegram_id_and_parameter(user_id, "incognito_pay_message_id")
+            )
 
         # изменение стартового сообщения
         await bot.edit_message_reply_markup(chat_id=message.chat.id,
@@ -1200,6 +1217,9 @@ async def on_successful_payment(message: types.Message):
                                             reply_markup=await get_profile_edit_buttons(True, True, texts))
 
         # получаем id из Кэш и удаляем сообщение
+        async with CacheClient() as cache_client:
+            cached_messages = await cache_client.get_cache_by_telegram_id(user_id)
+
         payment_message_id = cached_messages.get("incognito_pay_message_id")
 
     await bot.delete_message(chat_id=message.chat.id, message_id=payment_message_id)

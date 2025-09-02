@@ -3,10 +3,10 @@ from models import User, ReactionType, Gender
 import random
 from faker import Faker
 from sqlalchemy import select
-from functions import *
+from postgresql_functions import *
 from config import ADMIN_ID, ASTANA_ID, Pictures
 from db_connect import AsyncSessionLocal
-from functions import PaymentType
+from postgresql_functions import PaymentType
 
 
 fake = Faker("ru_RU")
