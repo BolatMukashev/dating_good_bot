@@ -1108,11 +1108,12 @@ async def on_successful_payment(message: types.Message):
 
     # добавление в коллекцию
     if payload.startswith("payment_add_to_collection"):
+
+        payment_message_id = cached_messages.get("collection_pay_message_id")
+
         _, target_id, amount, reaction = payload.split("|")
 
         await add_payment(user_id, int(amount), PaymentType.COLLECTION, int(target_id))
-
-        payment_message_id = cached_messages.get("collection_pay_message_id")
 
         # получение списка пользователей из коллекции, получение id сообщений, добавление платежа в бд 
         target_users_ids, _,  = await get_intent_targets(user_id, reaction)
@@ -1144,6 +1145,9 @@ async def on_successful_payment(message: types.Message):
 
     # активация инкогнито
     elif payload.startswith("payment_incognito"):
+
+        payment_message_id = cached_messages.get("incognito_pay_message_id")
+        
         _, amount = payload.split("|")
         
         # добавление инфо о платеже в базу, обновление статусов у пользователя, удаление кэша
@@ -1158,9 +1162,7 @@ async def on_successful_payment(message: types.Message):
                                             message_id=cached_messages.get("start_message_id"),
                                             reply_markup=await get_profile_edit_buttons(True, True, texts))
 
-        # получаем id из Кэш и удаляем сообщение
-        payment_message_id = cached_messages.get("incognito_pay_message_id")
-
+    # удаляем сообщение
     await bot.delete_message(chat_id=message.chat.id, message_id=payment_message_id)
 
 

@@ -132,8 +132,10 @@ async def reset_database():
         await cleaner.clear_all_tables()
 
 
-
+async def test():
+    async with PaymentClient() as client:
+        await client.delete_payment(1757151501772055)
 
 if __name__ == "__main__":
-    asyncio.run(reset_database())
+    asyncio.run(test())
 

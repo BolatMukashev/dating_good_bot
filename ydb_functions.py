@@ -884,7 +884,6 @@ class PaymentClient(YDBClient):
             """,
             self._to_params(payment)
         )
-        return await self.get_payment_by_id(payment.id)
 
     async def get_payments_by_user(self, telegram_id: int, limit: int = 100) -> List[Payment]:
         """

@@ -392,7 +392,7 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
     # если НЕ ОПЛАЧЕНО, отправка оплаты
     if action == "NOT_PAYED":
 
-        amount = (PRICES.get(user_lang) or PRICES["en"]).get("incognito")
+        amount = 1 if user_id in ADMINS else (PRICES.get(user_lang) or PRICES["en"]).get("incognito")
 
         label = texts['TEXT']["payment"]["incognito"]["label"]
         title = texts['TEXT']["payment"]["incognito"]["title"]
@@ -426,18 +426,21 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
 
     else:
         # получение инфо о пользователе и изменение статуса в бд
-        async with UserClient() as user_client:
-            user = await user_client.get_user_by_id(user_id)
+        async with UserSettingsClient() as client:
             if action == "ON":
-                await user_client.update_user_fields(user_id, incognito_switch=False)
+                await client.update_user_settings_fields(user_id, incognito_switch=False)
             else:
-                await user_client.update_user_fields(user_id, incognito_switch=True)
+                await client.update_user_settings_fields(user_id, incognito_switch=True)
+
+    # получение инфо о пользователе
+    async with UserSettingsClient() as client:
+        user_settings = await client.get_user_settings_by_id(user_id)
 
     # изменение клавиатуры у стартового сообщения, отправка уведомления
     await bot.edit_message_reply_markup(chat_id=callback.message.chat.id,
                                         message_id=callback.message.message_id,
-                                        reply_markup=await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch, texts))
-    await callback.answer(texts["TEXT"]["notifications"]["incognito"][user.incognito_switch])
+                                        reply_markup=await get_profile_edit_buttons(user_settings.incognito_pay, user_settings.incognito_switch, texts))
+    await callback.answer(texts["TEXT"]["notifications"]["incognito"][user_settings.incognito_switch])
 
 
 # ------------------------------------------------------------------- Удаление аккаунта -------------------------------------------------------
@@ -445,7 +448,7 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
 
 # Команда Удаление
 @dp.message(Command("delete_profile"))
-async def cmd_delete_profile(message: types.message):
+async def cmd_delete_profile(message: types.Message):
     user_id = message.from_user.id
 
     # получение id сообщений
@@ -1145,23 +1148,19 @@ async def on_successful_payment(message: types.Message):
 
     # добавление в коллекцию
     if payload.startswith("payment_add_to_collection"):
+
+        parameter = "collection_pay_message_id"
+        payment_message_id = cached_messages.get("collection_pay_message_id")
+
         _, target_id, amount, reaction = payload.split("|")
 
         async with PaymentClient() as payment_client:
             new_payment = Payment(telegram_id=user_id, amount=int(amount), payment_type=PaymentType.COLLECTION.value, target_tg_id=int(target_id))
             await payment_client.insert_payment(new_payment)
 
-        async with CacheClient() as cache_client:
-            cached_messages = await cache_client.get_cache_by_telegram_id(user_id)
-
-        payment_message_id = cached_messages.get("collection_pay_message_id")
-
         # получение списка пользователей из коллекции, получение id сообщений, добавление платежа в бд
         # ///////////////////////////// 000000000
         target_users_ids, _,  = await get_intent_targets(user_id, reaction)
-        
-        async with CacheClient() as cache_client:
-            await cache_client.delete_cache_by_telegram_id_and_parameter(user_id, "collection_pay_message_id")
 
         if not target_users_ids:
             photo_id = Pictures.get_not_found_picture(reaction)
@@ -1189,15 +1188,19 @@ async def on_successful_payment(message: types.Message):
 
     # активация инкогнито
     elif payload.startswith("payment_incognito"):
+
+        parameter = "incognito_pay_message_id"
+        payment_message_id = cached_messages.get("incognito_pay_message_id")
+
         _, amount = payload.split("|")
         
         # добавление инфо о платеже в базу, обновление статусов у пользователя, удаление кэша
-        async with PaymentClient() as payment_client, UserClient() as user_client, CacheClient() as cache_client:
-            new_payment = Payment(user_id, int(amount), PaymentType.INCOGNITO)
+        async with PaymentClient() as payment_client, UserSettingsClient() as user_client, CacheClient() as cache_client:
+            new_payment = Payment(user_id, int(amount), PaymentType.INCOGNITO.value)
             await asyncio.gather(
                 payment_client.insert_payment(new_payment),
-                user_client.update_user_fields(user_id, incognito_pay=True, incognito_switch=True),
-                cache_client.delete_cache_by_telegram_id_and_parameter(user_id, "incognito_pay_message_id")
+                user_client.update_user_settings_fields(user_id, incognito_pay=True, incognito_switch=True),
+                
             )
 
         # изменение стартового сообщения
@@ -1205,11 +1208,9 @@ async def on_successful_payment(message: types.Message):
                                             message_id=cached_messages.get("start_message_id"),
                                             reply_markup=await get_profile_edit_buttons(True, True, texts))
 
-        # получаем id из Кэш и удаляем сообщение
-        async with CacheClient() as cache_client:
-            cached_messages = await cache_client.get_cache_by_telegram_id(user_id)
-
-        payment_message_id = cached_messages.get("incognito_pay_message_id")
+    # получаем id из Кэш и удаляем сообщение
+    async with CacheClient() as cache_client:
+        await cache_client.delete_cache_by_telegram_id_and_parameter(user_id, parameter)
 
     await bot.delete_message(chat_id=message.chat.id, message_id=payment_message_id)
 
