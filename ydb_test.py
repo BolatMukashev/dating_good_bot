@@ -1,6 +1,7 @@
 from ydb_functions import *
 from config import *
 import asyncio
+from ydb_functions import YDBClient
 
 
 async def example_user_usage():
@@ -75,15 +76,64 @@ async def example_payment_usage():
         print(f"User has {len(user_payments)} payments")
 
 
-async def main():
-    """
-    Демонстрация различных способов использования
-    """
-    print("=== Cache Client Demo ===")
-    await example_user_usage()
-    await example_cache_usage()
+# Пример использования:
+async def example_user_settings_usage():
+    async with FullUserClient() as client:
+        # Создание таблиц
+        await client.create_tables()
+        
+        # Создание пользователя
+        user = User(
+            telegram_id=123456,
+            first_name="John",
+            username="john_doe",
+        )
+        
+        settings = UserSettings(
+            telegram_id=123456
+        )
+        
+        # Вставка полного пользователя
+        full_user = await client.insert_full_user(user, settings)
+        
+        # Или создание настроек отдельно
+        # await client.settings_client.create_user_settings(settings)
+        
+        # Получение полного пользователя
+        retrieved_user = await client.get_full_user_by_id(123456)
+        
+        # Обновление отдельных полей
+        # await client.update_user_fields(123456, first_name="Jane", banned=True)
+
+
+class YDBCleaner(YDBClient):
+    async def clear_all_tables(self):
+        """Удаляет все записи во всех таблицах"""
+        self._ensure_connected()
+
+        tables = [
+            "users",
+            "user_settings",
+            "payments",
+            "cache"
+            # добавь сюда все свои таблицы
+        ]
+
+        for table in tables:
+            try:
+                await self.execute_query(f"DELETE FROM `{table}`;")
+                print(f"Таблица {table} очищена.")
+            except Exception as e:
+                print(f"Ошибка при очистке {table}: {e}")
+
+
+async def reset_database():
+    async with YDBCleaner() as cleaner:
+        await cleaner.clear_all_tables()
+
+
 
 
 if __name__ == "__main__":
-    asyncio.run(example_payment_usage())
+    asyncio.run(reset_database())
 

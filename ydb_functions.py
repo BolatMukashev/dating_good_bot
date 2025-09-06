@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Optional, Dict, Any, List
 from config import YDB_ENDPOINT, YDB_PATH, YDB_TOKEN, ADMIN_ID
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 
 # yc iam create-token   (12 часов действует)
@@ -14,6 +14,10 @@ from datetime import datetime, timezone, timedelta
 
 __all__ = ['User',
            'UserClient',
+           'UserSettings',
+           'UserSettingsClient',
+           'FullUser',
+           'FullUserClient',
            'Gender',
            'Cache',
            'CacheClient',
@@ -158,10 +162,89 @@ class User:
     city_local: Optional[str] = None
     photo_id: Optional[str] = None
     about_me: Optional[str] = None
+
+
+@dataclass
+class UserSettings:
+    telegram_id: int
     eighteen_years_and_approval: Optional[bool] = False
     incognito_pay: Optional[bool] = False
     incognito_switch: Optional[bool] = False
     banned: Optional[bool] = False
+    created_at: Optional[int] = None  # Храним как timestamp (секунды с эпохи)
+
+
+@dataclass
+class FullUser:
+    """Объединенные данные пользователя и его настроек"""
+    user: User
+    settings: UserSettings
+
+    @property
+    def telegram_id(self) -> int:
+        return self.user.telegram_id
+    
+    @property
+    def first_name(self) -> str:
+        return self.user.first_name
+    
+    @property
+    def username(self) -> str:
+        return self.user.username
+    
+    @property
+    def gender(self) -> str:
+        return self.user.gender
+
+    @property
+    def gender_search(self) -> str:
+        return self.user.gender_search
+    
+    @property
+    def country(self) -> str | None:
+        return self.user.country
+    
+    @property
+    def country_local(self) -> str | None:
+        return self.user.country_local
+
+    @property
+    def city(self) -> str | None:
+        return self.user.city
+
+    @property
+    def city_local(self) -> str | None:
+        return self.user.city_local
+
+    @property
+    def photo_id(self) -> str | None:
+        return self.user.photo_id
+
+    @property
+    def about_me(self) -> str | None:
+        return self.user.about_me
+    
+    @property
+    def eighteen_years_and_approval(self) -> bool:
+        return self.settings.eighteen_years_and_approval
+
+    @property
+    def incognito_pay(self) -> bool:
+        return self.settings.incognito_pay
+
+    @property
+    def incognito_switch(self) -> bool:
+        return self.settings.incognito_switch
+    
+    @property
+    def banned(self) -> bool:
+        return self.settings.banned
+    
+    @property
+    def created_at(self) -> datetime | None:
+        if self.settings.created_at is None:
+            return None
+        return UserSettingsClient.timestamp_to_datetime(self.settings.created_at)
 
 
 class UserClient(YDBClient):
@@ -181,24 +264,16 @@ class UserClient(YDBClient):
                 `city_local` Utf8,
                 `photo_id` Utf8,
                 `about_me` Utf8,
-                `eighteen_years_and_approval` Bool,
-                `incognito_pay` Bool,
-                `incognito_switch` Bool,
-                `banned` Bool,
                 PRIMARY KEY (`telegram_id`)
             )
         """
     
     async def create_users_table(self):
-        """
-        Создание таблицы users
-        """
+        """Создание таблицы users"""
         await self.create_table(self.table_name, self.table_schema)
     
     async def insert_user(self, user: User) -> User:
-        """
-        Вставка или обновление пользователя (UPSERT) и возврат объекта User
-        """
+        """Вставка или обновление пользователя (UPSERT) и возврат объекта User"""
         await self.execute_query(
             """
             DECLARE $telegram_id AS Int64;
@@ -212,21 +287,13 @@ class UserClient(YDBClient):
             DECLARE $city_local AS Utf8?;
             DECLARE $photo_id AS Utf8?;
             DECLARE $about_me AS Utf8?;
-            DECLARE $eighteen_years_and_approval AS Bool?;
-            DECLARE $incognito_pay AS Bool?;
-            DECLARE $incognito_switch AS Bool?;
-            DECLARE $banned AS Bool?;
 
             UPSERT INTO users (
                 telegram_id, first_name, username, gender, gender_search,
-                country, country_local, city, city_local, photo_id,
-                about_me, eighteen_years_and_approval, incognito_pay,
-                incognito_switch, banned
+                country, country_local, city, city_local, photo_id, about_me
             ) VALUES (
                 $telegram_id, $first_name, $username, $gender, $gender_search,
-                $country, $country_local, $city, $city_local, $photo_id,
-                $about_me, $eighteen_years_and_approval, $incognito_pay,
-                $incognito_switch, $banned
+                $country, $country_local, $city, $city_local, $photo_id, $about_me
             );
             """,
             self._to_params(user)
@@ -234,17 +301,13 @@ class UserClient(YDBClient):
         return await self.get_user_by_id(user.telegram_id)
 
     async def get_user_by_id(self, telegram_id: int) -> Optional[User]:
-        """
-        Получение пользователя по telegram_id
-        """
+        """Получение пользователя по telegram_id"""
         result = await self.execute_query(
             """
             DECLARE $telegram_id AS Int64;
 
             SELECT telegram_id, first_name, username, gender, gender_search,
-                   country, country_local, city, city_local, photo_id,
-                   about_me, eighteen_years_and_approval, incognito_pay,
-                   incognito_switch, banned
+                   country, country_local, city, city_local, photo_id, about_me
             FROM users
             WHERE telegram_id = $telegram_id;
             """,
@@ -258,9 +321,7 @@ class UserClient(YDBClient):
         return self._row_to_user(rows[0])
 
     async def update_user(self, user: User) -> User:
-        """
-        Обновление данных пользователя по объекту User
-        """
+        """Обновление данных пользователя по объекту User"""
         await self.execute_query(
             """
             DECLARE $telegram_id AS Int64;
@@ -274,10 +335,6 @@ class UserClient(YDBClient):
             DECLARE $city_local AS Utf8?;
             DECLARE $photo_id AS Utf8?;
             DECLARE $about_me AS Utf8?;
-            DECLARE $eighteen_years_and_approval AS Bool?;
-            DECLARE $incognito_pay AS Bool?;
-            DECLARE $incognito_switch AS Bool?;
-            DECLARE $banned AS Bool?;
 
             UPDATE users SET
                 first_name = $first_name,
@@ -289,11 +346,7 @@ class UserClient(YDBClient):
                 city = $city,
                 city_local = $city_local,
                 photo_id = $photo_id,
-                about_me = $about_me,
-                eighteen_years_and_approval = $eighteen_years_and_approval,
-                incognito_pay = $incognito_pay,
-                incognito_switch = $incognito_switch,
-                banned = $banned
+                about_me = $about_me
             WHERE telegram_id = $telegram_id;
             """,
             self._to_params(user)
@@ -301,34 +354,33 @@ class UserClient(YDBClient):
         return await self.get_user_by_id(user.telegram_id)
     
     async def update_user_fields(self, user_id: int, **fields: Any) -> bool:
-        """
-        Обновление выбранных полей пользователя по user_id.
-        Возвращает True, если обновления были, иначе False.
-        """
+        """Обновление выбранных полей пользователя по user_id"""
         if not fields:
             return False
 
-        # собираем SET-часть динамически
+        # Фильтруем только поля, которые относятся к таблице users
+        user_fields = {k: v for k, v in fields.items() 
+                      if k in ['first_name', 'username', 'gender', 'gender_search', 
+                              'country', 'country_local', 'city', 'city_local', 
+                              'photo_id', 'about_me']}
+        
+        if not user_fields:
+            return False
+
         set_clauses = []
         params = {"$telegram_id": (user_id, ydb.PrimitiveType.Int64)}
 
-        for idx, (field, value) in enumerate(fields.items(), start=1):
+        for field, value in user_fields.items():
             param_name = f"${field}"
             set_clauses.append(f"{field} = {param_name}")
-
-            # подбираем тип под значение (примерно, можно вынести в мапу типов)
-            if isinstance(value, bool):
-                params[param_name] = (value, ydb.PrimitiveType.Bool)
-            elif isinstance(value, int):
-                params[param_name] = (value, ydb.PrimitiveType.Int64)
-            else:  # строки и None → Utf8?
-                params[param_name] = (value, ydb.OptionalType(ydb.PrimitiveType.Utf8))
+            params[param_name] = (value, ydb.OptionalType(ydb.PrimitiveType.Utf8))
 
         set_query = ", ".join(set_clauses)
+        declare_params = "\n".join([f"DECLARE {p} AS Utf8?;" for p in params.keys() if p != "$telegram_id"])
 
         query = f"""
             DECLARE $telegram_id AS Int64;
-            {"".join([f"DECLARE {p} AS {('Bool' if isinstance(v[1], ydb.PrimitiveType) and v[1] == ydb.PrimitiveType.Bool else 'Utf8?')};\n" for p, v in params.items() if p != "$telegram_id"])}
+            {declare_params}
 
             UPDATE users
             SET {set_query}
@@ -338,11 +390,8 @@ class UserClient(YDBClient):
         await self.execute_query(query, params)
         return True
 
-
     async def delete_user(self, telegram_id: int) -> None:
-        """
-        Удаление пользователя
-        """
+        """Удаление пользователя"""
         await self.execute_query(
             """
             DECLARE $telegram_id AS Int64;
@@ -351,7 +400,6 @@ class UserClient(YDBClient):
             {"$telegram_id": (telegram_id, ydb.PrimitiveType.Int64)}
         )
 
-    # --- helpers ---
     def _row_to_user(self, row) -> User:
         return User(
             telegram_id=row["telegram_id"],
@@ -365,10 +413,6 @@ class UserClient(YDBClient):
             city_local=row.get("city_local"),
             photo_id=row.get("photo_id"),
             about_me=row.get("about_me"),
-            eighteen_years_and_approval=row.get("eighteen_years_and_approval"),
-            incognito_pay=row.get("incognito_pay"),
-            incognito_switch=row.get("incognito_switch"),
-            banned=row.get("banned"),
         )
 
     def _to_params(self, user: User) -> dict:
@@ -384,11 +428,297 @@ class UserClient(YDBClient):
             "$city_local": (user.city_local, ydb.OptionalType(ydb.PrimitiveType.Utf8)),
             "$photo_id": (user.photo_id, ydb.OptionalType(ydb.PrimitiveType.Utf8)),
             "$about_me": (user.about_me, ydb.OptionalType(ydb.PrimitiveType.Utf8)),
-            "$eighteen_years_and_approval": (user.eighteen_years_and_approval, ydb.OptionalType(ydb.PrimitiveType.Bool)),
-            "$incognito_pay": (user.incognito_pay, ydb.OptionalType(ydb.PrimitiveType.Bool)),
-            "$incognito_switch": (user.incognito_switch, ydb.OptionalType(ydb.PrimitiveType.Bool)),
-            "$banned": (user.banned, ydb.OptionalType(ydb.PrimitiveType.Bool)),
         }
+
+
+class UserSettingsClient(YDBClient):
+    def __init__(self, endpoint: str = YDB_ENDPOINT, database: str = YDB_PATH, token: str = YDB_TOKEN):
+        super().__init__(endpoint, database, token)
+        self.table_name = "user_settings"
+        self.table_schema = """
+            CREATE TABLE `user_settings` (
+                `telegram_id` Int64 NOT NULL,
+                `eighteen_years_and_approval` Bool,
+                `incognito_pay` Bool,
+                `incognito_switch` Bool,
+                `banned` Bool,
+                `created_at` Uint64,
+                PRIMARY KEY (`telegram_id`)
+            )
+        """
+    
+    async def create_user_settings_table(self):
+        """Создание таблицы user_settings"""
+        await self.create_table(self.table_name, self.table_schema)
+    
+    async def insert_user_settings(self, settings: UserSettings) -> UserSettings:
+        """Вставка или обновление настроек пользователя (UPSERT)"""
+        # Проверяем, существует ли уже запись
+        existing_settings = await self.get_user_settings_by_id(settings.telegram_id)
+        
+        if existing_settings:
+            # Если запись существует, сохраняем existing created_at
+            if settings.created_at is None:
+                settings.created_at = existing_settings.created_at
+        else:
+            # Если записи нет, устанавливаем текущее время
+            if settings.created_at is None:
+                from datetime import datetime, timezone
+                settings.created_at = int(datetime.now(timezone.utc).timestamp())
+        
+        await self.execute_query(
+            """
+            DECLARE $telegram_id AS Int64;
+            DECLARE $eighteen_years_and_approval AS Bool?;
+            DECLARE $incognito_pay AS Bool?;
+            DECLARE $incognito_switch AS Bool?;
+            DECLARE $banned AS Bool?;
+            DECLARE $created_at AS Uint64?;
+
+            UPSERT INTO user_settings (
+                telegram_id, eighteen_years_and_approval, incognito_pay,
+                incognito_switch, banned, created_at
+            ) VALUES (
+                $telegram_id, $eighteen_years_and_approval, $incognito_pay,
+                $incognito_switch, $banned, $created_at
+            );
+            """,
+            self._to_params(settings)
+        )
+        return await self.get_user_settings_by_id(settings.telegram_id)
+
+    async def get_user_settings_by_id(self, telegram_id: int) -> Optional[UserSettings]:
+        """Получение настроек пользователя по telegram_id"""
+        result = await self.execute_query(
+            """
+            DECLARE $telegram_id AS Int64;
+
+            SELECT telegram_id, eighteen_years_and_approval, incognito_pay,
+                   incognito_switch, banned, created_at
+            FROM user_settings
+            WHERE telegram_id = $telegram_id;
+            """,
+            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Int64)}
+        )
+
+        rows = result[0].rows
+        if not rows:
+            return None
+
+        return self._row_to_settings(rows[0])
+
+    async def update_user_settings(self, settings: UserSettings) -> UserSettings:
+        """Обновление настроек пользователя"""
+        await self.execute_query(
+            """
+            DECLARE $telegram_id AS Int64;
+            DECLARE $eighteen_years_and_approval AS Bool?;
+            DECLARE $incognito_pay AS Bool?;
+            DECLARE $incognito_switch AS Bool?;
+            DECLARE $banned AS Bool?;
+            DECLARE $created_at AS Uint64?;
+
+            UPDATE user_settings SET
+                eighteen_years_and_approval = $eighteen_years_and_approval,
+                incognito_pay = $incognito_pay,
+                incognito_switch = $incognito_switch,
+                banned = $banned,
+                created_at = $created_at
+            WHERE telegram_id = $telegram_id;
+            """,
+            self._to_params(settings)
+        )
+        return await self.get_user_settings_by_id(settings.telegram_id)
+    
+    async def create_user_settings(self, settings: UserSettings) -> UserSettings:
+        """Создание новых настроек пользователя (только INSERT)"""
+        # Устанавливаем created_at, если не задано
+        if settings.created_at is None:
+            from datetime import datetime, timezone
+            settings.created_at = int(datetime.now(timezone.utc).timestamp())
+        
+        await self.execute_query(
+            """
+            DECLARE $telegram_id AS Int64;
+            DECLARE $eighteen_years_and_approval AS Bool?;
+            DECLARE $incognito_pay AS Bool?;
+            DECLARE $incognito_switch AS Bool?;
+            DECLARE $banned AS Bool?;
+            DECLARE $created_at AS Uint64;
+
+            INSERT INTO user_settings (
+                telegram_id, eighteen_years_and_approval, incognito_pay,
+                incognito_switch, banned, created_at
+            ) VALUES (
+                $telegram_id, $eighteen_years_and_approval, $incognito_pay,
+                $incognito_switch, $banned, $created_at
+            );
+            """,
+            {
+                "$telegram_id": (settings.telegram_id, ydb.PrimitiveType.Int64),
+                "$eighteen_years_and_approval": (settings.eighteen_years_and_approval, ydb.OptionalType(ydb.PrimitiveType.Bool)),
+                "$incognito_pay": (settings.incognito_pay, ydb.OptionalType(ydb.PrimitiveType.Bool)),
+                "$incognito_switch": (settings.incognito_switch, ydb.OptionalType(ydb.PrimitiveType.Bool)),
+                "$banned": (settings.banned, ydb.OptionalType(ydb.PrimitiveType.Bool)),
+                "$created_at": (settings.created_at, ydb.PrimitiveType.Uint64),
+            }
+        )
+        return await self.get_user_settings_by_id(settings.telegram_id)
+    
+    async def update_user_settings_fields(self, user_id: int, **fields: Any) -> bool:
+        """Обновление выбранных полей настроек пользователя"""
+        if not fields:
+            return False
+
+        # Фильтруем только поля, которые относятся к таблице user_settings
+        settings_fields = {k: v for k, v in fields.items() 
+                          if k in ['eighteen_years_and_approval', 'incognito_pay', 
+                                  'incognito_switch', 'banned', 'created_at']}
+        
+        if not settings_fields:
+            return False
+
+        set_clauses = []
+        params = {"$telegram_id": (user_id, ydb.PrimitiveType.Int64)}
+
+        for field, value in settings_fields.items():
+            param_name = f"${field}"
+            set_clauses.append(f"{field} = {param_name}")
+            if field == 'created_at':
+                params[param_name] = (value, ydb.OptionalType(ydb.PrimitiveType.Uint64))
+            else:
+                params[param_name] = (value, ydb.OptionalType(ydb.PrimitiveType.Bool))
+
+        set_query = ", ".join(set_clauses)
+        declare_params = []
+        for p, v in params.items():
+            if p != "$telegram_id":
+                if p == "$created_at":
+                    declare_params.append(f"DECLARE {p} AS Uint64?;")
+                else:
+                    declare_params.append(f"DECLARE {p} AS Bool?;")
+        
+        declare_query = "\n".join(declare_params)
+
+        query = f"""
+            DECLARE $telegram_id AS Int64;
+            {declare_query}
+
+            UPDATE user_settings
+            SET {set_query}
+            WHERE telegram_id = $telegram_id;
+        """
+
+        await self.execute_query(query, params)
+        return True
+
+    async def delete_user_settings(self, telegram_id: int) -> None:
+        """Удаление настроек пользователя"""
+        await self.execute_query(
+            """
+            DECLARE $telegram_id AS Int64;
+            DELETE FROM user_settings WHERE telegram_id = $telegram_id;
+            """,
+            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Int64)}
+        )
+
+    def _row_to_settings(self, row) -> UserSettings:
+        return UserSettings(
+            telegram_id=row["telegram_id"],
+            eighteen_years_and_approval=row.get("eighteen_years_and_approval"),
+            incognito_pay=row.get("incognito_pay"),
+            incognito_switch=row.get("incognito_switch"),
+            banned=row.get("banned"),
+            created_at=row.get("created_at"),
+        )
+
+    def _to_params(self, settings: UserSettings) -> dict:
+        return {
+            "$telegram_id": (settings.telegram_id, ydb.PrimitiveType.Int64),
+            "$eighteen_years_and_approval": (settings.eighteen_years_and_approval, ydb.OptionalType(ydb.PrimitiveType.Bool)),
+            "$incognito_pay": (settings.incognito_pay, ydb.OptionalType(ydb.PrimitiveType.Bool)),
+            "$incognito_switch": (settings.incognito_switch, ydb.OptionalType(ydb.PrimitiveType.Bool)),
+            "$banned": (settings.banned, ydb.OptionalType(ydb.PrimitiveType.Bool)),
+            "$created_at": (settings.created_at, ydb.OptionalType(ydb.PrimitiveType.Uint64)),
+        }
+    
+    @staticmethod
+    def timestamp_to_datetime(timestamp: int):
+        """Конвертация timestamp в datetime объект"""
+        from datetime import datetime, timezone
+        return datetime.fromtimestamp(timestamp, tz=timezone.utc)
+    
+    @staticmethod
+    def datetime_to_timestamp(dt) -> int:
+        """Конвертация datetime в timestamp"""
+        return int(dt.timestamp())
+
+
+class FullUserClient:
+    """Клиент для работы с объединенными данными пользователя и его настроек"""
+    
+    def __init__(self, endpoint: str = YDB_ENDPOINT, database: str = YDB_PATH, token: str = YDB_TOKEN):
+        self.user_client = UserClient(endpoint, database, token)
+        self.settings_client = UserSettingsClient(endpoint, database, token)
+    
+    async def __aenter__(self):
+        """Async context manager entry"""
+        await self.user_client.connect()
+        await self.settings_client.connect()
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit"""
+        await self.user_client.close()
+        await self.settings_client.close()
+    
+    async def create_tables(self):
+        """Создание обеих таблиц"""
+        await self.user_client.create_users_table()
+        await self.settings_client.create_user_settings_table()
+    
+    async def get_full_user_by_id(self, telegram_id: int) -> Optional[FullUser]:
+        """Получение полных данных пользователя (user + settings)"""
+        user = await self.user_client.get_user_by_id(telegram_id)
+        if not user:
+            return None
+        
+        settings = await self.settings_client.get_user_settings_by_id(telegram_id)
+        if not settings:
+            # Создаем настройки по умолчанию, если их нет
+            settings = UserSettings(telegram_id=telegram_id)
+            await self.settings_client.create_user_settings(settings)
+        
+        return FullUser(user=user, settings=settings)
+    
+    async def insert_full_user(self, user: User, settings: Optional[UserSettings] = None) -> FullUser:
+        """Вставка пользователя и его настроек"""
+        if settings is None:
+            settings = UserSettings(telegram_id=user.telegram_id)
+        
+        await self.user_client.insert_user(user)
+        await self.settings_client.create_user_settings(settings)
+        
+        return FullUser(user=user, settings=settings)
+    
+    async def update_user_data(self, user: User) -> User:
+        """Обновление данных пользователя"""
+        return await self.user_client.update_user(user)
+    
+    async def update_user_settings_data(self, settings: UserSettings) -> UserSettings:
+        """Обновление настроек пользователя"""
+        return await self.settings_client.update_user_settings(settings)
+    
+    async def update_user_fields(self, user_id: int, **fields: Any) -> bool:
+        """Обновление полей пользователя (автоматически определяет, в какую таблицу записывать)"""
+        user_updated = await self.user_client.update_user_fields(user_id, **fields)
+        settings_updated = await self.settings_client.update_user_settings_fields(user_id, **fields)
+        return user_updated or settings_updated
+    
+    async def delete_full_user(self, telegram_id: int) -> None:
+        """Удаление пользователя и его настроек"""
+        await self.settings_client.delete_user_settings(telegram_id)
+        await self.user_client.delete_user(telegram_id)
 
 
 @dataclass
@@ -628,6 +958,10 @@ async def create_tables_on_ydb():
     async with UserClient() as client:
         await client.create_users_table()
         print("Table 'USERS' created successfully!")
+
+    async with UserSettingsClient() as client:
+        await client.create_user_settings_table()
+        print("Table 'USER_SETTINGS' created successfully!")
 
     async with CacheClient() as client:
         await client.create_cache_table()

@@ -68,11 +68,12 @@ async def cmd_start(message: types.Message):
         markup = await get_retry_registration_button(texts)
 
     else:
-
         # получение и обновление инфо о пользователе
-        async with UserClient() as client:
+        async with UserClient() as user_client, UserSettingsClient() as user_settings_client:
             new_user = User(telegram_id=user_id, first_name=first_name, username=username)
-            user = await client.insert_user(new_user)
+            new_settings = UserSettings(telegram_id=user_id)
+            user = await user_client.insert_user(new_user)
+            await user_settings_client.insert_user_settings(new_settings)
 
         if user.about_me:
             picture = user.photo_id
@@ -126,13 +127,15 @@ async def query_retry_registration(callback: types.CallbackQuery):
         return
     
     # получаем id стартового сообщения, обновляем инфу о пользователе, получаем текст на языке пользователя
-    async with CacheClient() as cache_client, UserClient() as user_client:
-        cached_messages, texts, _ = await asyncio.gather(
+    async with CacheClient() as cache_client, UserClient() as user_client, UserSettingsClient() as user_settings_client:
+        new_user = User(telegram_id=user_id, first_name=first_name, username=username)
+        new_settings = UserSettings(telegram_id=user_id)
+
+        cached_messages, texts, _, _ = await asyncio.gather(
             cache_client.get_cache_by_telegram_id(user_id),
             get_texts(user_lang),
-            user_client.insert_user(
-                User(telegram_id=user_id, first_name=first_name, username=username)
-            )
+            user_client.insert_user(new_user),
+            user_settings_client.insert_user_settings(new_settings)
         )
 
     # изменяем стартовое сообщение
@@ -151,10 +154,10 @@ async def query_18years(callback: types.CallbackQuery):
     user_lang = callback.from_user.language_code
 
     # получаем язык пользователя, обновляем инфо о пользователе в базе
-    async with UserClient() as client:
+    async with UserSettingsClient() as client:
         texts, _ = await asyncio.gather(
             get_texts(user_lang),
-            client.update_user_fields(user_id, eighteen_years_and_approval=True)
+            client.update_user_settings_fields(user_id, eighteen_years_and_approval=True)
         )
 
     # кидаем уведомление, меняем стартовое сообщение
@@ -370,21 +373,7 @@ async def query_profile_edit(callback: types.CallbackQuery):
     
     # обновляем инфо о пользователе, удаляем записи по остальным полям в бд
     async with UserClient() as user_client:
-        user = await user_client.get_user_by_id(user_id)
-        empty_user = User(telegram_id = user_id,
-                          first_name = first_name,
-                          username = username,
-                          gender= None,
-                          gender_search= None,
-                          country= None,
-                          city= None,
-                          country_local= None,
-                          city_local= None,
-                          photo_id=None,
-                          about_me=None,
-                          incognito_pay = user.incognito_pay,
-                          incognito_switch = user.incognito_switch,
-                          banned = user.banned)
+        empty_user = User(telegram_id = user_id, first_name = first_name, username = username)
         await user_client.insert_user(empty_user)
 
 
@@ -1235,8 +1224,8 @@ async def handle_text(message: types.Message):
     user_lang = message.from_user.language_code
 
     # получение инфо о пользователе
-    async with UserClient() as user_client:
-        user = await user_client.get_user_by_id(user_id)
+    async with FullUserClient() as user_client:
+        user = await user_client.get_full_user_by_id(user_id)
 
     # защита от повторов, удаление текста
     if user.about_me or not user.photo_id:
