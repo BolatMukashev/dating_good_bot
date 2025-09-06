@@ -75,42 +75,18 @@ async def cmd_start(message: types.Message):
         markup = await get_retry_registration_button(texts)
 
     else:
-        # получение и обновление инфо о пользователе
-        user = await create_or_update_user(user_id, first_name, username)
+        # обновляем инфо о пользователе, удаляем записи по остальным полям в бд
+        await asyncio.gather(
+            create_or_update_user(user_id, first_name, username),
+            update_user_fields(user_id, **{k: None for k in ["gender", "gender_search", "country", "country_local", "city", "city_local", "photo_id", "about_me"]})
+        )
 
-        if user.about_me:
-            picture = user.photo_id
-            markup = await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch, texts)
-            caption = texts["TEXT"]["user_profile"]["profile"].format(first_name=user.first_name,
-                                                                        country_local=user.country_local,
-                                                                        city_local=user.city_local,
-                                                                        gender=texts['GENDER_LABELS'][user.gender],
-                                                                        gender_emoji=texts['GENDER_EMOJI'][user.gender],
-                                                                        gender_search=texts['GENDER_SEARCH_LABELS'][user.gender_search],
-                                                                        about_me=user.about_me)
-        else:
-            picture = Pictures.USER_PROFILE_PICTURE.value
-            caption = texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE)
-            markup = await get_approval_button(texts)
+        picture = Pictures.USER_PROFILE_PICTURE.value
+        caption = texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE)
+        markup = await get_approval_button(texts)
 
     starting_message = await message.answer_photo(photo=picture, caption=caption, reply_markup=markup)
     await save_to_cache(user_id, "start_message_id", message_id = starting_message.message_id) # запись в базу
-
-    # если уже зарегистрирован в базе
-    if user.about_me and username:
-
-        match_menu = await message.answer_photo(photo=Pictures.MATCH_MENU_PICTURE.value,
-                                                caption=texts['TEXT']['match_menu']['start'],
-                                                reply_markup=await get_start_button_match_menu(texts))
-
-        search_menu = await message.answer_photo(photo=Pictures.SEARCH_MENU_PICTURE.value,
-                                                caption=texts['TEXT']['search_menu']['start'],
-                                                reply_markup=await get_start_button_search_menu(texts))
-        # запись в базу
-        await asyncio.gather(
-            save_to_cache(user_id, "match_menu_message_id", message_id = match_menu.message_id),
-            save_to_cache(user_id, "search_menu_message_id", message_id = search_menu.message_id)
-        )
 
 
 # повторная регистрация, если нет username

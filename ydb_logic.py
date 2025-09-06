@@ -75,17 +75,6 @@ async def cmd_start(message: types.Message):
             user = await user_client.insert_user(new_user)
             await user_settings_client.insert_user_settings(new_settings)
 
-        if user.about_me:
-            picture = user.photo_id
-            markup = await get_profile_edit_buttons(user.incognito_pay, user.incognito_switch, texts)
-            caption = texts["TEXT"]["user_profile"]["profile"].format(first_name=user.first_name,
-                                                                        country_local=user.country_local,
-                                                                        city_local=user.city_local,
-                                                                        gender=texts['GENDER_LABELS'][user.gender],
-                                                                        gender_emoji=texts['GENDER_EMOJI'][user.gender],
-                                                                        gender_search=texts['GENDER_SEARCH_LABELS'][user.gender_search],
-                                                                        about_me=user.about_me)
-        else:
             picture = Pictures.USER_PROFILE_PICTURE.value
             caption = texts['TEXT']['user_profile']['step_1'].format(first_name=first_name, notion_site=NOTION_SITE)
             markup = await get_approval_button(texts)
@@ -94,25 +83,6 @@ async def cmd_start(message: types.Message):
     async with CacheClient() as cache_client:
         new_cache = Cache(telegram_id=user_id, parameter="start_message_id", message_id=starting_message.message_id)
         await cache_client.insert_cache(new_cache)
-
-    # если уже зарегистрирован в базе
-    if user.about_me and username:
-
-        match_menu = await message.answer_photo(photo=Pictures.MATCH_MENU_PICTURE.value,
-                                                caption=texts['TEXT']['match_menu']['start'],
-                                                reply_markup=await get_start_button_match_menu(texts))
-
-        search_menu = await message.answer_photo(photo=Pictures.SEARCH_MENU_PICTURE.value,
-                                                caption=texts['TEXT']['search_menu']['start'],
-                                                reply_markup=await get_start_button_search_menu(texts))
-        # запись в базу
-        async with CacheClient() as cache_client:
-            new_cache1 = Cache(telegram_id=user_id, parameter="match_menu_message_id", message_id=match_menu.message_id)
-            new_cache2 = Cache(telegram_id=user_id, parameter="search_menu_message_id", message_id=search_menu.message_id)
-            await asyncio.gather(
-                await cache_client.insert_cache(new_cache1),
-                await cache_client.insert_cache(new_cache2)
-            )
 
 
 # повторная регистрация, если нет username
