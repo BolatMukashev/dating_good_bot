@@ -576,7 +576,8 @@ async def btn_start_search(callback: types.CallbackQuery):
     texts = await get_texts(user_lang)
 
     if not username or username == '':
-        await update_user_fields(user_id, username=None)
+        async with UserClient() as user_client:
+            await user_client.update_user_fields(user_id, username=None)
 
         picture = Pictures.NO_USERNAME_PICTURE.value
         caption = texts['TEXT']["user_profile"]["username_error"]

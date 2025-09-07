@@ -24,8 +24,13 @@ __all__ = ['User',
            'Payment',
            'PaymentClient',
            'PaymentType',
-           'ReactionType'
+           'ReactionType',
+           'Reaction',
+           'ReactionClient'
            ]
+
+
+# ---------------------------------------------------------- ДОП. УСТАНОВКИ --------------------------------------------------------
 
 
 class PaymentType(str, Enum):
@@ -45,6 +50,9 @@ class ReactionType(str, Enum):
     SEX = "SEX"
     CHAT = "CHAT"
     SKIP = "SKIP"
+
+
+# ---------------------------------------------------------- БАЗОВЫЙ КЛАСС ---------------------------------------------------------
 
 
 class YDBClient:
@@ -147,6 +155,9 @@ class YDBClient:
         """
         self._ensure_connected()
         return await self.pool.execute_with_retries(query, params)
+
+
+# ------------------------------------------------------------ АНКЕТА -----------------------------------------------------------
 
 
 @dataclass
@@ -721,6 +732,9 @@ class FullUserClient:
         await self.user_client.delete_user(telegram_id)
 
 
+# ------------------------------------------------------------ КЭШ -----------------------------------------------------------
+
+
 @dataclass
 class Cache:
     telegram_id: int = None
@@ -825,6 +839,9 @@ class CacheClient(YDBClient):
             "$parameter": (cache.parameter, ydb.OptionalType(ydb.PrimitiveType.Utf8)),
             "$message_id": (cache.message_id, ydb.OptionalType(ydb.PrimitiveType.Int32)),
         }
+
+
+# ------------------------------------------------------------ ПЛАТЕЖИ -----------------------------------------------------------
 
 
 @dataclass
@@ -952,6 +969,554 @@ class PaymentClient(YDBClient):
         }
 
 
+# ------------------------------------------------------------------ Реакции --------------------------------------------------
+
+# Add this to your existing database.py file
+
+@dataclass
+class Reaction:
+    telegram_id: int
+    target_tg_id: int
+    reaction: str
+    id: Optional[int] = None
+    created_at: Optional[int] = None  # Храним как timestamp (секунды с эпохи)
+
+
+class ReactionClient(YDBClient):
+    def __init__(self, endpoint: str = YDB_ENDPOINT, database: str = YDB_PATH, token: str = YDB_TOKEN):
+        super().__init__(endpoint, database, token)
+        self.table_name = "reactions"
+        self.table_schema = """
+            CREATE TABLE `reactions` (
+                `id` Uint64 NOT NULL,
+                `telegram_id` Uint64 NOT NULL,
+                `target_tg_id` Uint64 NOT NULL,
+                `reaction` Utf8 NOT NULL,
+                `created_at` Uint64 NOT NULL,
+                PRIMARY KEY (`id`),
+                INDEX `ix_reactions_telegram_target_reaction` GLOBAL ON (`telegram_id`, `target_tg_id`, `reaction`),
+                INDEX `ix_reactions_target_tg_id` GLOBAL ON (`target_tg_id`)
+            )
+        """
+    
+    async def create_reactions_table(self):
+        """
+        Создание таблицы reactions
+        """
+        await self.create_table(self.table_name, self.table_schema)
+    
+    async def insert_reaction(self, reaction: Reaction) -> Reaction:
+        """
+        Вставка новой реакции с автогенерацией ID
+        Проверяет уникальность пары telegram_id + target_tg_id
+        """
+        # Проверяем, существует ли уже реакция между этими пользователями
+        existing = await self.get_reaction_between_users(reaction.telegram_id, reaction.target_tg_id)
+        if existing:
+            # Обновляем существующую реакцию
+            existing.reaction = reaction.reaction
+            return await self.update_reaction(existing)
+        
+        # Генерируем ID как timestamp в микросекундах для уникальности
+        if reaction.id is None:
+            reaction.id = int(datetime.now(timezone.utc).timestamp() * 1000000)
+        
+        if reaction.created_at is None:
+            reaction.created_at = int(datetime.now(timezone.utc).timestamp())
+        
+        await self.execute_query(
+            """
+            DECLARE $id AS Uint64;
+            DECLARE $telegram_id AS Uint64;
+            DECLARE $target_tg_id AS Uint64;
+            DECLARE $reaction AS Utf8;
+            DECLARE $created_at AS Uint64;
+
+            INSERT INTO reactions (id, telegram_id, target_tg_id, reaction, created_at)
+            VALUES ($id, $telegram_id, $target_tg_id, $reaction, $created_at);
+            """,
+            self._to_params(reaction)
+        )
+        return reaction
+
+    async def get_reaction_by_id(self, reaction_id: int) -> Optional[Reaction]:
+        """
+        Получение реакции по ID
+        """
+        result = await self.execute_query(
+            """
+            DECLARE $id AS Uint64;
+
+            SELECT id, telegram_id, target_tg_id, reaction, created_at
+            FROM reactions
+            WHERE id = $id;
+            """,
+            {"$id": (reaction_id, ydb.PrimitiveType.Uint64)}
+        )
+
+        rows = result[0].rows
+        if not rows:
+            return None
+
+        return self._row_to_reaction(rows[0])
+
+    async def get_reaction_between_users(self, telegram_id: int, target_tg_id: int) -> Optional[Reaction]:
+        """
+        Получение реакции между двумя пользователями
+        """
+        result = await self.execute_query(
+            """
+            DECLARE $telegram_id AS Uint64;
+            DECLARE $target_tg_id AS Uint64;
+
+            SELECT id, telegram_id, target_tg_id, reaction, created_at
+            FROM reactions
+            WHERE telegram_id = $telegram_id AND target_tg_id = $target_tg_id;
+            """,
+            {
+                "$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64),
+                "$target_tg_id": (target_tg_id, ydb.PrimitiveType.Uint64)
+            }
+        )
+
+        rows = result[0].rows
+        if not rows:
+            return None
+
+        return self._row_to_reaction(rows[0])
+
+    async def get_reactions_sent_by_user(self, telegram_id: int, limit: int = 100) -> List[Reaction]:
+        """
+        Получение всех реакций, отправленных пользователем
+        """
+        result = await self.execute_query(
+            """
+            DECLARE $telegram_id AS Uint64;
+            DECLARE $limit AS Uint64;
+
+            SELECT id, telegram_id, target_tg_id, reaction, created_at
+            FROM reactions
+            WHERE telegram_id = $telegram_id
+            ORDER BY created_at DESC
+            LIMIT $limit;
+            """,
+            {
+                "$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64),
+                "$limit": (limit, ydb.PrimitiveType.Uint64)
+            }
+        )
+
+        return [self._row_to_reaction(row) for row in result[0].rows]
+
+    async def get_reactions_received_by_user(self, target_tg_id: int, limit: int = 100) -> List[Reaction]:
+        """
+        Получение всех реакций, полученных пользователем
+        """
+        result = await self.execute_query(
+            """
+            DECLARE $target_tg_id AS Uint64;
+            DECLARE $limit AS Uint64;
+
+            SELECT id, telegram_id, target_tg_id, reaction, created_at
+            FROM reactions
+            WHERE target_tg_id = $target_tg_id
+            ORDER BY created_at DESC
+            LIMIT $limit;
+            """,
+            {
+                "$target_tg_id": (target_tg_id, ydb.PrimitiveType.Uint64),
+                "$limit": (limit, ydb.PrimitiveType.Uint64)
+            }
+        )
+
+        return [self._row_to_reaction(row) for row in result[0].rows]
+
+    async def get_reactions_by_type(self, reaction_type: str, limit: int = 100) -> List[Reaction]:
+        """
+        Получение реакций по типу
+        """
+        result = await self.execute_query(
+            """
+            DECLARE $reaction AS Utf8;
+            DECLARE $limit AS Uint64;
+
+            SELECT id, telegram_id, target_tg_id, reaction, created_at
+            FROM reactions
+            WHERE reaction = $reaction
+            ORDER BY created_at DESC
+            LIMIT $limit;
+            """,
+            {
+                "$reaction": (reaction_type, ydb.PrimitiveType.Utf8),
+                "$limit": (limit, ydb.PrimitiveType.Uint64)
+            }
+        )
+
+        return [self._row_to_reaction(row) for row in result[0].rows]
+
+    async def get_mutual_reactions(self, telegram_id: int, target_tg_id: int) -> Dict[str, Optional[Reaction]]:
+        """
+        Получение взаимных реакций между двумя пользователями
+        Возвращает словарь: {'sent': Reaction | None, 'received': Reaction | None}
+        """
+        result = await self.execute_query(
+            """
+            DECLARE $telegram_id AS Uint64;
+            DECLARE $target_tg_id AS Uint64;
+
+            SELECT id, telegram_id, target_tg_id, reaction, created_at
+            FROM reactions
+            WHERE (telegram_id = $telegram_id AND target_tg_id = $target_tg_id)
+               OR (telegram_id = $target_tg_id AND target_tg_id = $telegram_id);
+            """,
+            {
+                "$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64),
+                "$target_tg_id": (target_tg_id, ydb.PrimitiveType.Uint64)
+            }
+        )
+
+        reactions = {'sent': None, 'received': None}
+        
+        for row in result[0].rows:
+            reaction = self._row_to_reaction(row)
+            if reaction.telegram_id == telegram_id:
+                reactions['sent'] = reaction
+            else:
+                reactions['received'] = reaction
+
+        return reactions
+
+    async def update_reaction(self, reaction: Reaction) -> Reaction:
+        """
+        Обновление реакции
+        """
+        await self.execute_query(
+            """
+            DECLARE $id AS Uint64;
+            DECLARE $telegram_id AS Uint64;
+            DECLARE $target_tg_id AS Uint64;
+            DECLARE $reaction AS Utf8;
+            DECLARE $created_at AS Uint64;
+
+            UPDATE reactions SET
+                telegram_id = $telegram_id,
+                target_tg_id = $target_tg_id,
+                reaction = $reaction,
+                created_at = $created_at
+            WHERE id = $id;
+            """,
+            self._to_params(reaction)
+        )
+        return await self.get_reaction_by_id(reaction.id)
+
+    async def delete_reaction(self, reaction_id: int) -> None:
+        """
+        Удаление реакции по ID
+        """
+        await self.execute_query(
+            """
+            DECLARE $id AS Uint64;
+            DELETE FROM reactions WHERE id = $id;
+            """,
+            {"$id": (reaction_id, ydb.PrimitiveType.Uint64)}
+        )
+
+    async def delete_reaction_between_users(self, telegram_id: int, target_tg_id: int) -> None:
+        """
+        Удаление реакции между двумя пользователями
+        """
+        await self.execute_query(
+            """
+            DECLARE $telegram_id AS Uint64;
+            DECLARE $target_tg_id AS Uint64;
+            DELETE FROM reactions 
+            WHERE telegram_id = $telegram_id AND target_tg_id = $target_tg_id;
+            """,
+            {
+                "$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64),
+                "$target_tg_id": (target_tg_id, ydb.PrimitiveType.Uint64)
+            }
+        )
+
+    async def count_reactions_by_user(self, telegram_id: int) -> int:
+        """
+        Подсчет количества реакций, отправленных пользователем
+        """
+        result = await self.execute_query(
+            """
+            DECLARE $telegram_id AS Uint64;
+
+            SELECT COUNT(*) as count
+            FROM reactions
+            WHERE telegram_id = $telegram_id;
+            """,
+            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)}
+        )
+
+        return result[0].rows[0]["count"] if result[0].rows else 0
+
+    async def count_reactions_received_by_user(self, target_tg_id: int) -> int:
+        """
+        Подсчет количества реакций, полученных пользователем
+        """
+        result = await self.execute_query(
+            """
+            DECLARE $target_tg_id AS Uint64;
+
+            SELECT COUNT(*) as count
+            FROM reactions
+            WHERE target_tg_id = $target_tg_id;
+            """,
+            {"$target_tg_id": (target_tg_id, ydb.PrimitiveType.Uint64)}
+        )
+
+        return result[0].rows[0]["count"] if result[0].rows else 0
+
+    async def count_reactions_received_by_user_and_type(self, target_tg_id: int, reaction: str) -> int:
+        """
+        Подсчет количества реакций определенного типа, полученных пользователем
+        """
+        result = await self.execute_query(
+            """
+            DECLARE $target_tg_id AS Uint64;
+            DECLARE $reaction AS Utf8;
+
+            SELECT COUNT(*) as count
+            FROM reactions
+            WHERE target_tg_id = $target_tg_id AND reaction = $reaction;
+            """,
+            {
+                "$target_tg_id": (target_tg_id, ydb.PrimitiveType.Uint64),
+                "$reaction": (reaction, ydb.PrimitiveType.Utf8)
+            }
+        )
+
+        return result[0].rows[0]["count"] if result[0].rows else 0
+
+    # --- helpers ---
+    def _row_to_reaction(self, row) -> Reaction:
+        return Reaction(
+            id=row["id"],
+            telegram_id=row["telegram_id"],
+            target_tg_id=row["target_tg_id"],
+            reaction=row["reaction"],
+            created_at=row["created_at"],
+        )
+
+    def _to_params(self, reaction: Reaction) -> dict:
+        return {
+            "$id": (reaction.id, ydb.PrimitiveType.Uint64),
+            "$telegram_id": (reaction.telegram_id, ydb.PrimitiveType.Uint64),
+            "$target_tg_id": (reaction.target_tg_id, ydb.PrimitiveType.Uint64),
+            "$reaction": (reaction.reaction, ydb.PrimitiveType.Utf8),
+            "$created_at": (reaction.created_at, ydb.PrimitiveType.Uint64),
+        }
+
+    @staticmethod
+    def timestamp_to_datetime(timestamp: int) -> datetime:
+        """Конвертация timestamp в datetime объект"""
+        return datetime.fromtimestamp(timestamp, tz=timezone.utc)
+    
+    @staticmethod
+    def datetime_to_timestamp(dt: datetime) -> int:
+        """Конвертация datetime в timestamp"""
+        return int(dt.timestamp())
+
+    async def get_intent_targets(self, user_id: int, intent: str) -> tuple[List[int], int]:
+        """
+        Найти по намерениям, исключая: взаимных, пропущенных, забаненых, без никнейма, кто уже в Коллекции
+        Возвращает кортеж (список_id, количество)
+        """
+        try:
+            # Получаем пользователей, которым я поставил такую же реакцию (взаимные)
+            mutual_users = await self._get_mutual_reaction_users(user_id, intent.upper())
+            
+            # Получаем пользователей, которых я пропустил
+            skipped_users = await self._get_skipped_users(user_id)
+            
+            # Получаем пользователей, кого я оплатил (коллекция)
+            collection_users = await self._get_collection_users(user_id)
+            
+            # Объединяем все исключения в один set для быстрого поиска
+            excluded_users = set(mutual_users + skipped_users + collection_users)
+            
+            # Строим условие исключения
+            excluded_condition = ""
+            if excluded_users:
+                excluded_ids = ", ".join(str(uid) for uid in excluded_users)
+                excluded_condition = f"AND r.telegram_id NOT IN ({excluded_ids})"
+            
+            # Основной запрос: те, кто поставил мне intent, но не в исключениях
+            query = f"""
+                DECLARE $user_id AS Uint64;
+                DECLARE $intent AS Utf8;
+
+                SELECT r.telegram_id AS telegram_id
+                FROM reactions AS r
+                INNER JOIN users AS u ON r.telegram_id = u.telegram_id
+                INNER JOIN user_settings AS s ON r.telegram_id = s.telegram_id
+                WHERE r.target_tg_id = $user_id
+                    AND r.reaction = $intent
+                    AND u.username IS NOT NULL
+                    AND u.username != ""
+                    AND s.banned = false
+                    {excluded_condition}
+                ORDER BY r.telegram_id;
+            """
+            
+            result = await self.execute_query(
+                query,
+                {
+                    "$user_id": (user_id, ydb.PrimitiveType.Uint64),
+                    "$intent": (intent.upper(), ydb.PrimitiveType.Utf8)
+                }
+            )
+            
+            # Проверяем, что результат не пустой
+            if not result or not result[0].rows:
+                return [], 0
+            
+            ids = []
+            for row in result[0].rows:
+                if "telegram_id" in row:
+                    ids.append(row["telegram_id"])
+                else:
+                    # Отладочная информация
+                    print(f"Row keys: {list(row.keys())}")
+            
+            sorted_ids = sorted(set(ids))  # Удаляем дубликаты и сортируем
+            
+            return sorted_ids, len(sorted_ids)
+            
+        except Exception as e:
+            print(f"Error in get_intent_targets: {e}")
+            return [], 0
+
+    async def get_intent_targets(self, user_id: int, intent: str) -> tuple[List[int], int]:
+        """
+        Найти тех, кто поставил МНЕ указанную реакцию, 
+        исключая: тех кому я уже отвечал той же реакцией, кого пропустил, кого оплатил, забаненных, без никнейма
+        """
+        try:
+            # Получаем пользователей, которым Я поставил такую же реакцию (взаимные - исключаем)
+            mutual_users = await self._get_users_i_reacted_to(user_id, intent.upper())
+            
+            # Получаем пользователей, которых Я пропустил (исключаем)
+            skipped_users = await self._get_users_i_skipped(user_id)
+            
+            # Получаем пользователей, кого Я оплатил (коллекция - исключаем)
+            collection_users = await self._get_users_i_paid_for(user_id)
+            
+            # Объединяем все исключения в один set
+            excluded_users = set(mutual_users + skipped_users + collection_users)
+            
+            # Строим условие исключения
+            excluded_condition = ""
+            if excluded_users:
+                excluded_ids = ", ".join(str(uid) for uid in excluded_users)
+                excluded_condition = f"AND r.telegram_id NOT IN ({excluded_ids})"
+            
+            # Основной запрос: те, кто поставил МНЕ intent, но не в исключениях
+            query = f"""
+                DECLARE $user_id AS Uint64;
+                DECLARE $intent AS Utf8;
+
+                SELECT r.telegram_id AS telegram_id
+                FROM reactions AS r
+                INNER JOIN users AS u ON r.telegram_id = u.telegram_id
+                INNER JOIN user_settings AS s ON r.telegram_id = s.telegram_id
+                WHERE r.target_tg_id = $user_id
+                    AND r.reaction = $intent
+                    AND u.username IS NOT NULL
+                    AND u.username != ""
+                    AND s.banned = false
+                    {excluded_condition}
+                ORDER BY r.telegram_id;
+            """
+            
+            result = await self.execute_query(
+                query,
+                {
+                    "$user_id": (user_id, ydb.PrimitiveType.Uint64),
+                    "$intent": (intent.upper(), ydb.PrimitiveType.Utf8)
+                }
+            )
+            
+            # Проверяем, что результат не пустой
+            if not result or not result[0].rows:
+                return [], 0
+            
+            ids = []
+            for row in result[0].rows:
+                if "telegram_id" in row:
+                    ids.append(row["telegram_id"])
+            
+            sorted_ids = sorted(set(ids))
+            return sorted_ids, len(sorted_ids)
+            
+        except Exception as e:
+            print(f"Error in get_intent_targets: {e}")
+            return [], 0
+
+    async def _get_users_i_reacted_to(self, user_id: int, intent: str) -> List[int]:
+        """
+        Получение списка пользователей, которым Я поставил указанную реакцию
+        """
+        result = await self.execute_query(
+            """
+            DECLARE $user_id AS Uint64;
+            DECLARE $intent AS Utf8;
+
+            SELECT target_tg_id
+            FROM reactions
+            WHERE telegram_id = $user_id AND reaction = $intent;
+            """,
+            {
+                "$user_id": (user_id, ydb.PrimitiveType.Uint64),
+                "$intent": (intent, ydb.PrimitiveType.Utf8)
+            }
+        )
+        
+        return [row["target_tg_id"] for row in result[0].rows]
+
+    async def _get_users_i_skipped(self, user_id: int) -> List[int]:
+        """
+        Получение списка пользователей, которых Я пропустил (поставил SKIP)
+        """
+        result = await self.execute_query(
+            """
+            DECLARE $user_id AS Uint64;
+
+            SELECT target_tg_id
+            FROM reactions
+            WHERE telegram_id = $user_id AND reaction = "SKIP";
+            """,
+            {"$user_id": (user_id, ydb.PrimitiveType.Uint64)}
+        )
+        
+        return [row["target_tg_id"] for row in result[0].rows]
+
+    async def _get_users_i_paid_for(self, user_id: int) -> List[int]:
+        """
+        Получение списка пользователей, кого Я оплатил (добавил в коллекцию)
+        """
+        result = await self.execute_query(
+            """
+            DECLARE $user_id AS Uint64;
+
+            SELECT target_tg_id
+            FROM payments
+            WHERE telegram_id = $user_id AND target_tg_id IS NOT NULL;
+            """,
+            {"$user_id": (user_id, ydb.PrimitiveType.Uint64)}
+        )
+        
+        return [row["target_tg_id"] for row in result[0].rows if row["target_tg_id"]]
+
+
+# --------------------------------------------------------- СОЗДАНИЕ ТАБЛИЦ -------------------------------------------------------
+
+
 async def create_tables_on_ydb():
     # Создание всех таблиц в базе
     async with UserClient() as client:
@@ -969,6 +1534,13 @@ async def create_tables_on_ydb():
     async with PaymentClient() as client:
         await client.create_payments_table()
         print("Table 'PAYMENTS' created successfully!")
+
+    async with ReactionClient() as client:
+        await client.create_reactions_table()
+        print("Table 'REACTIONS' created successfully!")
+
+
+# --------------------------------------------------------- ЗАПУСК -------------------------------------------------------
 
 
 if __name__ == "__main__":

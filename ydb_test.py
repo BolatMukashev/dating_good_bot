@@ -2,6 +2,70 @@ from ydb_functions import *
 from config import *
 import asyncio
 from ydb_functions import YDBClient
+import random
+from faker import Faker
+from datetime import datetime, timezone
+
+
+fake = Faker("ru_RU")
+
+
+async def add_new_fake_user(
+    tg_id: int,
+    gender: str,
+    gender_search: str,
+    random_country: bool = False,
+    random_city: bool = False,
+    about_me: str = None,
+    incognito: bool = False,
+    banned: bool = False,
+    username: str = 'astana11b'
+):
+
+    if tg_id == 0:
+        tg_id = random.randint(10000, 99999)
+
+    if gender == "man":
+        first_name = fake.first_name_male()
+        photo_id = Pictures.TEST_MAN_PHOTO.value
+    else:
+        first_name = fake.first_name_female()
+        photo_id = Pictures.TEST_WOMAN_PHOTO.value
+
+    country = "Kazakhstan" if not random_country else fake.country()
+    city = "Oral" if not random_city else fake.city()
+
+    # Заполняем dataclass User
+    new_user = User(
+        telegram_id=tg_id,
+        first_name=first_name,
+        username=username,
+        gender=gender,
+        gender_search=gender_search,
+        country=country,
+        country_local=country,
+        city=city,
+        city_local=city,
+        about_me=about_me if about_me else fake.sentence(nb_words=6),
+        photo_id=photo_id,
+    )
+
+    # Заполняем dataclass UserSettings
+    new_settings = UserSettings(
+        telegram_id=tg_id,
+        eighteen_years_and_approval=True,
+        incognito_switch=incognito,
+        banned=banned,
+        created_at=int(datetime.now(timezone.utc).timestamp()),
+    )
+
+    # Используем FullUserClient
+    async with FullUserClient() as client:
+        full_user = await client.insert_full_user(new_user, new_settings)
+
+    print(f"✅ Пользователь {full_user.first_name} успешно добавлен в базу (ID: {tg_id})")
+    return full_user
+
 
 
 async def example_user_usage():
@@ -115,8 +179,8 @@ class YDBCleaner(YDBClient):
             "users",
             "user_settings",
             "payments",
-            "cache"
-            # добавь сюда все свои таблицы
+            "cache",
+            "reactions"
         ]
 
         for table in tables:
@@ -125,6 +189,14 @@ class YDBCleaner(YDBClient):
                 print(f"Таблица {table} очищена.")
             except Exception as e:
                 print(f"Ошибка при очистке {table}: {e}")
+
+
+async def example_reaction_usage():
+    async with ReactionClient() as client:
+        reaction = Reaction(9999, 1234, ReactionType.SKIP.value)
+        # await client.insert_reaction(reaction)
+        users, count = await client.get_intent_targets(1234, ReactionType.LOVE.value)
+        print(users, count)
 
 
 async def reset_database():
@@ -136,6 +208,14 @@ async def test():
     async with PaymentClient() as client:
         await client.delete_payment(1757151501772055)
 
+
+async def user_add_test():
+    # await add_new_fake_user(3333, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в LOVE ✅")
+    async with ReactionClient() as client:
+        reaction = Reaction(3333, 1234, ReactionType.LOVE.value)
+        await client.insert_reaction(reaction)
+
+
 if __name__ == "__main__":
-    asyncio.run(test())
+    asyncio.run(example_reaction_usage())
 

@@ -446,7 +446,7 @@ async def get_collection_targets(user_id: int) -> tuple[list[int], int]:
         return sorted_ids, len(sorted_ids)
 
 
-# Найти по намерениям, исключая взаимных и тех, кто в Коллекции
+# Найти по намерениям, исключая: взаимных, пропущенных, забаненых, без никнейма, кто уже в Коллекции
 async def get_intent_targets(user_id: int, intent: str) -> tuple[list[int], int]:
     async with AsyncSessionLocal() as session:
         # Подзапрос: пользователи, которым я поставил такую же реакцию
