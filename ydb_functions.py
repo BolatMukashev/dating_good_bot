@@ -2,7 +2,7 @@ import asyncio
 import ydb
 import ydb.aio
 from enum import Enum
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from config import YDB_ENDPOINT, YDB_PATH, YDB_TOKEN, ADMIN_ID
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -26,7 +26,8 @@ __all__ = ['User',
            'PaymentType',
            'ReactionType',
            'Reaction',
-           'ReactionClient'
+           'ReactionClient',
+           'SearchClient'
            ]
 
 
@@ -902,28 +903,22 @@ class PaymentClient(YDBClient):
             self._to_params(payment)
         )
 
-    async def get_payments_by_user(self, telegram_id: int, limit: int = 100) -> List[Payment]:
-        """
-        Получение всех платежей пользователя (как плательщика)
-        """
-        result = await self.execute_query(
+    async def get_collection_targets(self, telegram_id: int) -> tuple[list[int], int]:
+            query = f"""
+                SELECT target_tg_id
+                FROM `{self.table_name}`
+                WHERE telegram_id = {telegram_id}
+                AND target_tg_id IS NOT NULL
             """
-            DECLARE $telegram_id AS Uint64;
-            DECLARE $limit AS Uint64;
+            result_sets = await self.execute_query(query)
 
-            SELECT id, telegram_id, target_tg_id, amount, type, created_at
-            FROM payments
-            WHERE telegram_id = $telegram_id
-            ORDER BY created_at DESC
-            LIMIT $limit;
-            """,
-            {
-                "$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64),
-                "$limit": (limit, ydb.PrimitiveType.Uint64)
-            }
-        )
+            targets = []
+            for result_set in result_sets:
+                for row in result_set.rows:
+                    if row.target_tg_id is not None:
+                        targets.append(int(row.target_tg_id))
 
-        return [self._row_to_payment(row) for row in result[0].rows]
+            return sorted(targets), len(targets)
 
     async def delete_payment(self, payment_id: int) -> None:
         """
@@ -961,8 +956,8 @@ class PaymentClient(YDBClient):
     def _to_params(self, payment: Payment) -> dict:
         return {
             "$id": (payment.id, ydb.PrimitiveType.Uint64),
-            "$telegram_id": (payment.telegram_id, ydb.PrimitiveType.Uint64),
-            "$target_tg_id": (payment.target_tg_id, ydb.OptionalType(ydb.PrimitiveType.Uint64)),
+            "$telegram_id": (payment.telegram_id, ydb.PrimitiveType.Uint64),  # Uint64 вместо Int64
+            "$target_tg_id": (payment.target_tg_id, ydb.OptionalType(ydb.PrimitiveType.Uint64)),  # Uint64 вместо Int64
             "$amount": (payment.amount, ydb.PrimitiveType.Uint32),
             "$type": (payment.payment_type, ydb.PrimitiveType.Utf8),
             "$created_at": (payment.created_at, ydb.PrimitiveType.Uint64),
@@ -971,7 +966,6 @@ class PaymentClient(YDBClient):
 
 # ------------------------------------------------------------------ Реакции --------------------------------------------------
 
-# Add this to your existing database.py file
 
 @dataclass
 class Reaction:
@@ -1131,29 +1125,6 @@ class ReactionClient(YDBClient):
 
         return [self._row_to_reaction(row) for row in result[0].rows]
 
-    async def get_reactions_by_type(self, reaction_type: str, limit: int = 100) -> List[Reaction]:
-        """
-        Получение реакций по типу
-        """
-        result = await self.execute_query(
-            """
-            DECLARE $reaction AS Utf8;
-            DECLARE $limit AS Uint64;
-
-            SELECT id, telegram_id, target_tg_id, reaction, created_at
-            FROM reactions
-            WHERE reaction = $reaction
-            ORDER BY created_at DESC
-            LIMIT $limit;
-            """,
-            {
-                "$reaction": (reaction_type, ydb.PrimitiveType.Utf8),
-                "$limit": (limit, ydb.PrimitiveType.Uint64)
-            }
-        )
-
-        return [self._row_to_reaction(row) for row in result[0].rows]
-
     async def get_mutual_reactions(self, telegram_id: int, target_tg_id: int) -> Dict[str, Optional[Reaction]]:
         """
         Получение взаимных реакций между двумя пользователями
@@ -1221,57 +1192,6 @@ class ReactionClient(YDBClient):
             {"$id": (reaction_id, ydb.PrimitiveType.Uint64)}
         )
 
-    async def delete_reaction_between_users(self, telegram_id: int, target_tg_id: int) -> None:
-        """
-        Удаление реакции между двумя пользователями
-        """
-        await self.execute_query(
-            """
-            DECLARE $telegram_id AS Uint64;
-            DECLARE $target_tg_id AS Uint64;
-            DELETE FROM reactions 
-            WHERE telegram_id = $telegram_id AND target_tg_id = $target_tg_id;
-            """,
-            {
-                "$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64),
-                "$target_tg_id": (target_tg_id, ydb.PrimitiveType.Uint64)
-            }
-        )
-
-    async def count_reactions_by_user(self, telegram_id: int) -> int:
-        """
-        Подсчет количества реакций, отправленных пользователем
-        """
-        result = await self.execute_query(
-            """
-            DECLARE $telegram_id AS Uint64;
-
-            SELECT COUNT(*) as count
-            FROM reactions
-            WHERE telegram_id = $telegram_id;
-            """,
-            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)}
-        )
-
-        return result[0].rows[0]["count"] if result[0].rows else 0
-
-    async def count_reactions_received_by_user(self, target_tg_id: int) -> int:
-        """
-        Подсчет количества реакций, полученных пользователем
-        """
-        result = await self.execute_query(
-            """
-            DECLARE $target_tg_id AS Uint64;
-
-            SELECT COUNT(*) as count
-            FROM reactions
-            WHERE target_tg_id = $target_tg_id;
-            """,
-            {"$target_tg_id": (target_tg_id, ydb.PrimitiveType.Uint64)}
-        )
-
-        return result[0].rows[0]["count"] if result[0].rows else 0
-
     async def count_reactions_received_by_user_and_type(self, target_tg_id: int, reaction: str) -> int:
         """
         Подсчет количества реакций определенного типа, полученных пользователем
@@ -1311,86 +1231,6 @@ class ReactionClient(YDBClient):
             "$reaction": (reaction.reaction, ydb.PrimitiveType.Utf8),
             "$created_at": (reaction.created_at, ydb.PrimitiveType.Uint64),
         }
-
-    @staticmethod
-    def timestamp_to_datetime(timestamp: int) -> datetime:
-        """Конвертация timestamp в datetime объект"""
-        return datetime.fromtimestamp(timestamp, tz=timezone.utc)
-    
-    @staticmethod
-    def datetime_to_timestamp(dt: datetime) -> int:
-        """Конвертация datetime в timestamp"""
-        return int(dt.timestamp())
-
-    async def get_intent_targets(self, user_id: int, intent: str) -> tuple[List[int], int]:
-        """
-        Найти по намерениям, исключая: взаимных, пропущенных, забаненых, без никнейма, кто уже в Коллекции
-        Возвращает кортеж (список_id, количество)
-        """
-        try:
-            # Получаем пользователей, которым я поставил такую же реакцию (взаимные)
-            mutual_users = await self._get_mutual_reaction_users(user_id, intent.upper())
-            
-            # Получаем пользователей, которых я пропустил
-            skipped_users = await self._get_skipped_users(user_id)
-            
-            # Получаем пользователей, кого я оплатил (коллекция)
-            collection_users = await self._get_collection_users(user_id)
-            
-            # Объединяем все исключения в один set для быстрого поиска
-            excluded_users = set(mutual_users + skipped_users + collection_users)
-            
-            # Строим условие исключения
-            excluded_condition = ""
-            if excluded_users:
-                excluded_ids = ", ".join(str(uid) for uid in excluded_users)
-                excluded_condition = f"AND r.telegram_id NOT IN ({excluded_ids})"
-            
-            # Основной запрос: те, кто поставил мне intent, но не в исключениях
-            query = f"""
-                DECLARE $user_id AS Uint64;
-                DECLARE $intent AS Utf8;
-
-                SELECT r.telegram_id AS telegram_id
-                FROM reactions AS r
-                INNER JOIN users AS u ON r.telegram_id = u.telegram_id
-                INNER JOIN user_settings AS s ON r.telegram_id = s.telegram_id
-                WHERE r.target_tg_id = $user_id
-                    AND r.reaction = $intent
-                    AND u.username IS NOT NULL
-                    AND u.username != ""
-                    AND s.banned = false
-                    {excluded_condition}
-                ORDER BY r.telegram_id;
-            """
-            
-            result = await self.execute_query(
-                query,
-                {
-                    "$user_id": (user_id, ydb.PrimitiveType.Uint64),
-                    "$intent": (intent.upper(), ydb.PrimitiveType.Utf8)
-                }
-            )
-            
-            # Проверяем, что результат не пустой
-            if not result or not result[0].rows:
-                return [], 0
-            
-            ids = []
-            for row in result[0].rows:
-                if "telegram_id" in row:
-                    ids.append(row["telegram_id"])
-                else:
-                    # Отладочная информация
-                    print(f"Row keys: {list(row.keys())}")
-            
-            sorted_ids = sorted(set(ids))  # Удаляем дубликаты и сортируем
-            
-            return sorted_ids, len(sorted_ids)
-            
-        except Exception as e:
-            print(f"Error in get_intent_targets: {e}")
-            return [], 0
 
     async def get_intent_targets(self, user_id: int, intent: str) -> tuple[List[int], int]:
         """
@@ -1512,6 +1352,266 @@ class ReactionClient(YDBClient):
         )
         
         return [row["target_tg_id"] for row in result[0].rows if row["target_tg_id"]]
+    
+    @staticmethod
+    def timestamp_to_datetime(timestamp: int) -> datetime:
+        """Конвертация timestamp в datetime объект"""
+        return datetime.fromtimestamp(timestamp, tz=timezone.utc)
+    
+    @staticmethod
+    def datetime_to_timestamp(dt: datetime) -> int:
+        """Конвертация datetime в timestamp"""
+        return int(dt.timestamp())
+
+
+# --------------------------------------------------------- ПОИСК -------------------------------------------------------
+
+
+class SearchClient(YDBClient):
+    """Клиент для поиска пользователей в YDB"""
+    
+    def __init__(self, endpoint: str = YDB_ENDPOINT, database: str = YDB_PATH, token: str = YDB_TOKEN):
+        super().__init__(endpoint, database, token)
+    
+    async def find_first_matching_user(self, current_user_id: int) -> Optional[User]:
+        """
+        Поиск первого подходящего пользователя для знакомств.
+        
+        Логика поиска:
+        1. Сначала ищем по городу и стране
+        2. Если не найдено - ищем по стране
+        3. Если совсем никого - возвращаем None
+        
+        Исключения:
+        - Сам пользователь
+        - Пользователи без username, photo_id, about_me
+        - Пользователи в режиме инкогнито или забаненные
+        - Пользователи, на которых уже реагировал
+        - Пользователи, которых уже оплатил (добавил в коллекцию)
+        """
+        self._ensure_connected()
+        
+        # Получаем данные текущего пользователя
+        current_user = await self._get_current_user_data(current_user_id)
+        if not current_user:
+            return None
+        
+        # Получаем список исключений (пользователи, на которых уже реагировал)
+        reacted_users = await self._get_reacted_users(current_user_id)
+        
+        # Получаем список пользователей в коллекции (оплаченных)
+        collection_users = await self._get_collection_users(current_user_id)
+        
+        # Объединяем исключения
+        excluded_users = set(reacted_users + collection_users + [current_user_id])
+        
+        # Строим базовые условия поиска
+        base_conditions = self._build_base_conditions(current_user, excluded_users)
+        
+        # Шаг 1: Поиск по городу и стране
+        if current_user.get('city') and current_user.get('country'):
+            city_query = f"""
+                {base_conditions}
+                AND u.city = $city AND u.country = $country
+                LIMIT 1;
+            """
+            
+            result = await self.execute_query(
+                city_query,
+                self._get_search_params(current_user, excluded_users, 
+                                      city=current_user['city'], 
+                                      country=current_user['country'])
+            )
+            
+            if result[0].rows:
+                return self._row_to_user(result[0].rows[0])
+        
+        # Шаг 2: Поиск по стране
+        if current_user.get('country'):
+            country_query = f"""
+                {base_conditions}
+                AND u.country = $country
+                LIMIT 1;
+            """
+            
+            result = await self.execute_query(
+                country_query,
+                self._get_search_params(current_user, excluded_users, 
+                                      country=current_user['country'])
+            )
+            
+            if result[0].rows:
+                return self._row_to_user(result[0].rows[0])
+        
+        # Шаг 3: Поиск без географических ограничений
+        global_query = f"""
+            {base_conditions}
+            LIMIT 1;
+        """
+        
+        result = await self.execute_query(
+            global_query,
+            self._get_search_params(current_user, excluded_users)
+        )
+        
+        if result[0].rows:
+            return self._row_to_user(result[0].rows[0])
+        
+        return None
+    
+    async def _get_current_user_data(self, user_id: int) -> Optional[dict]:
+        """Получение данных текущего пользователя"""
+        result = await self.execute_query(
+            """
+            DECLARE $user_id AS Int64;
+            
+            SELECT u.telegram_id, u.gender, u.gender_search, u.country, u.city,
+                   s.incognito_switch, s.banned
+            FROM users AS u
+            INNER JOIN user_settings AS s ON u.telegram_id = s.telegram_id
+            WHERE u.telegram_id = $user_id;
+            """,
+            {"$user_id": (user_id, ydb.PrimitiveType.Int64)}
+        )
+        
+        if not result[0].rows:
+            return None
+        
+        row = result[0].rows[0]
+        
+        # Отладочный вывод для понимания структуры данных
+        print(f"Row keys: {list(row.keys())}")
+        print(f"Row data: {dict(row)}")
+        
+        # Используем безопасный доступ к данным
+        try:
+            return {
+                'telegram_id': row.get('telegram_id') or row.get('u.telegram_id'),
+                'gender': row.get('gender') or row.get('u.gender'),
+                'gender_search': row.get('gender_search') or row.get('u.gender_search'),
+                'country': row.get('country') or row.get('u.country'),
+                'city': row.get('city') or row.get('u.city'),
+                'incognito_switch': row.get('incognito_switch') or row.get('s.incognito_switch'),
+                'banned': row.get('banned') or row.get('s.banned')
+            }
+        except Exception as e:
+            print(f"Error processing row data: {e}")
+            return None
+    
+    async def _get_reacted_users(self, user_id: int) -> List[int]:
+        """Получение списка пользователей, на которых уже реагировал"""
+        result = await self.execute_query(
+            """
+            DECLARE $user_id AS Uint64;
+            
+            SELECT target_tg_id
+            FROM reactions
+            WHERE telegram_id = $user_id;
+            """,
+            {"$user_id": (user_id, ydb.PrimitiveType.Uint64)}
+        )
+        
+        return [row['target_tg_id'] for row in result[0].rows]
+    
+    async def _get_collection_users(self, user_id: int) -> List[int]:
+        """Получение списка пользователей в коллекции (оплаченных)"""
+        result = await self.execute_query(
+            """
+            DECLARE $user_id AS Uint64;
+            
+            SELECT target_tg_id
+            FROM payments
+            WHERE telegram_id = $user_id AND target_tg_id IS NOT NULL;
+            """,
+            {"$user_id": (user_id, ydb.PrimitiveType.Uint64)}
+        )
+        
+        return [row['target_tg_id'] for row in result[0].rows if row['target_tg_id']]
+    
+    def _build_base_conditions(self, current_user: dict, excluded_users: set) -> str:
+        """Построение базовых условий поиска"""
+        # Формируем условия по полу
+        gender_conditions = self._build_gender_conditions(
+            current_user.get('gender'), 
+            current_user.get('gender_search')
+        )
+        
+        # Формируем список исключенных пользователей
+        excluded_condition = ""
+        if excluded_users:
+            excluded_ids = ", ".join(str(uid) for uid in excluded_users)
+            excluded_condition = f"AND u.telegram_id NOT IN ({excluded_ids})"
+        
+        return f"""
+            DECLARE $user_id AS Int64;
+            DECLARE $gender AS Utf8?;
+            DECLARE $gender_search AS Utf8?;
+            DECLARE $country AS Utf8?;
+            DECLARE $city AS Utf8?;
+            
+            SELECT u.telegram_id, u.first_name, u.username, u.gender, u.gender_search,
+                   u.country, u.country_local, u.city, u.city_local, u.photo_id, u.about_me
+            FROM users AS u
+            INNER JOIN user_settings AS s ON u.telegram_id = s.telegram_id
+            WHERE u.username IS NOT NULL
+                AND u.photo_id IS NOT NULL
+                AND u.about_me IS NOT NULL
+                AND s.incognito_switch = false
+                AND s.banned = false
+                {gender_conditions}
+                {excluded_condition}
+        """
+    
+    def _build_gender_conditions(self, user_gender: str, user_gender_search: str) -> str:
+        """Построение условий по полу"""
+        conditions = []
+        
+        # Кого ты ищешь
+        if user_gender_search == Gender.ANY:
+            # Ищешь любого - никаких ограничений по полу кандидатов
+            pass
+        else:
+            # Ищешь конкретный пол
+            conditions.append(f"AND u.gender = '{user_gender_search}'")
+        
+        # Подходишь ли ты им
+        if user_gender == Gender.ANY:
+            # Ты любого пола - подходишь только тем, кто ищет любого
+            conditions.append("AND u.gender_search = 'ANY'")
+        else:
+            # Ты конкретного пола - подходишь тем, кто ищет твой пол или любого
+            conditions.append(f"AND (u.gender_search = '{user_gender}' OR u.gender_search = 'ANY')")
+        
+        return " ".join(conditions)
+    
+    def _get_search_params(self, current_user: dict, excluded_users: set, 
+                          country: str = None, city: str = None) -> dict:
+        """Формирование параметров для запроса"""
+        params = {}
+        
+        if country:
+            params["$country"] = (country, ydb.PrimitiveType.Utf8)
+        
+        if city:
+            params["$city"] = (city, ydb.PrimitiveType.Utf8)
+        
+        return params
+    
+    def _row_to_user(self, row) -> User:
+        """Конвертация строки результата в объект User"""
+        return User(
+            telegram_id=row.get("u.telegram_id") or row.get("telegram_id"),
+            first_name=row.get("u.first_name") or row.get("first_name"),
+            username=row.get("u.username") or row.get("username"),
+            gender=row.get("u.gender") or row.get("gender"),
+            gender_search=row.get("u.gender_search") or row.get("gender_search"),
+            country=row.get("u.country") or row.get("country"),
+            country_local=row.get("u.country_local") or row.get("country_local"),
+            city=row.get("u.city") or row.get("city"),
+            city_local=row.get("u.city_local") or row.get("city_local"),
+            photo_id=row.get("u.photo_id") or row.get("photo_id"),
+            about_me=row.get("u.about_me") or row.get("about_me"),
+        )
 
 
 # --------------------------------------------------------- СОЗДАНИЕ ТАБЛИЦ -------------------------------------------------------

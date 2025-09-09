@@ -216,6 +216,21 @@ async def user_add_test():
         await client.insert_reaction(reaction)
 
 
+async def search_test(user_id):
+    async with SearchClient() as search_client:
+        match = await search_client.find_first_matching_user(user_id)
+        if match:
+            print(f"Найден пользователь: {match.username}")
+        else:
+            print("Подходящих пользователей не найдено")
+
+
+async def payment_test2():
+    async with PaymentClient() as client:
+        res = await client.get_collection_targets(ADMIN_ID)
+        print(f"Final result: {res}")
+
+
 if __name__ == "__main__":
-    asyncio.run(example_reaction_usage())
+    asyncio.run(payment_test2())
 
