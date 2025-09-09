@@ -78,7 +78,8 @@ async def example_user_usage():
         # await client.insert_user(new_user)
         # print(f"Created user: {user.username}")
 
-        await client.delete_user(ADMIN_ID)
+        print(await client.get_user_by_id(ADMIN_ID))
+        
 
         # Получение пользователя
         # user = await client.get_user_by_id(ADMIN_ID)
@@ -205,15 +206,28 @@ async def reset_database():
 
 
 async def test():
-    async with PaymentClient() as client:
-        await client.delete_payment(1757151501772055)
+    async with UserClient() as client:
+        await client.update_user_fields(2222, username=None)
+        await client.update_user_fields(3333, username='')
 
 
 async def user_add_test():
-    # await add_new_fake_user(3333, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в LOVE ✅")
-    async with ReactionClient() as client:
-        reaction = Reaction(3333, 1234, ReactionType.LOVE.value)
-        await client.insert_reaction(reaction)
+    # await add_new_fake_user(1111, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    # await add_new_fake_user(2222, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти ✅")
+    # await add_new_fake_user(3333, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти ✅")
+    # await add_new_fake_user(4444, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    # await add_new_fake_user(5555, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+
+    # async with ReactionClient() as client:
+    #     reaction = Reaction(3333, 1234, ReactionType.LOVE.value)
+    #     await client.insert_reaction(reaction)
+
+    async with PaymentClient() as client:
+        payment1 = Payment(telegram_id=ADMIN_ID, amount=10, payment_type=PaymentType.COLLECTION.value, target_tg_id=2222)
+        payment2 = Payment(telegram_id=ADMIN_ID, amount=10, payment_type=PaymentType.COLLECTION.value, target_tg_id=3333)
+
+        await client.insert_payment(payment1)
+        await client.insert_payment(payment2)
 
 
 async def search_test(user_id):

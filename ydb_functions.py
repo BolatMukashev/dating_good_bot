@@ -265,7 +265,7 @@ class UserClient(YDBClient):
         self.table_name = "users"
         self.table_schema = """
             CREATE TABLE `users` (
-                `telegram_id` Int64 NOT NULL,
+                `telegram_id` Uint64 NOT NULL,
                 `first_name` Utf8,
                 `username` Utf8,
                 `gender` Utf8,
@@ -288,7 +288,7 @@ class UserClient(YDBClient):
         """Вставка или обновление пользователя (UPSERT) и возврат объекта User"""
         await self.execute_query(
             """
-            DECLARE $telegram_id AS Int64;
+            DECLARE $telegram_id AS Uint64;
             DECLARE $first_name AS Utf8?;
             DECLARE $username AS Utf8?;
             DECLARE $gender AS Utf8?;
@@ -316,14 +316,14 @@ class UserClient(YDBClient):
         """Получение пользователя по telegram_id"""
         result = await self.execute_query(
             """
-            DECLARE $telegram_id AS Int64;
+            DECLARE $telegram_id AS Uint64;
 
             SELECT telegram_id, first_name, username, gender, gender_search,
                    country, country_local, city, city_local, photo_id, about_me
             FROM users
             WHERE telegram_id = $telegram_id;
             """,
-            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Int64)}
+            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)}
         )
 
         rows = result[0].rows
@@ -336,7 +336,7 @@ class UserClient(YDBClient):
         """Обновление данных пользователя по объекту User"""
         await self.execute_query(
             """
-            DECLARE $telegram_id AS Int64;
+            DECLARE $telegram_id AS Uint64;
             DECLARE $first_name AS Utf8?;
             DECLARE $username AS Utf8?;
             DECLARE $gender AS Utf8?;
@@ -380,7 +380,7 @@ class UserClient(YDBClient):
             return False
 
         set_clauses = []
-        params = {"$telegram_id": (user_id, ydb.PrimitiveType.Int64)}
+        params = {"$telegram_id": (user_id, ydb.PrimitiveType.Uint64)}
 
         for field, value in user_fields.items():
             param_name = f"${field}"
@@ -391,7 +391,7 @@ class UserClient(YDBClient):
         declare_params = "\n".join([f"DECLARE {p} AS Utf8?;" for p in params.keys() if p != "$telegram_id"])
 
         query = f"""
-            DECLARE $telegram_id AS Int64;
+            DECLARE $telegram_id AS Uint64;
             {declare_params}
 
             UPDATE users
@@ -406,10 +406,10 @@ class UserClient(YDBClient):
         """Удаление пользователя"""
         await self.execute_query(
             """
-            DECLARE $telegram_id AS Int64;
+            DECLARE $telegram_id AS Uint64;
             DELETE FROM users WHERE telegram_id = $telegram_id;
             """,
-            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Int64)}
+            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)}
         )
 
     def _row_to_user(self, row) -> User:
@@ -429,7 +429,7 @@ class UserClient(YDBClient):
 
     def _to_params(self, user: User) -> dict:
         return {
-            "$telegram_id": (user.telegram_id, ydb.PrimitiveType.Int64),
+            "$telegram_id": (user.telegram_id, ydb.PrimitiveType.Uint64),
             "$first_name": (user.first_name, ydb.OptionalType(ydb.PrimitiveType.Utf8)),
             "$username": (user.username, ydb.OptionalType(ydb.PrimitiveType.Utf8)),
             "$gender": (user.gender, ydb.OptionalType(ydb.PrimitiveType.Utf8)),
@@ -449,7 +449,7 @@ class UserSettingsClient(YDBClient):
         self.table_name = "user_settings"
         self.table_schema = """
             CREATE TABLE `user_settings` (
-                `telegram_id` Int64 NOT NULL,
+                `telegram_id` Uint64 NOT NULL,
                 `eighteen_years_and_approval` Bool,
                 `incognito_pay` Bool,
                 `incognito_switch` Bool,
@@ -465,22 +465,19 @@ class UserSettingsClient(YDBClient):
     
     async def insert_user_settings(self, settings: UserSettings) -> UserSettings:
         """Вставка или обновление настроек пользователя (UPSERT)"""
-        # Проверяем, существует ли уже запись
         existing_settings = await self.get_user_settings_by_id(settings.telegram_id)
         
         if existing_settings:
-            # Если запись существует, сохраняем existing created_at
             if settings.created_at is None:
                 settings.created_at = existing_settings.created_at
         else:
-            # Если записи нет, устанавливаем текущее время
             if settings.created_at is None:
                 from datetime import datetime, timezone
                 settings.created_at = int(datetime.now(timezone.utc).timestamp())
         
         await self.execute_query(
             """
-            DECLARE $telegram_id AS Int64;
+            DECLARE $telegram_id AS Uint64;
             DECLARE $eighteen_years_and_approval AS Bool?;
             DECLARE $incognito_pay AS Bool?;
             DECLARE $incognito_switch AS Bool?;
@@ -503,14 +500,14 @@ class UserSettingsClient(YDBClient):
         """Получение настроек пользователя по telegram_id"""
         result = await self.execute_query(
             """
-            DECLARE $telegram_id AS Int64;
+            DECLARE $telegram_id AS Uint64;
 
             SELECT telegram_id, eighteen_years_and_approval, incognito_pay,
                    incognito_switch, banned, created_at
             FROM user_settings
             WHERE telegram_id = $telegram_id;
             """,
-            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Int64)}
+            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)}
         )
 
         rows = result[0].rows
@@ -523,7 +520,7 @@ class UserSettingsClient(YDBClient):
         """Обновление настроек пользователя"""
         await self.execute_query(
             """
-            DECLARE $telegram_id AS Int64;
+            DECLARE $telegram_id AS Uint64;
             DECLARE $eighteen_years_and_approval AS Bool?;
             DECLARE $incognito_pay AS Bool?;
             DECLARE $incognito_switch AS Bool?;
@@ -544,14 +541,13 @@ class UserSettingsClient(YDBClient):
     
     async def create_user_settings(self, settings: UserSettings) -> UserSettings:
         """Создание новых настроек пользователя (только INSERT)"""
-        # Устанавливаем created_at, если не задано
         if settings.created_at is None:
             from datetime import datetime, timezone
             settings.created_at = int(datetime.now(timezone.utc).timestamp())
         
         await self.execute_query(
             """
-            DECLARE $telegram_id AS Int64;
+            DECLARE $telegram_id AS Uint64;
             DECLARE $eighteen_years_and_approval AS Bool?;
             DECLARE $incognito_pay AS Bool?;
             DECLARE $incognito_switch AS Bool?;
@@ -567,7 +563,7 @@ class UserSettingsClient(YDBClient):
             );
             """,
             {
-                "$telegram_id": (settings.telegram_id, ydb.PrimitiveType.Int64),
+                "$telegram_id": (settings.telegram_id, ydb.PrimitiveType.Uint64),
                 "$eighteen_years_and_approval": (settings.eighteen_years_and_approval, ydb.OptionalType(ydb.PrimitiveType.Bool)),
                 "$incognito_pay": (settings.incognito_pay, ydb.OptionalType(ydb.PrimitiveType.Bool)),
                 "$incognito_switch": (settings.incognito_switch, ydb.OptionalType(ydb.PrimitiveType.Bool)),
@@ -582,7 +578,6 @@ class UserSettingsClient(YDBClient):
         if not fields:
             return False
 
-        # Фильтруем только поля, которые относятся к таблице user_settings
         settings_fields = {k: v for k, v in fields.items() 
                           if k in ['eighteen_years_and_approval', 'incognito_pay', 
                                   'incognito_switch', 'banned', 'created_at']}
@@ -591,7 +586,7 @@ class UserSettingsClient(YDBClient):
             return False
 
         set_clauses = []
-        params = {"$telegram_id": (user_id, ydb.PrimitiveType.Int64)}
+        params = {"$telegram_id": (user_id, ydb.PrimitiveType.Uint64)}
 
         for field, value in settings_fields.items():
             param_name = f"${field}"
@@ -613,7 +608,7 @@ class UserSettingsClient(YDBClient):
         declare_query = "\n".join(declare_params)
 
         query = f"""
-            DECLARE $telegram_id AS Int64;
+            DECLARE $telegram_id AS Uint64;
             {declare_query}
 
             UPDATE user_settings
@@ -628,10 +623,10 @@ class UserSettingsClient(YDBClient):
         """Удаление настроек пользователя"""
         await self.execute_query(
             """
-            DECLARE $telegram_id AS Int64;
+            DECLARE $telegram_id AS Uint64;
             DELETE FROM user_settings WHERE telegram_id = $telegram_id;
             """,
-            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Int64)}
+            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)}
         )
 
     def _row_to_settings(self, row) -> UserSettings:
@@ -646,7 +641,7 @@ class UserSettingsClient(YDBClient):
 
     def _to_params(self, settings: UserSettings) -> dict:
         return {
-            "$telegram_id": (settings.telegram_id, ydb.PrimitiveType.Int64),
+            "$telegram_id": (settings.telegram_id, ydb.PrimitiveType.Uint64),
             "$eighteen_years_and_approval": (settings.eighteen_years_and_approval, ydb.OptionalType(ydb.PrimitiveType.Bool)),
             "$incognito_pay": (settings.incognito_pay, ydb.OptionalType(ydb.PrimitiveType.Bool)),
             "$incognito_switch": (settings.incognito_switch, ydb.OptionalType(ydb.PrimitiveType.Bool)),
@@ -656,13 +651,11 @@ class UserSettingsClient(YDBClient):
     
     @staticmethod
     def timestamp_to_datetime(timestamp: int):
-        """Конвертация timestamp в datetime объект"""
         from datetime import datetime, timezone
         return datetime.fromtimestamp(timestamp, tz=timezone.utc)
     
     @staticmethod
     def datetime_to_timestamp(dt) -> int:
-        """Конвертация datetime в timestamp"""
         return int(dt.timestamp())
 
 
@@ -919,6 +912,35 @@ class PaymentClient(YDBClient):
                         targets.append(int(row.target_tg_id))
 
             return sorted(targets), len(targets)
+    
+    async def get_collection_targets_with_filter(self, telegram_id: int) -> tuple[list[int], int]:
+        query = """
+            DECLARE $telegram_id AS Uint64;
+
+            SELECT p.target_tg_id
+            FROM `{payments}` AS p
+            JOIN users AS u
+            ON CAST(p.target_tg_id AS Int64) = u.telegram_id
+            WHERE p.telegram_id = $telegram_id
+            AND p.target_tg_id IS NOT NULL
+            AND u.username IS NOT NULL
+            AND CHAR_LENGTH(u.username) > 0;
+        """.format(payments=self.table_name)
+
+        result_sets = await self.execute_query(query, {
+            "$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)
+        })
+
+        targets = []
+        for result_set in result_sets:
+            for row in result_set.rows:
+                row_dict = dict(row.items())
+                if row_dict.get("target_tg_id") is not None:
+                    targets.append(int(row_dict["target_tg_id"]))
+
+        return sorted(targets), len(targets)
+
+
 
     async def delete_payment(self, payment_id: int) -> None:
         """
