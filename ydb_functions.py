@@ -914,32 +914,40 @@ class PaymentClient(YDBClient):
             return sorted(targets), len(targets)
     
     async def get_collection_targets_with_filter(self, telegram_id: int) -> tuple[list[int], int]:
-        query = """
+        """
+        как get_collection_targets но исключает из поиска:
+        * пользователей без username (NULL или пустая строка)
+        * пользователей с banned = true (таблица user_settings)
+        """
+        query = f"""
             DECLARE $telegram_id AS Uint64;
 
-            SELECT p.target_tg_id
-            FROM `{payments}` AS p
-            JOIN users AS u
-            ON CAST(p.target_tg_id AS Int64) = u.telegram_id
+            SELECT p.target_tg_id AS target_id
+            FROM `{self.table_name}` AS p
+            INNER JOIN `users` AS u
+                ON p.target_tg_id = u.telegram_id
+            INNER JOIN `user_settings` AS s
+                ON p.target_tg_id = s.telegram_id
             WHERE p.telegram_id = $telegram_id
-            AND p.target_tg_id IS NOT NULL
-            AND u.username IS NOT NULL
-            AND CHAR_LENGTH(u.username) > 0;
-        """.format(payments=self.table_name)
+              AND p.target_tg_id IS NOT NULL
+              AND u.username IS NOT NULL
+              AND u.username != ""
+              AND s.banned = false;
+        """
 
-        result_sets = await self.execute_query(query, {
-            "$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)
-        })
+        result_sets = await self.execute_query(
+            query,
+            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)}
+        )
 
-        targets = []
+        targets: list[int] = []
         for result_set in result_sets:
             for row in result_set.rows:
-                row_dict = dict(row.items())
-                if row_dict.get("target_tg_id") is not None:
-                    targets.append(int(row_dict["target_tg_id"]))
+                tgt = row["target_id"]
+                if tgt is not None:
+                    targets.append(int(tgt))
 
         return sorted(targets), len(targets)
-
 
 
     async def delete_payment(self, payment_id: int) -> None:

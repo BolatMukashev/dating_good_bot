@@ -206,9 +206,8 @@ async def reset_database():
 
 
 async def test():
-    async with UserClient() as client:
-        await client.update_user_fields(2222, username=None)
-        await client.update_user_fields(3333, username='')
+    async with UserSettingsClient() as client:
+        await client.update_user_settings_fields(5555, banned=True)
 
 
 async def user_add_test():
@@ -241,7 +240,7 @@ async def search_test(user_id):
 
 async def payment_test2():
     async with PaymentClient() as client:
-        res = await client.get_collection_targets(ADMIN_ID)
+        res = await client.get_collection_targets_with_filter(ADMIN_ID)
         print(f"Final result: {res}")
 
 
