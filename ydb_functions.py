@@ -1063,130 +1063,6 @@ class ReactionClient(YDBClient):
         )
         return reaction
 
-    async def get_reaction_by_id(self, reaction_id: int) -> Optional[Reaction]:
-        """
-        Получение реакции по ID
-        """
-        result = await self.execute_query(
-            """
-            DECLARE $id AS Uint64;
-
-            SELECT id, telegram_id, target_tg_id, reaction, created_at
-            FROM reactions
-            WHERE id = $id;
-            """,
-            {"$id": (reaction_id, ydb.PrimitiveType.Uint64)}
-        )
-
-        rows = result[0].rows
-        if not rows:
-            return None
-
-        return self._row_to_reaction(rows[0])
-
-    async def get_reaction_between_users(self, telegram_id: int, target_tg_id: int) -> Optional[Reaction]:
-        """
-        Получение реакции между двумя пользователями
-        """
-        result = await self.execute_query(
-            """
-            DECLARE $telegram_id AS Uint64;
-            DECLARE $target_tg_id AS Uint64;
-
-            SELECT id, telegram_id, target_tg_id, reaction, created_at
-            FROM reactions
-            WHERE telegram_id = $telegram_id AND target_tg_id = $target_tg_id;
-            """,
-            {
-                "$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64),
-                "$target_tg_id": (target_tg_id, ydb.PrimitiveType.Uint64)
-            }
-        )
-
-        rows = result[0].rows
-        if not rows:
-            return None
-
-        return self._row_to_reaction(rows[0])
-
-    async def get_reactions_sent_by_user(self, telegram_id: int, limit: int = 100) -> List[Reaction]:
-        """
-        Получение всех реакций, отправленных пользователем
-        """
-        result = await self.execute_query(
-            """
-            DECLARE $telegram_id AS Uint64;
-            DECLARE $limit AS Uint64;
-
-            SELECT id, telegram_id, target_tg_id, reaction, created_at
-            FROM reactions
-            WHERE telegram_id = $telegram_id
-            ORDER BY created_at DESC
-            LIMIT $limit;
-            """,
-            {
-                "$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64),
-                "$limit": (limit, ydb.PrimitiveType.Uint64)
-            }
-        )
-
-        return [self._row_to_reaction(row) for row in result[0].rows]
-
-    async def get_reactions_received_by_user(self, target_tg_id: int, limit: int = 100) -> List[Reaction]:
-        """
-        Получение всех реакций, полученных пользователем
-        """
-        result = await self.execute_query(
-            """
-            DECLARE $target_tg_id AS Uint64;
-            DECLARE $limit AS Uint64;
-
-            SELECT id, telegram_id, target_tg_id, reaction, created_at
-            FROM reactions
-            WHERE target_tg_id = $target_tg_id
-            ORDER BY created_at DESC
-            LIMIT $limit;
-            """,
-            {
-                "$target_tg_id": (target_tg_id, ydb.PrimitiveType.Uint64),
-                "$limit": (limit, ydb.PrimitiveType.Uint64)
-            }
-        )
-
-        return [self._row_to_reaction(row) for row in result[0].rows]
-
-    async def get_mutual_reactions(self, telegram_id: int, target_tg_id: int) -> Dict[str, Optional[Reaction]]:
-        """
-        Получение взаимных реакций между двумя пользователями
-        Возвращает словарь: {'sent': Reaction | None, 'received': Reaction | None}
-        """
-        result = await self.execute_query(
-            """
-            DECLARE $telegram_id AS Uint64;
-            DECLARE $target_tg_id AS Uint64;
-
-            SELECT id, telegram_id, target_tg_id, reaction, created_at
-            FROM reactions
-            WHERE (telegram_id = $telegram_id AND target_tg_id = $target_tg_id)
-               OR (telegram_id = $target_tg_id AND target_tg_id = $telegram_id);
-            """,
-            {
-                "$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64),
-                "$target_tg_id": (target_tg_id, ydb.PrimitiveType.Uint64)
-            }
-        )
-
-        reactions = {'sent': None, 'received': None}
-        
-        for row in result[0].rows:
-            reaction = self._row_to_reaction(row)
-            if reaction.telegram_id == telegram_id:
-                reactions['sent'] = reaction
-            else:
-                reactions['received'] = reaction
-
-        return reactions
-
     async def update_reaction(self, reaction: Reaction) -> Reaction:
         """
         Обновление реакции
@@ -1221,27 +1097,6 @@ class ReactionClient(YDBClient):
             """,
             {"$id": (reaction_id, ydb.PrimitiveType.Uint64)}
         )
-
-    async def count_reactions_received_by_user_and_type(self, target_tg_id: int, reaction: str) -> int:
-        """
-        Подсчет количества реакций определенного типа, полученных пользователем
-        """
-        result = await self.execute_query(
-            """
-            DECLARE $target_tg_id AS Uint64;
-            DECLARE $reaction AS Utf8;
-
-            SELECT COUNT(*) as count
-            FROM reactions
-            WHERE target_tg_id = $target_tg_id AND reaction = $reaction;
-            """,
-            {
-                "$target_tg_id": (target_tg_id, ydb.PrimitiveType.Uint64),
-                "$reaction": (reaction, ydb.PrimitiveType.Utf8)
-            }
-        )
-
-        return result[0].rows[0]["count"] if result[0].rows else 0
 
     # --- helpers ---
     def _row_to_reaction(self, row) -> Reaction:
@@ -1307,6 +1162,56 @@ class ReactionClient(YDBClient):
             for row in result_set.rows:
                 if "telegram_id" in row:
                     ids.append(int(row["telegram_id"]))
+
+        sorted_ids = sorted(set(ids))
+        return sorted_ids, len(sorted_ids)
+    
+    async def get_match_users(self, telegram_id: int) -> tuple[List[int], int]:
+        """
+        Найти пользователей, которые поставили такую же реакцию, что и наш пользователь им.
+        То есть взаимные реакции: если пользователь A поставил реакцию X пользователю B,
+        и пользователь B поставил реакцию X пользователю A.
+        
+        Исключаем:
+        - забаненных пользователей
+        - пользователей без username
+        """
+        query = f"""
+            DECLARE $telegram_id AS Uint64;
+
+            SELECT DISTINCT 
+                r2.telegram_id AS matched_user_id
+            FROM reactions AS r1
+            
+            INNER JOIN reactions AS r2
+            ON r1.target_tg_id = r2.telegram_id 
+            AND r1.telegram_id = r2.target_tg_id
+            AND r1.reaction = r2.reaction
+            
+            INNER JOIN users AS u
+            ON r2.telegram_id = u.telegram_id
+            
+            INNER JOIN user_settings AS s
+            ON r2.telegram_id = s.telegram_id
+            
+            WHERE r1.telegram_id = $telegram_id
+            AND u.username IS NOT NULL
+            AND u.username != ""
+            AND s.banned = false;
+        """
+
+        result_sets = await self.execute_query(
+            query,
+            {
+                "$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64),
+            },
+        )
+
+        ids: List[int] = []
+        for result_set in result_sets:
+            for row in result_set.rows:
+                if "matched_user_id" in row:
+                    ids.append(int(row["matched_user_id"]))
 
         sorted_ids = sorted(set(ids))
         return sorted_ids, len(sorted_ids)

@@ -192,9 +192,10 @@ class YDBCleaner(YDBClient):
                 print(f"Ошибка при очистке {table}: {e}")
 
 
-async def example_reaction_usage(target_tg_id: int, reaction_type: ReactionType):
+async def example_reaction_usage(target_tg_id: int):
     async with ReactionClient() as client:
-        users, count = await client.get_intent_targets(target_tg_id, reaction_type)
+        # users, count = await client.get_intent_targets(target_tg_id, reaction_type)
+        users, count = await client.get_match_users(target_tg_id)
         print(users, count)
 
 
@@ -290,10 +291,10 @@ async def payment_test2():
 
 async def testtest():
     async with UserClient() as client, UserSettingsClient() as settings_client:
-        await client.update_user_fields(2222, username=None)
+        await client.update_user_fields(2222, username="sadas")
 
 
 if __name__ == "__main__":
     # asyncio.run(testtest())
-    asyncio.run(example_reaction_usage(ADMIN_ID, ReactionType.SEX.value))
+    asyncio.run(example_reaction_usage(ADMIN_ID))
 
