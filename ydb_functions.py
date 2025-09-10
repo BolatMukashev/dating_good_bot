@@ -1002,7 +1002,6 @@ class Reaction:
     telegram_id: int
     target_tg_id: int
     reaction: str
-    id: Optional[int] = None
     created_at: Optional[int] = None  # Храним как timestamp (секунды с эпохи)
 
 
@@ -1012,13 +1011,11 @@ class ReactionClient(YDBClient):
         self.table_name = "reactions"
         self.table_schema = """
             CREATE TABLE `reactions` (
-                `id` Uint64 NOT NULL,
                 `telegram_id` Uint64 NOT NULL,
                 `target_tg_id` Uint64 NOT NULL,
                 `reaction` Utf8 NOT NULL,
                 `created_at` Uint64 NOT NULL,
-                PRIMARY KEY (`id`),
-                INDEX `ix_reactions_telegram_target_reaction` GLOBAL ON (`telegram_id`, `target_tg_id`, `reaction`),
+                PRIMARY KEY (`telegram_id`, `target_tg_id`, `reaction`),
                 INDEX `ix_reactions_target_tg_id` GLOBAL ON (`target_tg_id`)
             )
         """
@@ -1031,91 +1028,61 @@ class ReactionClient(YDBClient):
     
     async def insert_reaction(self, reaction: Reaction) -> Reaction:
         """
-        Вставка новой реакции с автогенерацией ID
-        Проверяет уникальность пары telegram_id + target_tg_id
+        Вставка или обновление реакции
+        Сначала удаляем существующую запись, потом вставляем новую
         """
-        # Проверяем, существует ли уже реакция между этими пользователями
-        existing = await self.get_reaction_between_users(reaction.telegram_id, reaction.target_tg_id)
-        if existing:
-            # Обновляем существующую реакцию
-            existing.reaction = reaction.reaction
-            return await self.update_reaction(existing)
-        
-        # Генерируем ID как timestamp в микросекундах для уникальности
-        if reaction.id is None:
-            reaction.id = int(datetime.now(timezone.utc).timestamp() * 1000000)
-        
         if reaction.created_at is None:
             reaction.created_at = int(datetime.now(timezone.utc).timestamp())
         
+        # Сначала удаляем существующую реакцию (если есть)
         await self.execute_query(
             """
-            DECLARE $id AS Uint64;
+            DECLARE $telegram_id AS Uint64;
+            DECLARE $target_tg_id AS Uint64;
+            
+            DELETE FROM reactions 
+            WHERE telegram_id = $telegram_id 
+            AND target_tg_id = $target_tg_id;
+            """,
+            {
+                "$telegram_id": (reaction.telegram_id, ydb.PrimitiveType.Uint64),
+                "$target_tg_id": (reaction.target_tg_id, ydb.PrimitiveType.Uint64)
+            }
+        )
+        
+        # Затем вставляем новую
+        await self.execute_query(
+            """
             DECLARE $telegram_id AS Uint64;
             DECLARE $target_tg_id AS Uint64;
             DECLARE $reaction AS Utf8;
             DECLARE $created_at AS Uint64;
 
-            INSERT INTO reactions (id, telegram_id, target_tg_id, reaction, created_at)
-            VALUES ($id, $telegram_id, $target_tg_id, $reaction, $created_at);
+            INSERT INTO reactions (telegram_id, target_tg_id, reaction, created_at)
+            VALUES ($telegram_id, $target_tg_id, $reaction, $created_at);
             """,
             self._to_params(reaction)
         )
         return reaction
 
-    async def update_reaction(self, reaction: Reaction) -> Reaction:
+    async def delete_reaction(self, telegram_id: int, target_tg_id: int) -> None:
         """
-        Обновление реакции
+        Удаление реакции по составному ключу
         """
         await self.execute_query(
             """
-            DECLARE $id AS Uint64;
             DECLARE $telegram_id AS Uint64;
             DECLARE $target_tg_id AS Uint64;
-            DECLARE $reaction AS Utf8;
-            DECLARE $created_at AS Uint64;
-
-            UPDATE reactions SET
-                telegram_id = $telegram_id,
-                target_tg_id = $target_tg_id,
-                reaction = $reaction,
-                created_at = $created_at
-            WHERE id = $id;
+            
+            DELETE FROM reactions 
+            WHERE telegram_id = $telegram_id 
+            AND target_tg_id = $target_tg_id;
             """,
-            self._to_params(reaction)
+            {
+                "$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64),
+                "$target_tg_id": (target_tg_id, ydb.PrimitiveType.Uint64)
+            }
         )
-        return await self.get_reaction_by_id(reaction.id)
-
-    async def delete_reaction(self, reaction_id: int) -> None:
-        """
-        Удаление реакции по ID
-        """
-        await self.execute_query(
-            """
-            DECLARE $id AS Uint64;
-            DELETE FROM reactions WHERE id = $id;
-            """,
-            {"$id": (reaction_id, ydb.PrimitiveType.Uint64)}
-        )
-
-    # --- helpers ---
-    def _row_to_reaction(self, row) -> Reaction:
-        return Reaction(
-            id=row["id"],
-            telegram_id=row["telegram_id"],
-            target_tg_id=row["target_tg_id"],
-            reaction=row["reaction"],
-            created_at=row["created_at"],
-        )
-
-    def _to_params(self, reaction: Reaction) -> dict:
-        return {
-            "$id": (reaction.id, ydb.PrimitiveType.Uint64),
-            "$telegram_id": (reaction.telegram_id, ydb.PrimitiveType.Uint64),
-            "$target_tg_id": (reaction.target_tg_id, ydb.PrimitiveType.Uint64),
-            "$reaction": (reaction.reaction, ydb.PrimitiveType.Utf8),
-            "$created_at": (reaction.created_at, ydb.PrimitiveType.Uint64),
-        }
 
     async def get_intent_targets(self, user_id: int, intent: str) -> tuple[List[int], int]:
         """
@@ -1215,6 +1182,23 @@ class ReactionClient(YDBClient):
 
         sorted_ids = sorted(set(ids))
         return sorted_ids, len(sorted_ids)
+    
+    # --- helpers ---
+    def _row_to_reaction(self, row) -> Reaction:
+        return Reaction(
+            telegram_id=row["telegram_id"],
+            target_tg_id=row["target_tg_id"],
+            reaction=row["reaction"],
+            created_at=row["created_at"],
+        )
+
+    def _to_params(self, reaction: Reaction) -> dict:
+        return {
+            "$telegram_id": (reaction.telegram_id, ydb.PrimitiveType.Uint64),
+            "$target_tg_id": (reaction.target_tg_id, ydb.PrimitiveType.Uint64),
+            "$reaction": (reaction.reaction, ydb.PrimitiveType.Utf8),
+            "$created_at": (reaction.created_at, ydb.PrimitiveType.Uint64),
+        }
     
     @staticmethod
     def timestamp_to_datetime(timestamp: int) -> datetime:
