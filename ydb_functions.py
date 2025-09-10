@@ -742,7 +742,7 @@ class CacheClient(YDBClient):
         self.table_name = "cache"
         self.table_schema = """
             CREATE TABLE `cache` (
-                `telegram_id` Int64 NOT NULL,
+                `telegram_id` Uint64 NOT NULL,
                 `parameter` Utf8,
                 `message_id` Int32,
                 PRIMARY KEY (`telegram_id`, `parameter`)
@@ -761,7 +761,7 @@ class CacheClient(YDBClient):
         """
         await self.execute_query(
             """
-            DECLARE $telegram_id AS Int64;
+            DECLARE $telegram_id AS Uint64;
             DECLARE $parameter AS Utf8?;
             DECLARE $message_id AS Int32?;
 
@@ -778,14 +778,14 @@ class CacheClient(YDBClient):
         """
         result = await self.execute_query(
             """
-            DECLARE $telegram_id AS Int64;
+            DECLARE $telegram_id AS Uint64;
 
             SELECT parameter, message_id
             FROM cache
             WHERE telegram_id = $telegram_id
             ORDER BY parameter;
             """,
-            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Int64)}
+            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)}
         )
 
         rows = result[0].rows
@@ -797,10 +797,10 @@ class CacheClient(YDBClient):
         """
         await self.execute_query(
             """
-            DECLARE $telegram_id AS Int64;
+            DECLARE $telegram_id AS Uint64;
             DELETE FROM cache WHERE telegram_id = $telegram_id;
             """,
-            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Int64)}
+            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)}
         )
 
     async def delete_cache_by_telegram_id_and_parameter(self, telegram_id: int, parameter: str) -> None:
@@ -809,12 +809,12 @@ class CacheClient(YDBClient):
         """
         await self.execute_query(
             """
-            DECLARE $telegram_id AS Int64;
+            DECLARE $telegram_id AS Uint64;
             DECLARE $parameter AS Utf8;
             DELETE FROM cache WHERE telegram_id = $telegram_id AND parameter = $parameter;
             """,
             {
-                "$telegram_id": (telegram_id, ydb.PrimitiveType.Int64),
+                "$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64),
                 "$parameter": (parameter, ydb.PrimitiveType.Utf8)
             }
         )
@@ -829,7 +829,7 @@ class CacheClient(YDBClient):
 
     def _to_params(self, cache: Cache) -> dict:
         return {
-            "$telegram_id": (cache.telegram_id, ydb.PrimitiveType.Int64),
+            "$telegram_id": (cache.telegram_id, ydb.PrimitiveType.Uint64),
             "$parameter": (cache.parameter, ydb.OptionalType(ydb.PrimitiveType.Utf8)),
             "$message_id": (cache.message_id, ydb.OptionalType(ydb.PrimitiveType.Int32)),
         }
@@ -921,18 +921,18 @@ class PaymentClient(YDBClient):
         """
         query = f"""
             DECLARE $telegram_id AS Uint64;
-
+            
             SELECT p.target_tg_id AS target_id
-            FROM `{self.table_name}` AS p
-            INNER JOIN `users` AS u
-                ON p.target_tg_id = u.telegram_id
-            INNER JOIN `user_settings` AS s
-                ON p.target_tg_id = s.telegram_id
+            FROM payments AS p
+            INNER JOIN users AS u
+            ON p.target_tg_id = u.telegram_id
+            INNER JOIN user_settings AS s
+            ON p.target_tg_id = s.telegram_id
             WHERE p.telegram_id = $telegram_id
-              AND p.target_tg_id IS NOT NULL
-              AND u.username IS NOT NULL
-              AND u.username != ""
-              AND s.banned = false;
+            AND p.target_tg_id IS NOT NULL
+            AND u.username IS NOT NULL
+            AND u.username != ""
+            AND s.banned = false;
         """
 
         result_sets = await self.execute_query(
@@ -1264,124 +1264,52 @@ class ReactionClient(YDBClient):
 
     async def get_intent_targets(self, user_id: int, intent: str) -> tuple[List[int], int]:
         """
-        Найти тех, кто поставил МНЕ указанную реакцию, 
-        исключая: тех кому я уже отвечал той же реакцией, кого пропустил, кого оплатил, забаненных, без никнейма
+        Найти тех, кто поставил МНЕ указанную реакцию,
+        исключая:
+        - тех, кому Я уже ответил той же реакцией
+        - тех, кого Я пропустил (SKIP)
+        - тех, кого Я оплатил (payments)
+        - забаненных
+        - пользователей без username
         """
-        try:
-            # Получаем пользователей, которым Я поставил такую же реакцию (взаимные - исключаем)
-            mutual_users = await self._get_users_i_reacted_to(user_id, intent.upper())
-            
-            # Получаем пользователей, которых Я пропустил (исключаем)
-            skipped_users = await self._get_users_i_skipped(user_id)
-            
-            # Получаем пользователей, кого Я оплатил (коллекция - исключаем)
-            collection_users = await self._get_users_i_paid_for(user_id)
-            
-            # Объединяем все исключения в один set
-            excluded_users = set(mutual_users + skipped_users + collection_users)
-            
-            # Строим условие исключения
-            excluded_condition = ""
-            if excluded_users:
-                excluded_ids = ", ".join(str(uid) for uid in excluded_users)
-                excluded_condition = f"AND r.telegram_id NOT IN ({excluded_ids})"
-            
-            # Основной запрос: те, кто поставил МНЕ intent, но не в исключениях
-            query = f"""
-                DECLARE $user_id AS Uint64;
+        query = f"""
+               DECLARE $user_id AS Uint64;
                 DECLARE $intent AS Utf8;
 
-                SELECT r.telegram_id AS telegram_id
+                SELECT r.telegram_id AS telegram_id,
+                r.reaction AS reaction
                 FROM reactions AS r
-                INNER JOIN users AS u ON r.telegram_id = u.telegram_id
-                INNER JOIN user_settings AS s ON r.telegram_id = s.telegram_id
+
+                INNER JOIN users AS u
+                ON r.telegram_id = u.telegram_id
+
+                INNER JOIN user_settings AS s
+                ON r.telegram_id = s.telegram_id
+
                 WHERE r.target_tg_id = $user_id
-                    AND r.reaction = $intent
-                    AND u.username IS NOT NULL
-                    AND u.username != ""
-                    AND s.banned = false
-                    {excluded_condition}
-                ORDER BY r.telegram_id;
-            """
-            
-            result = await self.execute_query(
-                query,
-                {
-                    "$user_id": (user_id, ydb.PrimitiveType.Uint64),
-                    "$intent": (intent.upper(), ydb.PrimitiveType.Utf8)
-                }
-            )
-            
-            # Проверяем, что результат не пустой
-            if not result or not result[0].rows:
-                return [], 0
-            
-            ids = []
-            for row in result[0].rows:
-                if "telegram_id" in row:
-                    ids.append(row["telegram_id"])
-            
-            sorted_ids = sorted(set(ids))
-            return sorted_ids, len(sorted_ids)
-            
-        except Exception as e:
-            print(f"Error in get_intent_targets: {e}")
-            return [], 0
+                AND r.reaction = $intent
+                AND u.username IS NOT NULL
+                AND u.username != ""
+                AND s.banned = false;
 
-    async def _get_users_i_reacted_to(self, user_id: int, intent: str) -> List[int]:
-        """
-        Получение списка пользователей, которым Я поставил указанную реакцию
-        """
-        result = await self.execute_query(
             """
-            DECLARE $user_id AS Uint64;
-            DECLARE $intent AS Utf8;
 
-            SELECT target_tg_id
-            FROM reactions
-            WHERE telegram_id = $user_id AND reaction = $intent;
-            """,
+        result_sets = await self.execute_query(
+            query,
             {
                 "$user_id": (user_id, ydb.PrimitiveType.Uint64),
-                "$intent": (intent, ydb.PrimitiveType.Utf8)
-            }
+                "$intent": (intent.upper(), ydb.PrimitiveType.Utf8),
+            },
         )
-        
-        return [row["target_tg_id"] for row in result[0].rows]
 
-    async def _get_users_i_skipped(self, user_id: int) -> List[int]:
-        """
-        Получение списка пользователей, которых Я пропустил (поставил SKIP)
-        """
-        result = await self.execute_query(
-            """
-            DECLARE $user_id AS Uint64;
+        ids: List[int] = []
+        for result_set in result_sets:
+            for row in result_set.rows:
+                if "telegram_id" in row:
+                    ids.append(int(row["telegram_id"]))
 
-            SELECT target_tg_id
-            FROM reactions
-            WHERE telegram_id = $user_id AND reaction = "SKIP";
-            """,
-            {"$user_id": (user_id, ydb.PrimitiveType.Uint64)}
-        )
-        
-        return [row["target_tg_id"] for row in result[0].rows]
-
-    async def _get_users_i_paid_for(self, user_id: int) -> List[int]:
-        """
-        Получение списка пользователей, кого Я оплатил (добавил в коллекцию)
-        """
-        result = await self.execute_query(
-            """
-            DECLARE $user_id AS Uint64;
-
-            SELECT target_tg_id
-            FROM payments
-            WHERE telegram_id = $user_id AND target_tg_id IS NOT NULL;
-            """,
-            {"$user_id": (user_id, ydb.PrimitiveType.Uint64)}
-        )
-        
-        return [row["target_tg_id"] for row in result[0].rows if row["target_tg_id"]]
+        sorted_ids = sorted(set(ids))
+        return sorted_ids, len(sorted_ids)
     
     @staticmethod
     def timestamp_to_datetime(timestamp: int) -> datetime:

@@ -192,11 +192,9 @@ class YDBCleaner(YDBClient):
                 print(f"Ошибка при очистке {table}: {e}")
 
 
-async def example_reaction_usage():
+async def example_reaction_usage(target_tg_id: int, reaction_type: ReactionType):
     async with ReactionClient() as client:
-        reaction = Reaction(9999, 1234, ReactionType.SKIP.value)
-        # await client.insert_reaction(reaction)
-        users, count = await client.get_intent_targets(1234, ReactionType.LOVE.value)
+        users, count = await client.get_intent_targets(target_tg_id, reaction_type)
         print(users, count)
 
 
@@ -211,22 +209,69 @@ async def test():
 
 
 async def user_add_test():
-    # await add_new_fake_user(1111, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
-    # await add_new_fake_user(2222, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти ✅")
-    # await add_new_fake_user(3333, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти ✅")
-    # await add_new_fake_user(4444, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
-    # await add_new_fake_user(5555, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(1111, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в Metch ✅")
+    await add_new_fake_user(2222, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в Metch ✅")
 
-    # async with ReactionClient() as client:
-    #     reaction = Reaction(3333, 1234, ReactionType.LOVE.value)
-    #     await client.insert_reaction(reaction)
+    await add_new_fake_user(3333, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в Collections ✅")
+    await add_new_fake_user(4444, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти в Collections ❌")
+
+    await add_new_fake_user(5555, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти LOVE ✅")
+    await add_new_fake_user(6666, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти SEX ✅")
+    await add_new_fake_user(7777, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти CHAT ✅")
+
+    await add_new_fake_user(8888, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти SKIP ❌")
+    await add_new_fake_user(9999, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти BAN ❌")
+    await add_new_fake_user(9898, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти нет Username ❌")
+
+
+    async with ReactionClient() as client:
+        reaction1 = Reaction(1111, ADMIN_ID, ReactionType.LOVE.value)
+        reaction2 = Reaction(2222, ADMIN_ID, ReactionType.LOVE.value)
+
+        reaction3 = Reaction(ADMIN_ID, 1111, ReactionType.LOVE.value)
+        reaction4 = Reaction(ADMIN_ID, 2222, ReactionType.LOVE.value)
+
+        reaction5 = Reaction(3333, ADMIN_ID, ReactionType.LOVE.value)
+        reaction6 = Reaction(4444, ADMIN_ID, ReactionType.LOVE.value)
+        
+        await client.insert_reaction(reaction1)
+        await client.insert_reaction(reaction2)
+        await client.insert_reaction(reaction3)
+        await client.insert_reaction(reaction4)
+        await client.insert_reaction(reaction5)
+        await client.insert_reaction(reaction6)
+
+        reaction7 = Reaction(5555, ADMIN_ID, ReactionType.LOVE.value)
+        reaction8 = Reaction(6666, ADMIN_ID, ReactionType.SEX.value)
+        reaction9 = Reaction(7777, ADMIN_ID, ReactionType.CHAT.value)
+
+        await client.insert_reaction(reaction7)
+        await client.insert_reaction(reaction8)
+        await client.insert_reaction(reaction9)
+
+        reaction10 = Reaction(8888, ADMIN_ID, ReactionType.SKIP.value)
+        reaction11 = Reaction(ADMIN_ID, 8888, ReactionType.SEX.value)
+
+        await client.insert_reaction(reaction10)
+        await client.insert_reaction(reaction11)
+
+        reaction12 = Reaction(9999, ADMIN_ID, ReactionType.SEX.value)
+        reaction13 = Reaction(9898, ADMIN_ID, ReactionType.SEX.value)
+
+        await client.insert_reaction(reaction12)
+        await client.insert_reaction(reaction13)
 
     async with PaymentClient() as client:
-        payment1 = Payment(telegram_id=ADMIN_ID, amount=10, payment_type=PaymentType.COLLECTION.value, target_tg_id=2222)
-        payment2 = Payment(telegram_id=ADMIN_ID, amount=10, payment_type=PaymentType.COLLECTION.value, target_tg_id=3333)
+        payment1 = Payment(telegram_id=ADMIN_ID, amount=10, payment_type=PaymentType.COLLECTION.value, target_tg_id=3333)
+        payment2 = Payment(telegram_id=ADMIN_ID, amount=10, payment_type=PaymentType.COLLECTION.value, target_tg_id=4444)
 
         await client.insert_payment(payment1)
         await client.insert_payment(payment2)
+    
+    async with UserClient() as client, UserSettingsClient() as settings_client:
+        await client.update_user_fields(4444, username=None)
+        await client.update_user_fields(9898, username=None)
+        await settings_client.update_user_settings_fields(9999, banned=True)
 
 
 async def search_test(user_id):
@@ -243,7 +288,12 @@ async def payment_test2():
         res = await client.get_collection_targets_with_filter(ADMIN_ID)
         print(f"Final result: {res}")
 
+async def testtest():
+    async with UserClient() as client, UserSettingsClient() as settings_client:
+        await client.update_user_fields(2222, username=None)
+
 
 if __name__ == "__main__":
-    asyncio.run(payment_test2())
+    # asyncio.run(testtest())
+    asyncio.run(example_reaction_usage(ADMIN_ID, ReactionType.SEX.value))
 
