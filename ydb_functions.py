@@ -412,7 +412,7 @@ class UserClient(YDBClient):
             {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)}
         )
 
-    async def search_user(self, telegram_id: int) -> Optional[User]:
+    async def search_user(self, telegram_id: int, first_name: str, username: str) -> Optional[User]:
         """
         Поиск одного пользователя по критериям и возврат объекта User:
         - 1-й приоритет: страна + город
@@ -424,6 +424,12 @@ class UserClient(YDBClient):
 
         query = f"""
             DECLARE $telegram_id AS Uint64;
+            DECLARE $first_name AS Utf8;
+            DECLARE $username AS Utf8;
+
+            -- сначала обновляем username и first_name
+            UPSERT INTO users (telegram_id, first_name, username)
+            VALUES ($telegram_id, $first_name, $username);
 
             SELECT u2.telegram_id AS found_id
             FROM users AS u1
@@ -453,7 +459,10 @@ class UserClient(YDBClient):
 
         result_sets = await self.execute_query(
             query,
-            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)},
+            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64),
+             "$first_name": (first_name, ydb.PrimitiveType.Utf8),
+            "$username": (username, ydb.PrimitiveType.Utf8)
+            },
         )
 
         found_id = None
