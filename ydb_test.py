@@ -275,7 +275,7 @@ async def user_add_test():
         await settings_client.update_user_settings_fields(9999, banned=True)
 
 
-async def search_test(user_id):
+async def search_test(user_id, username, first_name):
     # await add_new_fake_user(1111, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти ✅")
     # await add_new_fake_user(2222, Gender.WOMAN, Gender.ANY, about_me = "Ты должен меня найти ✅")
     # await add_new_fake_user(3333, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти, но не сразу ✅", random_city=True)
@@ -286,7 +286,7 @@ async def search_test(user_id):
 
     await reactiontest(ADMIN_ID, 3333, ReactionType.SKIP.value)
 
-    async with ReactionClient() as client:
+    async with UserClient() as client:
         res = await client.search_user(user_id)
         print(res)
 
@@ -312,6 +312,6 @@ async def reactiontest(user_id, target_id, reaction_type: ReactionType):
 if __name__ == "__main__":
     # asyncio.run(reset_database())
     # asyncio.run(reactiontest(ADMIN_ID, 3333, ReactionType.LOVE.value))
-    asyncio.run(search_test(ADMIN_ID))
+    asyncio.run(search_test(ADMIN_ID, "Kimi", "bolat_test_name"))
     # asyncio.run(example_reaction_usage(ADMIN_ID, ReactionType.LOVE.value))
 

@@ -571,6 +571,7 @@ async def btn_start_search(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
     username = callback.from_user.username
+    first_name = callback.from_user.first_name
 
     # поиск первого подходящего собеседника, получение текста на языке пользователя
     texts = await get_texts(user_lang)
@@ -585,9 +586,9 @@ async def btn_start_search(callback: types.CallbackQuery):
         notification = texts['TEXT']["notifications"]["not_username"]
     
     else:
-        async with UserClient() as user_client:
+        async with UserClient() as user_client, ReactionClient() as reaction_client:
             target_user, _ = await asyncio.gather(
-                find_first_matching_user(user_id),
+                reaction_client.search_user(user_id),
                 user_client.update_user_fields(user_id, username=username)
             )
 
@@ -622,10 +623,12 @@ async def handle_reaction(callback: types.CallbackQuery):
     _, reaction, target_name, target_tg_id = callback.data.split("|", 3)
 
     # получение текста на языке пользователя, добавление реакции в базу
-    texts, _ = await asyncio.gather(
-        get_texts(user_lang),
-        add_reaction(user_id, int(target_tg_id), reaction),
-    )
+    async with ReactionClient() as reaction_client:
+        reaction = Reaction(user_id, int(target_tg_id), reaction)
+        texts, _ = await asyncio.gather(
+            get_texts(user_lang),
+            reaction_client.insert_reaction(reaction)
+        )
     
     await callback.answer(texts["TEXT"]["notifications"][reaction].format(name=target_name)) # уведомление сверху
 
@@ -636,12 +639,12 @@ async def handle_reaction(callback: types.CallbackQuery):
         markup = await reload_search_button(texts)
     
     else:
-
-        # получение первого подходящего собеседника, 
-        target_user, _ = await asyncio.gather(
-            find_first_matching_user(user_id),
-            update_user_fields(user_id, username=username)
-        )
+        # получение первого подходящего собеседника
+        async with UserClient() as user_client, ReactionClient() as reaction_client:
+            target_user, _ = await asyncio.gather(
+                reaction_client.search_user(user_id),
+                user_client.update_user_fields(user_id, username=username)
+            )
 
         if target_user:
             picture = target_user.photo_id

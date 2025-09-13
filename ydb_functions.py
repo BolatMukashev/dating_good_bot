@@ -412,6 +412,66 @@ class UserClient(YDBClient):
             {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)}
         )
 
+    async def search_user(self, telegram_id: int) -> Optional[User]:
+        """
+        Поиск одного пользователя по критериям и возврат объекта User:
+        - 1-й приоритет: страна + город
+        - 2-й приоритет: страна
+        - если не найдено → None
+        - учитываем gender/gender_search (ANY)
+        - исключаем забаненных, без username, тех кому уже ставил реакцию
+        """
+
+        query = f"""
+            DECLARE $telegram_id AS Uint64;
+
+            SELECT u2.telegram_id AS found_id
+            FROM users AS u1
+            INNER JOIN users AS u2
+                ON u1.country = u2.country
+            INNER JOIN user_settings AS s
+                ON u2.telegram_id = s.telegram_id
+            LEFT JOIN reactions AS r
+                ON r.telegram_id = u1.telegram_id
+            AND r.target_tg_id = u2.telegram_id
+            WHERE u1.telegram_id = $telegram_id
+            AND u1.telegram_id != u2.telegram_id
+            AND u2.username IS NOT NULL
+            AND u2.username != ""
+            AND s.banned = false
+            AND r.telegram_id IS NULL
+            AND (
+                (u1.gender = u2.gender_search OR u2.gender_search = 'ANY')
+                AND (u2.gender = u1.gender_search OR u1.gender_search = 'ANY')
+            )
+            ORDER BY
+                CASE WHEN u1.city = u2.city THEN 1 ELSE 2 END,
+                u2.telegram_id  -- вторичная сортировка (например, по id)
+            LIMIT 1;
+
+        """
+
+        result_sets = await self.execute_query(
+            query,
+            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)},
+        )
+
+        found_id = None
+        for result_set in result_sets:
+            for row in result_set.rows:
+                if "found_id" in row:
+                    found_id = int(row["found_id"])
+                    break  # Нашли первый подходящий ID, выходим из циклов
+            if found_id:
+                break
+
+        # Если ID найден, используем get_user_by_id для получения полного объекта
+        if found_id is not None:
+            return await self.get_user_by_id(found_id)
+
+        return None
+
+
     def _row_to_user(self, row) -> User:
         return User(
             telegram_id=row["telegram_id"],
@@ -1304,91 +1364,6 @@ class ReactionClient(YDBClient):
 
         sorted_ids = sorted(set(ids))
         return sorted_ids, len(sorted_ids)
-    
-    async def search_user(self, telegram_id: int) -> Optional[int]:
-        """
-        Поиск одного пользователя по критериям:
-        - 1-й приоритет: страна + город
-        - 2-й приоритет: страна
-        - если не найдено → None
-        - учитываем gender/gender_search (ANY)
-        - исключаем забаненных, без username, тех кому уже ставил реакцию
-        """
-
-        query = f"""
-            DECLARE $telegram_id AS Uint64;
-
-            $baseUser = (
-                SELECT country, city, gender, gender_search
-                FROM users
-                WHERE telegram_id = $telegram_id
-                LIMIT 1
-            );
-
-            SELECT found_id
-            FROM (
-                -- поиск по стране + городу
-                SELECT u2.telegram_id AS found_id, 1 AS priority
-                FROM users AS u1
-                CROSS JOIN $baseUser AS me
-                INNER JOIN users AS u2
-                    ON u1.country = u2.country
-                    AND u1.city = u2.city
-                INNER JOIN user_settings AS s
-                    ON u2.telegram_id = s.telegram_id
-                LEFT JOIN reactions AS r
-                    ON r.telegram_id = u1.telegram_id
-                AND r.target_tg_id = u2.telegram_id
-                WHERE u1.telegram_id = $telegram_id
-                AND u1.telegram_id != u2.telegram_id
-                AND u2.username IS NOT NULL
-                AND u2.username != ""
-                AND s.banned = false
-                AND r.telegram_id IS NULL
-                AND (
-                    (u1.gender = u2.gender_search OR u2.gender_search = 'ANY')
-                    AND (u2.gender = u1.gender_search OR u1.gender_search = 'ANY')
-                )
-
-                UNION ALL
-
-                -- поиск только по стране
-                SELECT u2.telegram_id AS found_id, 2 AS priority
-                FROM users AS u1
-                CROSS JOIN $baseUser AS me
-                INNER JOIN users AS u2
-                    ON u1.country = u2.country
-                INNER JOIN user_settings AS s
-                    ON u2.telegram_id = s.telegram_id
-                LEFT JOIN reactions AS r
-                    ON r.telegram_id = u1.telegram_id
-                AND r.target_tg_id = u2.telegram_id
-                WHERE u1.telegram_id = $telegram_id
-                AND u1.telegram_id != u2.telegram_id
-                AND u2.username IS NOT NULL
-                AND u2.username != ""
-                AND s.banned = false
-                AND r.telegram_id IS NULL
-                AND (
-                    (u1.gender = u2.gender_search OR u2.gender_search = 'ANY')
-                    AND (u2.gender = u1.gender_search OR u1.gender_search = 'ANY')
-                )
-            )
-            ORDER BY priority
-            LIMIT 1;
-        """
-
-        result_sets = await self.execute_query(
-            query,
-            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)},
-        )
-
-        for result_set in result_sets:
-            for row in result_set.rows:
-                if "found_id" in row:
-                    return int(row["found_id"])
-
-        return None
     
     # --- helpers ---
     def _row_to_reaction(self, row) -> Reaction:
