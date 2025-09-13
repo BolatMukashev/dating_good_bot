@@ -631,7 +631,9 @@ async def handle_reaction(callback: types.CallbackQuery):
     await callback.answer(texts["TEXT"]["notifications"][reaction].format(name=target_name)) # уведомление сверху
 
     if not username or username == '':
-        await update_user_fields(user_id, username=None)
+        async with UserClient() as user_client:
+            await user_client.update_user_fields(user_id, username=None)
+
         picture = Pictures.NO_USERNAME_PICTURE.value
         caption = texts['TEXT']["user_profile"]["username_error"]
         markup = await reload_search_button(texts)
@@ -668,7 +670,9 @@ async def btn_reload_search(callback: types.CallbackQuery):
     texts = await get_texts(user_lang)
 
     if not username or username == '':
-        await update_user_fields(user_id, username=None)
+        async with UserClient() as user_client:
+            await user_client.update_user_fields(user_id, username=None)
+
         picture = Pictures.NO_USERNAME_PICTURE.value
         caption = texts['TEXT']["user_profile"]["username_error"]
         markup = await reload_search_button(texts)
@@ -707,7 +711,9 @@ async def query_start__reload_btn_match_menu(callback: types.CallbackQuery):
     texts = await get_texts(user_lang)
 
     if not username or username == '':
-        await update_user_fields(user_id, username=None)
+        async with UserClient() as user_client:
+            await user_client.update_user_fields(user_id, username=None)
+
         picture = Pictures.NO_USERNAME_PICTURE.value
         caption = texts['TEXT']["user_profile"]["username_error"]
         markup = await get_empty_menu_buttons(texts)
@@ -715,14 +721,15 @@ async def query_start__reload_btn_match_menu(callback: types.CallbackQuery):
 
     else:
         # получение языка пользователя, кол-во реакции по категориям
-        results = await asyncio.gather(
-            get_match_targets(user_id),
-            get_collection_targets(user_id),
-            get_intent_targets(user_id, "LOVE"),
-            get_intent_targets(user_id, "SEX"),
-            get_intent_targets(user_id, "CHAT"),
-            update_user_fields(user_id, username=username)
-        )
+        async with UserClient() as user_client, ReactionClient() as reaction_client, PaymentClient() as payment_client:
+            results = await asyncio.gather(
+                reaction_client.get_match_users(user_id),
+                payment_client.get_collection_targets_with_filter(user_id),
+                reaction_client.get_intent_targets(user_id, "LOVE"),
+                reaction_client.get_intent_targets(user_id, "SEX"),
+                reaction_client.get_intent_targets(user_id, "CHAT"),
+                user_client.update_user_fields(user_id, username=username)
+            )
 
         # Распаковка результатов
         (_, match_count), (_, collection_count), (_, love_count), (_, sex_count), (_, chat_count), _ = results
@@ -745,10 +752,11 @@ async def query_matches(callback: types.CallbackQuery):
     user_lang = callback.from_user.language_code
 
     # получение списка совпедений и текста на языке пользователя
-    (target_users_ids, _), texts = await asyncio.gather(
-        get_match_targets(user_id),
-        get_texts(user_lang)
-    )
+    async with ReactionClient() as reaction_client:
+        (target_users_ids, _), texts = await asyncio.gather(
+            reaction_client.get_match_users(user_id),
+            get_texts(user_lang)
+        )
 
     if not target_users_ids:
         photo_id = Pictures.MATCH_NOT_FOUND_PICTURE.value
@@ -758,16 +766,17 @@ async def query_matches(callback: types.CallbackQuery):
         first_id, reaction = next(iter(target_users_ids.items())) #получение первого пользователя и его реакции
 
         # получение инфо о пользователе и id предыдущего и следующего пользователя в списке
-        target_user, (prev_id, next_id) = await asyncio.gather(
-            get_user_by_id(first_id),
-            get_prev_next_ids(first_id, list(target_users_ids.keys()))
-        )
+        async with UserClient() as user_client:
+            target_user, (prev_id, next_id) = await asyncio.gather(
+                user_client.get_user_by_id(first_id),
+                get_prev_next_ids(first_id, list(target_users_ids.keys()))
+            )
 
         photo_id = target_user.photo_id
 
         caption, markup = await asyncio.gather(
             get_caption(target_user, user_lang, reaction),
-            get_match_user(target_user, [prev_id, next_id], texts)
+            get_match_user_btn(target_user, [prev_id, next_id], texts)
         )
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
@@ -788,19 +797,21 @@ async def query_matches_navigation(callback: types.CallbackQuery):
         return
 
     target_id = int(target_id)
-    target_users_ids, _ = await get_match_targets(user_id)
+    async with ReactionClient() as reaction_client:
+        target_users_ids, _ = await reaction_client.get_match_users(user_id)
 
-    target_user, (prev_id, next_id) = await asyncio.gather(
-        get_user_by_id(target_id),
-        get_prev_next_ids(target_id, list(target_users_ids.keys()))
-    )
+    async with UserClient() as user_client:
+        target_user, (prev_id, next_id) = await asyncio.gather(
+            user_client.get_user_by_id(target_id),
+            get_prev_next_ids(target_id, list(target_users_ids.keys()))
+        )
 
     reaction = target_users_ids[target_id]
     photo_id = target_user.photo_id
 
     caption, markup = await asyncio.gather(
         get_caption(target_user, user_lang, reaction),
-        get_match_user(target_user, [prev_id, next_id], texts)
+        get_match_user_btn(target_user, [prev_id, next_id], texts)
     )
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
@@ -816,8 +827,10 @@ async def query_skip_user(callback: types.CallbackQuery):
 
     _, reaction, target_id, chosen_id = callback.data.split("|", 3)
 
-    target_id = int(target_id)
-    await add_reaction(user_id, target_id, ReactionType.SKIP.value)
+    async with ReactionClient() as reaction_client:
+        new_reaction = Reaction(user_id, int(target_id), ReactionType.SKIP.value)
+        await reaction_client.insert_reaction(new_reaction)
+
     await callback.answer(texts['TEXT']["notifications"]["delete"]) # уведомление сверху
 
     if reaction == "MATCH":
@@ -828,19 +841,21 @@ async def query_skip_user(callback: types.CallbackQuery):
             markup = await empty_category_buttons(texts)
         else:
             chosen_id = int(chosen_id)
-            target_users_ids, _ = await get_match_targets(user_id)
+            async with ReactionClient() as reaction_client:
+                target_users_ids, _ = await reaction_client.get_match_users(user_id)
 
-            target_user, (prev_id, next_id) = await asyncio.gather(
-                get_user_by_id(chosen_id),
-                get_prev_next_ids(chosen_id, list(target_users_ids.keys()))
-            )
+            async with UserClient() as client:
+                target_user, (prev_id, next_id) = await asyncio.gather(
+                    client.get_user_by_id(chosen_id),
+                    get_prev_next_ids(chosen_id, list(target_users_ids.keys()))
+                )
 
             reaction = target_users_ids[chosen_id]
             photo_id = target_user.photo_id
 
             caption, markup = await asyncio.gather(
                 get_caption(target_user, user_lang, reaction),
-                get_match_user(target_user, [prev_id, next_id], texts)
+                get_match_user_btn(target_user, [prev_id, next_id], texts)
             )
 
         await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
@@ -853,16 +868,20 @@ async def query_skip_user(callback: types.CallbackQuery):
             markup = await empty_category_buttons(texts)
         else:
             chosen_id = int(chosen_id)
-            target_users_ids, _ = await get_intent_targets(user_id, reaction)
-            target_user, (prev_id, next_id) = await asyncio.gather(
-                get_user_by_id(chosen_id),
-                get_prev_next_ids(chosen_id, target_users_ids)
-            )
+            async with ReactionClient() as reaction_client:
+                target_users_ids, _ = await reaction_client.get_intent_targets(user_id, reaction)
+
+            async with UserClient() as client:    
+                target_user, (prev_id, next_id) = await asyncio.gather(
+                    client.get_user_by_id(chosen_id),
+                    get_prev_next_ids(chosen_id, target_users_ids)
+                )
+
             photo_id = target_user.photo_id
             amount = (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
             caption, markup = await asyncio.gather(
                 get_caption(target_user),
-                get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
+                get_intention_user_btn(target_user, [prev_id, next_id], reaction, amount, texts)
             )
 
         await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
@@ -885,10 +904,11 @@ async def query_collection(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
 
-    texts, (target_users_ids, _) = await asyncio.gather(
-        get_texts(user_lang),
-        get_collection_targets(user_id)
-    )
+    async with PaymentClient() as payment_client:
+        texts, (target_users_ids, _) = await asyncio.gather(
+            get_texts(user_lang),
+            payment_client.get_collection_targets_with_filter(user_id)
+        )
 
     if not target_users_ids:
         photo_id = Pictures.COLLECTION_NOT_FOUND_PICTURE.value
@@ -896,16 +916,17 @@ async def query_collection(callback: types.CallbackQuery):
         markup = await empty_category_buttons(texts)
 
     else:
-        target_user, (prev_id, next_id) = await asyncio.gather(
-            get_user_by_id(target_users_ids[0]),
-            get_prev_next_ids(target_users_ids[0], target_users_ids)
-        )
+        async with UserClient() as client:
+            target_user, (prev_id, next_id) = await asyncio.gather(
+                client.get_user_by_id(target_users_ids[0]),
+                get_prev_next_ids(target_users_ids[0], target_users_ids)
+            )
 
         photo_id = target_user.photo_id
 
         caption, markup = await asyncio.gather(
             get_caption(target_user),
-            get_collection_user(target_user, [prev_id, next_id], texts)
+            get_collection_user_btn(target_user, [prev_id, next_id], texts)
         )
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
@@ -927,16 +948,18 @@ async def query_collection_navigation(callback: types.CallbackQuery):
         return
 
     target_id = int(target_id)
-    target_users_ids, _ = await get_collection_targets(user_id)
+    async with PaymentClient() as payment_client:
+        target_users_ids, _ = await payment_client.get_collection_targets_with_filter(user_id)
 
-    target_user, (prev_id, next_id) = await asyncio.gather(
-        get_user_by_id(target_id),
-        get_prev_next_ids(target_id, target_users_ids)
-    )
+    async with UserClient() as client:
+        target_user, (prev_id, next_id) = await asyncio.gather(
+            client.get_user_by_id(target_id),
+            get_prev_next_ids(target_id, target_users_ids)
+        )
 
     caption, markup = await asyncio.gather(
         get_caption(target_user),
-        get_collection_user(target_user, [prev_id, next_id], texts)
+        get_collection_user_btn(target_user, [prev_id, next_id], texts)
     )
 
     await callback.message.edit_media(media=InputMediaPhoto(media=target_user.photo_id, caption=caption),
@@ -954,25 +977,28 @@ async def handle_who_wants(callback: types.CallbackQuery):
     
     _, reaction = callback.data.split("|", 1)
 
-    (target_users_ids, _), texts = await asyncio.gather(
-        get_intent_targets(user_id, reaction), 
-        get_texts(user_lang)
-    )
+    async with ReactionClient() as reaction_client:
+        (target_users_ids, _), texts = await asyncio.gather(
+            reaction_client.get_intent_targets(user_id, reaction), 
+            get_texts(user_lang)
+        )
 
     if not target_users_ids:
         photo_id = Pictures.get_not_found_picture(reaction)
         caption = texts['TEXT']['match_menu']['empty'][reaction]
         markup = await empty_category_buttons(texts)
     else:
-        target_user, (prev_id, next_id) = await asyncio.gather(
-            get_user_by_id(target_users_ids[0]),
-            get_prev_next_ids(target_users_ids[0], target_users_ids)
-        )
+        async with UserClient() as client:
+            target_user, (prev_id, next_id) = await asyncio.gather(
+                client.get_user_by_id(target_users_ids[0]),
+                get_prev_next_ids(target_users_ids[0], target_users_ids)
+            )
+
         photo_id = target_user.photo_id
         amount = (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
         caption, markup = await asyncio.gather(
             get_caption(target_user),
-            get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
+            get_intention_user_btn(target_user, [prev_id, next_id], reaction, amount, texts)
         )
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
@@ -993,17 +1019,19 @@ async def query_wants_navigation(callback: types.CallbackQuery):
         return
 
     target_id = int(target_id)
-    target_users_ids, _ = await get_intent_targets(user_id, reaction)
+    async with ReactionClient() as reaction_client:
+        target_users_ids, _ = await reaction_client.get_intent_targets(user_id, reaction)
 
-    target_user, (prev_id, next_id) = await asyncio.gather(
-        get_user_by_id(target_id),
-        get_prev_next_ids(target_id, target_users_ids)
-    )
+    async with UserClient() as client:
+        target_user, (prev_id, next_id) = await asyncio.gather(
+            client.get_user_by_id(target_id),
+            get_prev_next_ids(target_id, target_users_ids)
+        )
 
     amount = (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
     caption, markup = await asyncio.gather(
         get_caption(target_user),
-        get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
+        get_intention_user_btn(target_user, [prev_id, next_id], reaction, amount, texts)
     )
 
     await callback.message.edit_media(media=InputMediaPhoto(media=target_user.photo_id, caption=caption),
@@ -1020,10 +1048,12 @@ async def handle_intentions_pay(callback: types.CallbackQuery):
     target_id = int(target_id)
     amount = int(amount_str)
 
-    target_user, texts = await asyncio.gather(
-        get_user_by_id(target_id),
-        get_texts(user_lang)
-    )
+    async with UserClient() as client:
+        target_user, texts = await asyncio.gather(
+            client.get_user_by_id(target_id),
+            get_texts(user_lang)
+        )
+
     try:
         target_username = await check_username_relevance(bot, target_user.telegram_id)
     except Exception as e:
@@ -1037,10 +1067,11 @@ async def handle_intentions_pay(callback: types.CallbackQuery):
 
         prices = [LabeledPrice(label=label, amount=amount)] #🏆 💫 ⭐ Избранное
 
-        cached_messages, _ = await asyncio.gather(
-            get_cached_messages_ids(user_id),
-            update_user_fields(target_user.telegram_id, username = target_username)
-        )
+        async with CacheClient() as cache_client, UserClient() as user_client:
+            cached_messages, _ = await asyncio.gather(
+                cache_client.get_cache_by_telegram_id(user_id),
+                user_client.update_user_fields(target_user.telegram_id, first_name = target_user.first_name, username = target_username)
+            )
 
         pay_message_id = cached_messages.get('collection_pay_message_id')
         if pay_message_id:
@@ -1060,32 +1091,37 @@ async def handle_intentions_pay(callback: types.CallbackQuery):
         )
 
         # сохраняем в Кэш
-        await save_to_cache(callback.from_user.id, "collection_pay_message_id", message_id = sent_invoice.message_id)
+        async with CacheClient() as cache_client:
+           new_cache = Cache(user_id, "collection_pay_message_id", sent_invoice.message_id)
+           await cache_client.insert_cache(new_cache)
+
         await callback.answer(texts["TEXT"]["notifications"]["payment_sent"])
 
     else:
         # получение списка пользователей по реакции, обновление инфо о пользователе
-        (target_users_ids, _), _ = await asyncio.gather(
-            get_intent_targets(user_id, reaction),
-            update_user_fields(target_user.telegram_id, username = None)
-        )
+        async with ReactionClient() as reaction_client, UserClient() as user_client:
+            (target_users_ids, _), _ = await asyncio.gather(
+                reaction_client.get_intent_targets(user_id, reaction),
+                user_client.update_user_fields(target_user.telegram_id, username = None)
+            )
         
         if not target_users_ids:
             photo_id = Pictures.get_not_found_picture(reaction)
             caption = texts['TEXT']['match_menu']['empty'][reaction]
             markup = await empty_category_buttons(texts)
         else:
-            target_user, (prev_id, next_id) = await asyncio.gather(
-                get_user_by_id(target_users_ids[0]),
-                get_prev_next_ids(target_users_ids[0], target_users_ids)
-            )
+            async with UserClient() as client:
+                target_user, (prev_id, next_id) = await asyncio.gather(
+                    client.get_user_by_id(target_users_ids[0]),
+                    get_prev_next_ids(target_users_ids[0], target_users_ids)
+                )
 
             photo_id = target_user.photo_id
 
             amount = (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
             caption, markup = await asyncio.gather(
                 get_caption(target_user),
-                get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
+                get_intention_user_btn(target_user, [prev_id, next_id], reaction, amount, texts)
             )
         
         await callback.message.edit_media(media=types.InputMediaPhoto(media=photo_id, caption=caption),
@@ -1128,8 +1164,8 @@ async def on_successful_payment(message: types.Message):
             await payment_client.insert_payment(new_payment)
 
         # получение списка пользователей из коллекции, получение id сообщений, добавление платежа в бд
-        # ///////////////////////////// 000000000
-        target_users_ids, _,  = await get_intent_targets(user_id, reaction)
+        async with ReactionClient() as reaction_client:
+            target_users_ids, _,  = await reaction_client.get_intent_targets(user_id, reaction)
 
         if not target_users_ids:
             photo_id = Pictures.get_not_found_picture(reaction)
@@ -1147,8 +1183,8 @@ async def on_successful_payment(message: types.Message):
             amount = (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
             caption, markup = await asyncio.gather(
                 get_caption(target_user),
-                get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
-            ) #/////////////////////////////////////////
+                get_intention_user_btn(target_user, [prev_id, next_id], reaction, amount, texts)
+            )
 
         await bot.edit_message_media(chat_id=message.chat.id,
                                      message_id=cached_messages.get("match_menu_message_id"),
@@ -1164,12 +1200,11 @@ async def on_successful_payment(message: types.Message):
         _, amount = payload.split("|")
         
         # добавление инфо о платеже в базу, обновление статусов у пользователя, удаление кэша
-        async with PaymentClient() as payment_client, UserSettingsClient() as user_client, CacheClient() as cache_client:
+        async with PaymentClient() as payment_client, UserSettingsClient() as user_settings_client:
             new_payment = Payment(user_id, int(amount), PaymentType.INCOGNITO.value)
             await asyncio.gather(
                 payment_client.insert_payment(new_payment),
-                user_client.update_user_settings_fields(user_id, incognito_pay=True, incognito_switch=True),
-                
+                user_settings_client.update_user_settings_fields(user_id, incognito_pay=True, incognito_switch=True)
             )
 
         # изменение стартового сообщения

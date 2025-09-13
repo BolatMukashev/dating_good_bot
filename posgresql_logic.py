@@ -735,7 +735,7 @@ async def query_matches(callback: types.CallbackQuery):
 
         caption, markup = await asyncio.gather(
             get_caption(target_user, user_lang, reaction),
-            get_match_user(target_user, [prev_id, next_id], texts)
+            get_match_user_btn(target_user, [prev_id, next_id], texts)
         )
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
@@ -768,7 +768,7 @@ async def query_matches_navigation(callback: types.CallbackQuery):
 
     caption, markup = await asyncio.gather(
         get_caption(target_user, user_lang, reaction),
-        get_match_user(target_user, [prev_id, next_id], texts)
+        get_match_user_btn(target_user, [prev_id, next_id], texts)
     )
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
@@ -808,7 +808,7 @@ async def query_skip_user(callback: types.CallbackQuery):
 
             caption, markup = await asyncio.gather(
                 get_caption(target_user, user_lang, reaction),
-                get_match_user(target_user, [prev_id, next_id], texts)
+                get_match_user_btn(target_user, [prev_id, next_id], texts)
             )
 
         await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
@@ -830,7 +830,7 @@ async def query_skip_user(callback: types.CallbackQuery):
             amount = (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
             caption, markup = await asyncio.gather(
                 get_caption(target_user),
-                get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
+                get_intention_user_btn(target_user, [prev_id, next_id], reaction, amount, texts)
             )
 
         await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
@@ -873,7 +873,7 @@ async def query_collection(callback: types.CallbackQuery):
 
         caption, markup = await asyncio.gather(
             get_caption(target_user),
-            get_collection_user(target_user, [prev_id, next_id], texts)
+            get_collection_user_btn(target_user, [prev_id, next_id], texts)
         )
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
@@ -904,7 +904,7 @@ async def query_collection_navigation(callback: types.CallbackQuery):
 
     caption, markup = await asyncio.gather(
         get_caption(target_user),
-        get_collection_user(target_user, [prev_id, next_id], texts)
+        get_collection_user_btn(target_user, [prev_id, next_id], texts)
     )
 
     await callback.message.edit_media(media=InputMediaPhoto(media=target_user.photo_id, caption=caption),
@@ -940,7 +940,7 @@ async def handle_who_wants(callback: types.CallbackQuery):
         amount = (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
         caption, markup = await asyncio.gather(
             get_caption(target_user),
-            get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
+            get_intention_user_btn(target_user, [prev_id, next_id], reaction, amount, texts)
         )
 
     await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
@@ -971,7 +971,7 @@ async def query_wants_navigation(callback: types.CallbackQuery):
     amount = (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
     caption, markup = await asyncio.gather(
         get_caption(target_user),
-        get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
+        get_intention_user_btn(target_user, [prev_id, next_id], reaction, amount, texts)
     )
 
     await callback.message.edit_media(media=InputMediaPhoto(media=target_user.photo_id, caption=caption),
@@ -1053,7 +1053,7 @@ async def handle_intentions_pay(callback: types.CallbackQuery):
             amount = (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
             caption, markup = await asyncio.gather(
                 get_caption(target_user),
-                get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
+                get_intention_user_btn(target_user, [prev_id, next_id], reaction, amount, texts)
             )
         
         await callback.message.edit_media(media=types.InputMediaPhoto(media=photo_id, caption=caption),
@@ -1111,7 +1111,7 @@ async def on_successful_payment(message: types.Message):
             amount = (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
             caption, markup = await asyncio.gather(
                 get_caption(target_user),
-                get_intention_user(target_user, [prev_id, next_id], reaction, amount, texts)
+                get_intention_user_btn(target_user, [prev_id, next_id], reaction, amount, texts)
             )
 
         await bot.edit_message_media(chat_id=message.chat.id,

@@ -9,8 +9,8 @@ from postgresql_functions import pick_id
 __all__ = ['get_approval_button',
            'get_btn_to_search',
            'get_matches_menu_buttons',
-           'get_intention_user',
-           'get_match_user',
+           'get_intention_user_btn',
+           'get_match_user_btn',
            'get_gender_buttons',
            'get_gender_search_buttons',
            'get_profile_edit_buttons',
@@ -21,7 +21,7 @@ __all__ = ['get_approval_button',
            'payment_keyboard',
            'reload_search_button',
            'empty_category_buttons',
-           'get_collection_user',
+           'get_collection_user_btn',
            'get_empty_menu_buttons',
            'test_button']
 
@@ -96,7 +96,7 @@ async def empty_category_buttons(texts: dict):
     return markup
 
 
-async def get_intention_user(user: User, ids: list, reaction: ReactionType, amount: int, texts: dict):
+async def get_intention_user_btn(user: User, ids: list, reaction: ReactionType, amount: int, texts: dict):
     # получить кнопки для 
     chosen, back_id, next_id = await pick_id(ids)
 
@@ -111,7 +111,7 @@ async def get_intention_user(user: User, ids: list, reaction: ReactionType, amou
     return markup
 
 
-async def get_match_user(user: User, ids: list, texts: dict):
+async def get_match_user_btn(user: User, ids: list, texts: dict):
     # получить кнопки для 
     chosen, back_id, next_id = await pick_id(ids)
 
@@ -126,7 +126,7 @@ async def get_match_user(user: User, ids: list, texts: dict):
     return markup
 
 
-async def get_collection_user(user: User, ids: list, texts: dict):
+async def get_collection_user_btn(user: User, ids: list, texts: dict):
     # получить кнопки для 
     _, back_id, next_id = await pick_id(ids)
 
