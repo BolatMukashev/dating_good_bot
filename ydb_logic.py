@@ -585,10 +585,11 @@ async def btn_start_search(callback: types.CallbackQuery):
         notification = texts['TEXT']["notifications"]["not_username"]
     
     else:
-        target_user, _ = await asyncio.gather(
-            find_first_matching_user(user_id),
-            update_user_fields(user_id, username=username)
-        )
+        async with UserClient() as user_client:
+            target_user, _ = await asyncio.gather(
+                find_first_matching_user(user_id),
+                user_client.update_user_fields(user_id, username=username)
+            )
 
         if target_user:
             picture = target_user.photo_id

@@ -666,6 +666,128 @@ class FullUserClient:
         self.user_client = UserClient(endpoint, database, token)
         self.settings_client = UserSettingsClient(endpoint, database, token)
     
+    async def find_first_matching_user(self, current_user_id: int) -> Optional[FullUser]:
+        """
+        Найти первого подходящего пользователя для знакомств используя упрощенную логику
+        """
+        # По данные текущего пользователя
+        current_user = await self.get_full_user_by_id(current_user_id)
+        if not current_user:
+            return None
+        
+        # Получаем список исключений (пользователи, на которых уже реагировал)
+        reacted_users_query = """
+            DECLARE $current_user_id AS Uint64;
+            
+            SELECT DISTINCT target_tg_id
+            FROM reactions
+            WHERE telegram_id = $current_user_id;
+        """
+        
+        reacted_result = await self.user_client.execute_query(
+            reacted_users_query,
+            {"$current_user_id": (current_user_id, ydb.PrimitiveType.Uint64)}
+        )
+        
+        reacted_users = {row["target_tg_id"] for row in reacted_result[0].rows}
+        
+        # Получаем список пользователей в коллекции (оплаченных)
+        collection_users_query = """
+            DECLARE $current_user_id AS Uint64;
+            
+            SELECT DISTINCT target_tg_id
+            FROM payments
+            WHERE telegram_id = $current_user_id AND target_tg_id IS NOT NULL;
+        """
+        
+        collection_result = await self.user_client.execute_query(
+            collection_users_query,
+            {"$current_user_id": (current_user_id, ydb.PrimitiveType.Uint64)}
+        )
+        
+        collection_users = {row["target_tg_id"] for row in collection_result[0].rows if row["target_tg_id"]}
+        
+        # Объединяем исключения
+        excluded_users = reacted_users.union(collection_users)
+        excluded_users.add(current_user_id)
+        
+        # Формируем условие исключения для SQL
+        if excluded_users:
+            excluded_ids_str = ", ".join(str(uid) for uid in excluded_users)
+            exclusion_condition = f"AND u.telegram_id NOT IN ({excluded_ids_str})"
+        else:
+            exclusion_condition = ""
+        
+        # Формируем условия по полу
+        gender_conditions = []
+        
+        # Кого ты ищешь
+        if current_user.gender_search and current_user.gender_search != "ANY":
+            gender_conditions.append(f"AND u.gender = '{current_user.gender_search}'")
+        
+        # Подходишь ли ты им
+        if current_user.gender and current_user.gender != "ANY":
+            gender_conditions.append(f"AND (u.gender_search = '{current_user.gender}' OR u.gender_search = 'ANY' OR u.gender_search IS NULL)")
+        else:
+            gender_conditions.append("AND (u.gender_search = 'ANY' OR u.gender_search IS NULL)")
+        
+        gender_condition = " ".join(gender_conditions)
+        
+        # Шаг 1: Поиск в том же городе и стране
+        if current_user.city and current_user.country:
+            city_query = f"""
+                SELECT u.telegram_id
+                FROM users AS u
+                INNER JOIN user_settings AS s ON u.telegram_id = s.telegram_id
+                WHERE u.username IS NOT NULL
+                    AND u.username != ""
+                    AND u.photo_id IS NOT NULL  
+                    AND u.photo_id != ""
+                    AND u.about_me IS NOT NULL
+                    AND u.about_me != ""
+                    AND s.incognito_switch = false
+                    AND s.banned = false
+                    AND u.city = '{current_user.city}'
+                    AND u.country = '{current_user.country}'
+                    {gender_condition}
+                    {exclusion_condition}
+                LIMIT 1;
+            """
+            
+            city_result = await self.user_client.execute_query(city_query)
+            
+            if city_result[0].rows:
+                found_user_id = city_result[0].rows[0]["telegram_id"]
+                return await self.get_full_user_by_id(found_user_id)
+
+        # Шаг 2: Поиск в той же стране
+        if current_user.country:
+            country_query = f"""
+                SELECT u.telegram_id
+                FROM users AS u
+                INNER JOIN user_settings AS s ON u.telegram_id = s.telegram_id
+                WHERE u.username IS NOT NULL
+                    AND u.username != ""
+                    AND u.photo_id IS NOT NULL
+                    AND u.photo_id != ""  
+                    AND u.about_me IS NOT NULL
+                    AND u.about_me != ""
+                    AND s.incognito_switch = false
+                    AND s.banned = false
+                    AND u.country = '{current_user.country}'
+                    {gender_condition}
+                    {exclusion_condition}
+                LIMIT 1;
+            """
+            
+            country_result = await self.user_client.execute_query(country_query)
+            
+            if country_result[0].rows:
+                found_user_id = country_result[0].rows[0]["telegram_id"]
+                return await self.get_full_user_by_id(found_user_id)
+
+        return None
+    
     async def __aenter__(self):
         """Async context manager entry"""
         await self.user_client.connect()
@@ -1182,6 +1304,91 @@ class ReactionClient(YDBClient):
 
         sorted_ids = sorted(set(ids))
         return sorted_ids, len(sorted_ids)
+    
+    async def search_user(self, telegram_id: int) -> Optional[int]:
+        """
+        Поиск одного пользователя по критериям:
+        - 1-й приоритет: страна + город
+        - 2-й приоритет: страна
+        - если не найдено → None
+        - учитываем gender/gender_search (ANY)
+        - исключаем забаненных, без username, тех кому уже ставил реакцию
+        """
+
+        query = f"""
+            DECLARE $telegram_id AS Uint64;
+
+            $baseUser = (
+                SELECT country, city, gender, gender_search
+                FROM users
+                WHERE telegram_id = $telegram_id
+                LIMIT 1
+            );
+
+            SELECT found_id
+            FROM (
+                -- поиск по стране + городу
+                SELECT u2.telegram_id AS found_id, 1 AS priority
+                FROM users AS u1
+                CROSS JOIN $baseUser AS me
+                INNER JOIN users AS u2
+                    ON u1.country = u2.country
+                    AND u1.city = u2.city
+                INNER JOIN user_settings AS s
+                    ON u2.telegram_id = s.telegram_id
+                LEFT JOIN reactions AS r
+                    ON r.telegram_id = u1.telegram_id
+                AND r.target_tg_id = u2.telegram_id
+                WHERE u1.telegram_id = $telegram_id
+                AND u1.telegram_id != u2.telegram_id
+                AND u2.username IS NOT NULL
+                AND u2.username != ""
+                AND s.banned = false
+                AND r.telegram_id IS NULL
+                AND (
+                    (u1.gender = u2.gender_search OR u2.gender_search = 'ANY')
+                    AND (u2.gender = u1.gender_search OR u1.gender_search = 'ANY')
+                )
+
+                UNION ALL
+
+                -- поиск только по стране
+                SELECT u2.telegram_id AS found_id, 2 AS priority
+                FROM users AS u1
+                CROSS JOIN $baseUser AS me
+                INNER JOIN users AS u2
+                    ON u1.country = u2.country
+                INNER JOIN user_settings AS s
+                    ON u2.telegram_id = s.telegram_id
+                LEFT JOIN reactions AS r
+                    ON r.telegram_id = u1.telegram_id
+                AND r.target_tg_id = u2.telegram_id
+                WHERE u1.telegram_id = $telegram_id
+                AND u1.telegram_id != u2.telegram_id
+                AND u2.username IS NOT NULL
+                AND u2.username != ""
+                AND s.banned = false
+                AND r.telegram_id IS NULL
+                AND (
+                    (u1.gender = u2.gender_search OR u2.gender_search = 'ANY')
+                    AND (u2.gender = u1.gender_search OR u1.gender_search = 'ANY')
+                )
+            )
+            ORDER BY priority
+            LIMIT 1;
+        """
+
+        result_sets = await self.execute_query(
+            query,
+            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)},
+        )
+
+        for result_set in result_sets:
+            for row in result_set.rows:
+                if "found_id" in row:
+                    return int(row["found_id"])
+
+        return None
     
     # --- helpers ---
     def _row_to_reaction(self, row) -> Reaction:

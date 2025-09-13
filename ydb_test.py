@@ -276,12 +276,19 @@ async def user_add_test():
 
 
 async def search_test(user_id):
-    async with SearchClient() as search_client:
-        match = await search_client.find_first_matching_user(user_id)
-        if match:
-            print(f"Найден пользователь: {match.username}")
-        else:
-            print("Подходящих пользователей не найдено")
+    # await add_new_fake_user(1111, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти ✅")
+    # await add_new_fake_user(2222, Gender.WOMAN, Gender.ANY, about_me = "Ты должен меня найти ✅")
+    # await add_new_fake_user(3333, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти, но не сразу ✅", random_city=True)
+    # await add_new_fake_user(4444, Gender.MAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    # await add_new_fake_user(5555, Gender.MAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    # await add_new_fake_user(6666, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌", username=None)
+    # await add_new_fake_user(7777, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌", random_country=True)
+
+    await reactiontest(ADMIN_ID, 3333, ReactionType.SKIP.value)
+
+    async with ReactionClient() as client:
+        res = await client.search_user(user_id)
+        print(res)
 
 
 async def payment_test2():
@@ -289,18 +296,22 @@ async def payment_test2():
         res = await client.get_collection_targets_with_filter(ADMIN_ID)
         print(f"Final result: {res}")
 
+
 async def testtest():
     async with UserClient() as client, UserSettingsClient() as settings_client:
         await client.update_user_fields(2222, username="sadas")
 
-async def reactiontest():
-    async with ReactionClient() as client:
-        reaction1 = Reaction(1111, ADMIN_ID, ReactionType.SKIP.value)
-        # reaction1 = Reaction(ADMIN_ID, 1111, ReactionType.LOVE.value)
 
+async def reactiontest(user_id, target_id, reaction_type: ReactionType):
+    async with ReactionClient() as client:
+        reaction1 = Reaction(user_id, target_id, reaction_type)
+        # reaction1 = Reaction(ADMIN_ID, 1111, ReactionType.LOVE.value)
         await client.insert_reaction(reaction1)
 
+
 if __name__ == "__main__":
-    # asyncio.run(payment_test2())
-    asyncio.run(example_reaction_usage(ADMIN_ID, ReactionType.LOVE.value))
+    # asyncio.run(reset_database())
+    # asyncio.run(reactiontest(ADMIN_ID, 3333, ReactionType.LOVE.value))
+    asyncio.run(search_test(ADMIN_ID))
+    # asyncio.run(example_reaction_usage(ADMIN_ID, ReactionType.LOVE.value))
 
