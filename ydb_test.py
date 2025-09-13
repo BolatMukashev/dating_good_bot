@@ -276,19 +276,19 @@ async def user_add_test():
 
 
 async def search_test(user_id, first_name, username):
-    # await add_new_fake_user(1111, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти ✅")
-    # await add_new_fake_user(2222, Gender.WOMAN, Gender.ANY, about_me = "Ты должен меня найти ✅")
-    # await add_new_fake_user(3333, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти, но не сразу ✅", random_city=True)
-    # await add_new_fake_user(4444, Gender.MAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
-    # await add_new_fake_user(5555, Gender.MAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
-    # await add_new_fake_user(6666, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌", username=None)
-    # await add_new_fake_user(7777, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌", random_country=True)
+    await add_new_fake_user(1111, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(2222, Gender.WOMAN, Gender.ANY, about_me = "Ты должен меня найти ✅")
+    await add_new_fake_user(3333, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти, но не сразу ✅", random_city=True)
+    await add_new_fake_user(4444, Gender.MAN, Gender.WOMAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(5555, Gender.MAN, Gender.MAN, about_me = "Ты не должен меня найти ❌")
+    await add_new_fake_user(6666, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌", username=None)
+    await add_new_fake_user(7777, Gender.WOMAN, Gender.MAN, about_me = "Ты не должен меня найти ❌", random_country=True)
 
-    await reactiontest(ADMIN_ID, 3333, ReactionType.SKIP.value)
+    # await reactiontest(ADMIN_ID, 3333, ReactionType.SKIP.value)
 
-    async with UserClient() as client:
-        res = await client.search_user(user_id, first_name, username)
-        print(res)
+    # async with UserClient() as client:
+    #     res = await client.search_user(user_id, first_name, username)
+    #     print(res)
 
 
 async def payment_test2():
