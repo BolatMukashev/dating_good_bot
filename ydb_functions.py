@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 # yc iam create-token   (12 часов действует)
 # ngrok http 127.0.0.1:8080 - поднять webhood локально на 8080 порту
+# пропускная способность базы - 50 запросов/секунду сейчас
 
 
 __all__ = ['User',
@@ -1105,24 +1106,7 @@ class PaymentClient(YDBClient):
             """,
             self._to_params(payment)
         )
-
-    async def get_collection_targets(self, telegram_id: int) -> tuple[list[int], int]:
-            query = f"""
-                SELECT target_tg_id
-                FROM `{self.table_name}`
-                WHERE telegram_id = {telegram_id}
-                AND target_tg_id IS NOT NULL
-            """
-            result_sets = await self.execute_query(query)
-
-            targets = []
-            for result_set in result_sets:
-                for row in result_set.rows:
-                    if row.target_tg_id is not None:
-                        targets.append(int(row.target_tg_id))
-
-            return sorted(targets), len(targets)
-    
+   
     async def get_collection_targets_with_filter(self, telegram_id: int) -> tuple[list[int], int]:
         """
         как get_collection_targets но исключает из поиска:
@@ -1298,9 +1282,9 @@ class ReactionClient(YDBClient):
         """
         Найти тех, кто поставил МНЕ указанную реакцию,
         исключая:
-        - тех, кому Я уже ответил той же реакцией
+        - тех, кому Я уже ответил той же реакцией (MATCH)
         - тех, кого Я пропустил (SKIP)
-        - тех, кого Я оплатил (payments)
+        - тех, кого Я оплатил (запись в payments)
         - забаненных
         - пользователей без username
         """
@@ -1328,7 +1312,21 @@ class ReactionClient(YDBClient):
                 WHERE telegram_id = $user_id AND reaction = $intent
             ) AS mutual
             ON main.telegram_id = mutual.target_tg_id
-            WHERE mutual.target_tg_id IS NULL;
+            LEFT JOIN (
+                SELECT target_tg_id
+                FROM payments 
+                WHERE telegram_id = $user_id
+            ) AS paid
+            ON main.telegram_id = paid.target_tg_id
+            LEFT JOIN (
+                SELECT target_tg_id
+                FROM reactions 
+                WHERE telegram_id = $user_id AND reaction = "SKIP"
+            ) AS skipped
+            ON main.telegram_id = skipped.target_tg_id
+            WHERE mutual.target_tg_id IS NULL
+            AND paid.target_tg_id IS NULL
+            AND skipped.target_tg_id IS NULL;
             """
 
         result_sets = await self.execute_query(
