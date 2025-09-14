@@ -27,7 +27,7 @@ __all__ = ['User',
            'ReactionType',
            'Reaction',
            'ReactionClient',
-           'SearchClient'
+           'YDBClient'
            ]
 
 
@@ -156,6 +156,25 @@ class YDBClient:
         """
         self._ensure_connected()
         return await self.pool.execute_with_retries(query, params)
+    
+    async def clear_all_tables(self):
+        """Удаляет все записи во всех таблицах"""
+        self._ensure_connected()
+
+        tables = [
+            "users",
+            "user_settings",
+            "payments",
+            "cache",
+            "reactions"
+        ]
+
+        for table in tables:
+            try:
+                await self.execute_query(f"DELETE FROM `{table}`;")
+                print(f"Таблица {table} очищена.")
+            except Exception as e:
+                print(f"Ошибка при очистке {table}: {e}")
 
 
 # ------------------------------------------------------------ АНКЕТА -----------------------------------------------------------
@@ -1034,8 +1053,8 @@ class Payment:
     telegram_id: int
     amount: int
     payment_type: str
-    id: Optional[int] = None
     target_tg_id: Optional[int] = None
+    id: Optional[int] = None
     created_at: Optional[int] = None  # Храним как timestamp (секунды с эпохи)
 
 
@@ -1286,25 +1305,30 @@ class ReactionClient(YDBClient):
         - пользователей без username
         """
         query = f"""
-               DECLARE $user_id AS Uint64;
-                DECLARE $intent AS Utf8;
+            DECLARE $user_id AS Uint64;
+            DECLARE $intent AS Utf8;
 
+            SELECT main.telegram_id AS telegram_id,
+                main.reaction AS reaction
+            FROM (
                 SELECT r.telegram_id AS telegram_id,
-                r.reaction AS reaction
+                    r.reaction AS reaction
                 FROM reactions AS r
-
-                INNER JOIN users AS u
-                ON r.telegram_id = u.telegram_id
-
-                INNER JOIN user_settings AS s
-                ON r.telegram_id = s.telegram_id
-
+                INNER JOIN users AS u ON r.telegram_id = u.telegram_id
+                INNER JOIN user_settings AS s ON r.telegram_id = s.telegram_id
                 WHERE r.target_tg_id = $user_id
                 AND r.reaction = $intent
                 AND u.username IS NOT NULL
                 AND u.username != ""
-                AND s.banned = false;
-
+                AND s.banned = false
+            ) AS main
+            LEFT JOIN (
+                SELECT telegram_id, target_tg_id
+                FROM reactions 
+                WHERE telegram_id = $user_id AND reaction = $intent
+            ) AS mutual
+            ON main.telegram_id = mutual.target_tg_id
+            WHERE mutual.target_tg_id IS NULL;
             """
 
         result_sets = await self.execute_query(
@@ -1324,12 +1348,10 @@ class ReactionClient(YDBClient):
         sorted_ids = sorted(set(ids))
         return sorted_ids, len(sorted_ids)
     
-    async def get_match_users(self, telegram_id: int) -> tuple[List[int], int]:
+    async def get_match_users(self, telegram_id: int) -> tuple[dict[int, str], int]:
         """
         Найти пользователей, которые поставили такую же реакцию, что и наш пользователь им.
-        То есть взаимные реакции: если пользователь A поставил реакцию X пользователю B,
-        и пользователь B поставил реакцию X пользователю A.
-        
+        Возвращает словарь: {matched_user_id: reaction}.
         Исключаем:
         - забаненных пользователей
         - пользователей без username
@@ -1338,7 +1360,8 @@ class ReactionClient(YDBClient):
             DECLARE $telegram_id AS Uint64;
 
             SELECT DISTINCT 
-                r2.telegram_id AS matched_user_id
+                r2.telegram_id AS matched_user_id,
+                r1.reaction AS reaction
             FROM reactions AS r1
             
             INNER JOIN reactions AS r2
@@ -1360,20 +1383,21 @@ class ReactionClient(YDBClient):
 
         result_sets = await self.execute_query(
             query,
-            {
-                "$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64),
-            },
+            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)},
         )
 
-        ids: List[int] = []
+        matches: dict[int, str] = {}
         for result_set in result_sets:
             for row in result_set.rows:
-                if "matched_user_id" in row:
-                    ids.append(int(row["matched_user_id"]))
+                if "matched_user_id" in row and "reaction" in row:
+                    matches[int(row["matched_user_id"])] = row["reaction"]
 
-        sorted_ids = sorted(set(ids))
-        return sorted_ids, len(sorted_ids)
-    
+        # отсортировать по ключу как в get_match_targets
+        matches = dict(sorted(matches.items(), key=lambda x: x[0]))
+
+        return matches, len(matches)
+
+
     # --- helpers ---
     def _row_to_reaction(self, row) -> Reaction:
         return Reaction(
@@ -1400,256 +1424,6 @@ class ReactionClient(YDBClient):
     def datetime_to_timestamp(dt: datetime) -> int:
         """Конвертация datetime в timestamp"""
         return int(dt.timestamp())
-
-
-# --------------------------------------------------------- ПОИСК -------------------------------------------------------
-
-
-class SearchClient(YDBClient):
-    """Клиент для поиска пользователей в YDB"""
-    
-    def __init__(self, endpoint: str = YDB_ENDPOINT, database: str = YDB_PATH, token: str = YDB_TOKEN):
-        super().__init__(endpoint, database, token)
-    
-    async def find_first_matching_user(self, current_user_id: int) -> Optional[User]:
-        """
-        Поиск первого подходящего пользователя для знакомств.
-        
-        Логика поиска:
-        1. Сначала ищем по городу и стране
-        2. Если не найдено - ищем по стране
-        3. Если совсем никого - возвращаем None
-        
-        Исключения:
-        - Сам пользователь
-        - Пользователи без username, photo_id, about_me
-        - Пользователи в режиме инкогнито или забаненные
-        - Пользователи, на которых уже реагировал
-        - Пользователи, которых уже оплатил (добавил в коллекцию)
-        """
-        self._ensure_connected()
-        
-        # Получаем данные текущего пользователя
-        current_user = await self._get_current_user_data(current_user_id)
-        if not current_user:
-            return None
-        
-        # Получаем список исключений (пользователи, на которых уже реагировал)
-        reacted_users = await self._get_reacted_users(current_user_id)
-        
-        # Получаем список пользователей в коллекции (оплаченных)
-        collection_users = await self._get_collection_users(current_user_id)
-        
-        # Объединяем исключения
-        excluded_users = set(reacted_users + collection_users + [current_user_id])
-        
-        # Строим базовые условия поиска
-        base_conditions = self._build_base_conditions(current_user, excluded_users)
-        
-        # Шаг 1: Поиск по городу и стране
-        if current_user.get('city') and current_user.get('country'):
-            city_query = f"""
-                {base_conditions}
-                AND u.city = $city AND u.country = $country
-                LIMIT 1;
-            """
-            
-            result = await self.execute_query(
-                city_query,
-                self._get_search_params(current_user, excluded_users, 
-                                      city=current_user['city'], 
-                                      country=current_user['country'])
-            )
-            
-            if result[0].rows:
-                return self._row_to_user(result[0].rows[0])
-        
-        # Шаг 2: Поиск по стране
-        if current_user.get('country'):
-            country_query = f"""
-                {base_conditions}
-                AND u.country = $country
-                LIMIT 1;
-            """
-            
-            result = await self.execute_query(
-                country_query,
-                self._get_search_params(current_user, excluded_users, 
-                                      country=current_user['country'])
-            )
-            
-            if result[0].rows:
-                return self._row_to_user(result[0].rows[0])
-        
-        # Шаг 3: Поиск без географических ограничений
-        global_query = f"""
-            {base_conditions}
-            LIMIT 1;
-        """
-        
-        result = await self.execute_query(
-            global_query,
-            self._get_search_params(current_user, excluded_users)
-        )
-        
-        if result[0].rows:
-            return self._row_to_user(result[0].rows[0])
-        
-        return None
-    
-    async def _get_current_user_data(self, user_id: int) -> Optional[dict]:
-        """Получение данных текущего пользователя"""
-        result = await self.execute_query(
-            """
-            DECLARE $user_id AS Int64;
-            
-            SELECT u.telegram_id, u.gender, u.gender_search, u.country, u.city,
-                   s.incognito_switch, s.banned
-            FROM users AS u
-            INNER JOIN user_settings AS s ON u.telegram_id = s.telegram_id
-            WHERE u.telegram_id = $user_id;
-            """,
-            {"$user_id": (user_id, ydb.PrimitiveType.Int64)}
-        )
-        
-        if not result[0].rows:
-            return None
-        
-        row = result[0].rows[0]
-        
-        # Отладочный вывод для понимания структуры данных
-        print(f"Row keys: {list(row.keys())}")
-        print(f"Row data: {dict(row)}")
-        
-        # Используем безопасный доступ к данным
-        try:
-            return {
-                'telegram_id': row.get('telegram_id') or row.get('u.telegram_id'),
-                'gender': row.get('gender') or row.get('u.gender'),
-                'gender_search': row.get('gender_search') or row.get('u.gender_search'),
-                'country': row.get('country') or row.get('u.country'),
-                'city': row.get('city') or row.get('u.city'),
-                'incognito_switch': row.get('incognito_switch') or row.get('s.incognito_switch'),
-                'banned': row.get('banned') or row.get('s.banned')
-            }
-        except Exception as e:
-            print(f"Error processing row data: {e}")
-            return None
-    
-    async def _get_reacted_users(self, user_id: int) -> List[int]:
-        """Получение списка пользователей, на которых уже реагировал"""
-        result = await self.execute_query(
-            """
-            DECLARE $user_id AS Uint64;
-            
-            SELECT target_tg_id
-            FROM reactions
-            WHERE telegram_id = $user_id;
-            """,
-            {"$user_id": (user_id, ydb.PrimitiveType.Uint64)}
-        )
-        
-        return [row['target_tg_id'] for row in result[0].rows]
-    
-    async def _get_collection_users(self, user_id: int) -> List[int]:
-        """Получение списка пользователей в коллекции (оплаченных)"""
-        result = await self.execute_query(
-            """
-            DECLARE $user_id AS Uint64;
-            
-            SELECT target_tg_id
-            FROM payments
-            WHERE telegram_id = $user_id AND target_tg_id IS NOT NULL;
-            """,
-            {"$user_id": (user_id, ydb.PrimitiveType.Uint64)}
-        )
-        
-        return [row['target_tg_id'] for row in result[0].rows if row['target_tg_id']]
-    
-    def _build_base_conditions(self, current_user: dict, excluded_users: set) -> str:
-        """Построение базовых условий поиска"""
-        # Формируем условия по полу
-        gender_conditions = self._build_gender_conditions(
-            current_user.get('gender'), 
-            current_user.get('gender_search')
-        )
-        
-        # Формируем список исключенных пользователей
-        excluded_condition = ""
-        if excluded_users:
-            excluded_ids = ", ".join(str(uid) for uid in excluded_users)
-            excluded_condition = f"AND u.telegram_id NOT IN ({excluded_ids})"
-        
-        return f"""
-            DECLARE $user_id AS Int64;
-            DECLARE $gender AS Utf8?;
-            DECLARE $gender_search AS Utf8?;
-            DECLARE $country AS Utf8?;
-            DECLARE $city AS Utf8?;
-            
-            SELECT u.telegram_id, u.first_name, u.username, u.gender, u.gender_search,
-                   u.country, u.country_local, u.city, u.city_local, u.photo_id, u.about_me
-            FROM users AS u
-            INNER JOIN user_settings AS s ON u.telegram_id = s.telegram_id
-            WHERE u.username IS NOT NULL
-                AND u.photo_id IS NOT NULL
-                AND u.about_me IS NOT NULL
-                AND s.incognito_switch = false
-                AND s.banned = false
-                {gender_conditions}
-                {excluded_condition}
-        """
-    
-    def _build_gender_conditions(self, user_gender: str, user_gender_search: str) -> str:
-        """Построение условий по полу"""
-        conditions = []
-        
-        # Кого ты ищешь
-        if user_gender_search == Gender.ANY:
-            # Ищешь любого - никаких ограничений по полу кандидатов
-            pass
-        else:
-            # Ищешь конкретный пол
-            conditions.append(f"AND u.gender = '{user_gender_search}'")
-        
-        # Подходишь ли ты им
-        if user_gender == Gender.ANY:
-            # Ты любого пола - подходишь только тем, кто ищет любого
-            conditions.append("AND u.gender_search = 'ANY'")
-        else:
-            # Ты конкретного пола - подходишь тем, кто ищет твой пол или любого
-            conditions.append(f"AND (u.gender_search = '{user_gender}' OR u.gender_search = 'ANY')")
-        
-        return " ".join(conditions)
-    
-    def _get_search_params(self, current_user: dict, excluded_users: set, 
-                          country: str = None, city: str = None) -> dict:
-        """Формирование параметров для запроса"""
-        params = {}
-        
-        if country:
-            params["$country"] = (country, ydb.PrimitiveType.Utf8)
-        
-        if city:
-            params["$city"] = (city, ydb.PrimitiveType.Utf8)
-        
-        return params
-    
-    def _row_to_user(self, row) -> User:
-        """Конвертация строки результата в объект User"""
-        return User(
-            telegram_id=row.get("u.telegram_id") or row.get("telegram_id"),
-            first_name=row.get("u.first_name") or row.get("first_name"),
-            username=row.get("u.username") or row.get("username"),
-            gender=row.get("u.gender") or row.get("gender"),
-            gender_search=row.get("u.gender_search") or row.get("gender_search"),
-            country=row.get("u.country") or row.get("country"),
-            country_local=row.get("u.country_local") or row.get("country_local"),
-            city=row.get("u.city") or row.get("city"),
-            city_local=row.get("u.city_local") or row.get("city_local"),
-            photo_id=row.get("u.photo_id") or row.get("photo_id"),
-            about_me=row.get("u.about_me") or row.get("about_me"),
-        )
 
 
 # --------------------------------------------------------- СОЗДАНИЕ ТАБЛИЦ -------------------------------------------------------

@@ -1160,7 +1160,7 @@ async def on_successful_payment(message: types.Message):
         _, target_id, amount, reaction = payload.split("|")
 
         async with PaymentClient() as payment_client:
-            new_payment = Payment(telegram_id=user_id, amount=int(amount), payment_type=PaymentType.COLLECTION.value, target_tg_id=int(target_id))
+            new_payment = Payment(user_id, int(amount), PaymentType.COLLECTION.value, int(target_id))
             await payment_client.insert_payment(new_payment)
 
         # получение списка пользователей из коллекции, получение id сообщений, добавление платежа в бд
