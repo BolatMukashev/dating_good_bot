@@ -169,7 +169,7 @@ async def test_banned():
 async def test_incognito():
     # мэтч
     await add_new_fake_user(9111, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в MATCH ✅")
-    await add_new_fake_user(9112, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в MATCH ✅", incognito=True)
+    await add_new_fake_user(9112, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в MATCH (инкогнито) ✅", incognito=True)
     await add_reaction(9111, ADMIN_ID, ReactionType.LOVE.value)
     await add_reaction(ADMIN_ID, 9111, ReactionType.LOVE.value)
     await add_reaction(9112, ADMIN_ID, ReactionType.LOVE.value)
@@ -177,7 +177,7 @@ async def test_incognito():
 
     # коллекция
     await add_new_fake_user(9113, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в COLLECTION ✅")
-    await add_new_fake_user(9114, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в COLLECTION ✅", incognito = True)
+    await add_new_fake_user(9114, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в COLLECTION (инкогнито) ✅", incognito = True)
     await add_payment(ADMIN_ID, 1, PaymentType.COLLECTION, 9113)
     await add_payment(ADMIN_ID, 1, PaymentType.COLLECTION, 9114)
 
@@ -190,9 +190,9 @@ async def test_incognito():
     await add_reaction(9118, ADMIN_ID, ReactionType.SEX.value)
     await add_reaction(9119, ADMIN_ID, ReactionType.CHAT.value)
 
-    await add_new_fake_user(9120, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в LOVE ✅", incognito = True)
-    await add_new_fake_user(9121, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в SEX ✅", incognito = True)
-    await add_new_fake_user(9122, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в CHAT ✅", incognito = True)
+    await add_new_fake_user(9120, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в LOVE (инкогнито) ✅", incognito = True)
+    await add_new_fake_user(9121, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в SEX (инкогнито) ✅", incognito = True)
+    await add_new_fake_user(9122, Gender.WOMAN, Gender.MAN, about_me = "Ты должен меня найти в CHAT (инкогнито) ✅", incognito = True)
     await add_reaction(9120, ADMIN_ID, ReactionType.LOVE.value)
     await add_reaction(9121, ADMIN_ID, ReactionType.SEX.value)
     await add_reaction(9122, ADMIN_ID, ReactionType.CHAT.value)
@@ -703,18 +703,19 @@ test_banned()
 test_incognito()
 test_not_username()
 
-search_test1()
-search_test2()
-search_test3()
+search_test1() - M search W - 4 положительных результатов
+search_test2() - M search M - 4 положительных результатов
+search_test3() - M search A - 12 положительных результатов
 
-search_test4()
-search_test5()
-search_test6()
+search_test4() - W search M - 4 положительных результатов
+search_test5() - W search W - 4 положительных результатов
+search_test6() - W search A - 12 положительных результатов
 
-search_test7()
-search_test8()
-search_test9()
+search_test7() - A search M - 2 положительных результатов
+search_test8() - A search W - 2 положительных результатов
+search_test9() - A search A - 6 положительных результатов
 """
+
 
 # yc iam create-token   (12 часов действует)
 # ngrok http 127.0.0.1:8080 - поднять webhood локально на 8080 порту
@@ -722,5 +723,5 @@ search_test9()
 
 
 if __name__ == "__main__":
-    asyncio.run(test_match_menu())
-
+    asyncio.run(reset_database())
+    asyncio.run(search_test9())
