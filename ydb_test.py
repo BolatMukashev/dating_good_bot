@@ -716,6 +716,10 @@ search_test8()
 search_test9()
 """
 
+# yc iam create-token   (12 часов действует)
+# ngrok http 127.0.0.1:8080 - поднять webhood локально на 8080 порту
+# пропускная способность базы - 50 запросов/секунду сейчас
+
 
 if __name__ == "__main__":
     asyncio.run(test_match_menu())

@@ -439,7 +439,13 @@ class UserClient(YDBClient):
         - 2-й приоритет: страна
         - если не найдено → None
         - учитываем gender/gender_search (ANY)
-        - исключаем забаненных, без username, тех кому уже ставил реакцию
+        Теперь поиск исключает:
+
+        - Забаненных пользователей
+        - C влюченным режимом incognito
+        - Пользователей без username
+        - Тех, кому уже ставились реакции
+        - Тех, кому уже были произведены платежи
         """
 
         query = f"""
@@ -459,22 +465,26 @@ class UserClient(YDBClient):
                 ON u2.telegram_id = s.telegram_id
             LEFT JOIN reactions AS r
                 ON r.telegram_id = u1.telegram_id
-            AND r.target_tg_id = u2.telegram_id
+                AND r.target_tg_id = u2.telegram_id
+            LEFT JOIN payments AS p
+                ON p.telegram_id = u1.telegram_id
+                AND p.target_tg_id = u2.telegram_id
             WHERE u1.telegram_id = $telegram_id
             AND u1.telegram_id != u2.telegram_id
             AND u2.username IS NOT NULL
             AND u2.username != ""
             AND s.banned = false
+            AND s.incognito_switch = false
             AND r.telegram_id IS NULL
+            AND p.telegram_id IS NULL  -- исключаем тех, кому уже платили
             AND (
                 (u1.gender = u2.gender_search OR u2.gender_search = 'ANY')
                 AND (u2.gender = u1.gender_search OR u1.gender_search = 'ANY')
             )
             ORDER BY
                 CASE WHEN u1.city = u2.city THEN 1 ELSE 2 END,
-                u2.telegram_id  -- вторичная сортировка (например, по id)
+                u2.telegram_id
             LIMIT 1;
-
         """
 
         result_sets = await self.execute_query(
@@ -1278,6 +1288,56 @@ class ReactionClient(YDBClient):
             }
         )
 
+    async def get_match_users(self, telegram_id: int) -> tuple[dict[int, str], int]:
+        """
+        Найти пользователей, которые поставили такую же реакцию, что и наш пользователь им.
+        Возвращает словарь: {matched_user_id: reaction}.
+        Исключаем:
+        - забаненных пользователей
+        - пользователей без username
+        """
+        query = f"""
+            DECLARE $telegram_id AS Uint64;
+
+            SELECT DISTINCT 
+                r2.telegram_id AS matched_user_id,
+                r1.reaction AS reaction
+            FROM reactions AS r1
+            
+            INNER JOIN reactions AS r2
+            ON r1.target_tg_id = r2.telegram_id 
+            AND r1.telegram_id = r2.target_tg_id
+            AND r1.reaction = r2.reaction
+            
+            INNER JOIN users AS u
+            ON r2.telegram_id = u.telegram_id
+            
+            INNER JOIN user_settings AS s
+            ON r2.telegram_id = s.telegram_id
+            
+            WHERE r1.telegram_id = $telegram_id
+            AND u.username IS NOT NULL
+            AND u.username != ""
+            AND s.banned = false
+            AND r1.reaction != "SKIP";
+        """
+
+        result_sets = await self.execute_query(
+            query,
+            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)},
+        )
+
+        matches: dict[int, str] = {}
+        for result_set in result_sets:
+            for row in result_set.rows:
+                if "matched_user_id" in row and "reaction" in row:
+                    matches[int(row["matched_user_id"])] = row["reaction"]
+
+        # отсортировать по ключу как в get_match_targets
+        matches = dict(sorted(matches.items(), key=lambda x: x[0]))
+
+        return matches, len(matches)
+
     async def get_intent_targets(self, user_id: int, intent: str) -> tuple[List[int], int]:
         """
         Найти тех, кто поставил МНЕ указанную реакцию,
@@ -1345,56 +1405,6 @@ class ReactionClient(YDBClient):
 
         sorted_ids = sorted(set(ids))
         return sorted_ids, len(sorted_ids)
-    
-    async def get_match_users(self, telegram_id: int) -> tuple[dict[int, str], int]:
-        """
-        Найти пользователей, которые поставили такую же реакцию, что и наш пользователь им.
-        Возвращает словарь: {matched_user_id: reaction}.
-        Исключаем:
-        - забаненных пользователей
-        - пользователей без username
-        """
-        query = f"""
-            DECLARE $telegram_id AS Uint64;
-
-            SELECT DISTINCT 
-                r2.telegram_id AS matched_user_id,
-                r1.reaction AS reaction
-            FROM reactions AS r1
-            
-            INNER JOIN reactions AS r2
-            ON r1.target_tg_id = r2.telegram_id 
-            AND r1.telegram_id = r2.target_tg_id
-            AND r1.reaction = r2.reaction
-            
-            INNER JOIN users AS u
-            ON r2.telegram_id = u.telegram_id
-            
-            INNER JOIN user_settings AS s
-            ON r2.telegram_id = s.telegram_id
-            
-            WHERE r1.telegram_id = $telegram_id
-            AND u.username IS NOT NULL
-            AND u.username != ""
-            AND s.banned = false;
-        """
-
-        result_sets = await self.execute_query(
-            query,
-            {"$telegram_id": (telegram_id, ydb.PrimitiveType.Uint64)},
-        )
-
-        matches: dict[int, str] = {}
-        for result_set in result_sets:
-            for row in result_set.rows:
-                if "matched_user_id" in row and "reaction" in row:
-                    matches[int(row["matched_user_id"])] = row["reaction"]
-
-        # отсортировать по ключу как в get_match_targets
-        matches = dict(sorted(matches.items(), key=lambda x: x[0]))
-
-        return matches, len(matches)
-
 
     # --- helpers ---
     def _row_to_reaction(self, row) -> Reaction:
