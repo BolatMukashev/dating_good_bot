@@ -36,8 +36,6 @@ WEBHOOK_PATH = f"/bot/{BOT_API_KEY}"
 WEBHOOK_URL = f"{WEBHOOK_URL}{WEBHOOK_PATH}"
 PORT = int(os.environ.get("PORT")) if os.environ.get("PORT") else int(config.get("PORT"))
 
-# ngrok http 127.0.0.1:8080 - поднять webhood локально на 8080 порту
-
 
 # admin settings
 ADMIN_ID = int(os.environ.get("ADMIN_ID")) if os.environ.get("ADMIN_ID") else int(config.get("ADMIN_ID"))
@@ -89,7 +87,7 @@ PRICES = {'en': {'name': 'английский', 'incognito': 100, 'add_to_colle
           'pt-br': {'name': 'португальский (бразильский)', 'incognito': 100, 'add_to_collection': 40},
           'hr': {'name': 'хорватский', 'incognito': 100, 'add_to_collection': 40},
 
-          'ru': {'name': 'русский', 'incognito': 1, 'add_to_collection': 1},
+          'ru': {'name': 'русский', 'incognito': 20, 'add_to_collection': 20},
           'ar': {'name': 'арабский', 'incognito': 50, 'add_to_collection': 20},
           'be': {'name': 'белорусский', 'incognito': 50, 'add_to_collection': 20},
           'ca': {'name': 'каталанский', 'incognito': 50, 'add_to_collection': 20},

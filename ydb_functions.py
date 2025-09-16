@@ -2,8 +2,8 @@ import asyncio
 import ydb
 import ydb.aio
 from enum import Enum
-from typing import Optional, Dict, Any, List, Tuple
-from config import YDB_ENDPOINT, YDB_PATH, YDB_TOKEN, ADMIN_ID
+from typing import Optional, Dict, Any, List
+from config import YDB_ENDPOINT, YDB_PATH, YDB_TOKEN
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -87,7 +87,7 @@ class YDBClient:
         driver_config = ydb.DriverConfig(
             self.endpoint, 
             self.database, 
-            credentials=ydb.AccessTokenCredentials(self.token),
+            credentials=ydb.iam.MetadataUrlCredentials(), # в облаке: ydb.iam.MetadataUrlCredentials() локально: ydb.AccessTokenCredentials(self.token)
             root_certificates=ydb.load_ydb_root_certificate(),
         )
         
