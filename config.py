@@ -38,13 +38,13 @@ PORT = int(os.environ.get("PORT")) if os.environ.get("PORT") else int(config.get
 
 
 # admin settings
-ADMIN_ID = int(os.environ.get("ADMIN_ID")) if os.environ.get("ADMIN_ID") else int(config.get("ADMIN_ID"))
+ADMIN_ID = int(os.environ.get("ADMIN_ID")) if os.environ.get("ADMIN_ID") else int(config.get("ADMIN_ID")) # если число 
 ASTANA_ID = int(os.environ.get("ASTANA_ID")) if os.environ.get("ASTANA_ID") else int(config.get("ASTANA_ID"))
 ADMINS = [ADMIN_ID, ASTANA_ID]
 
 
 # настройка базы данных
-SUPABASE_PASSWORD = config.get("SUPABASE_PASSWORD")
+SUPABASE_PASSWORD = os.environ.get("SUPABASE_PASSWORD") or config.get("SUPABASE_PASSWORD") # если строковые
 SUPABASE_PASSWORD = quote_plus(SUPABASE_PASSWORD)
 DATABASE_URL = f"postgresql+asyncpg://postgres:{SUPABASE_PASSWORD}@db.epqowkqlqrigguetfiww.supabase.co:5432/postgres"
 

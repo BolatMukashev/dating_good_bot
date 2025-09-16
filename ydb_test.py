@@ -724,4 +724,4 @@ search_test9() - A search A - 6 положительных результато�
 
 if __name__ == "__main__":
     asyncio.run(reset_database())
-    asyncio.run(test_match_menu())
+    # asyncio.run(test_match_menu())

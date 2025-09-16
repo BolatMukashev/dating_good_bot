@@ -86,7 +86,7 @@ class YDBClient:
             
         driver_config = ydb.DriverConfig(
             self.endpoint, 
-            self.database, 
+            self.database,
             credentials=ydb.iam.MetadataUrlCredentials(), # в облаке: ydb.iam.MetadataUrlCredentials() локально: ydb.AccessTokenCredentials(self.token)
             root_certificates=ydb.load_ydb_root_certificate(),
         )
