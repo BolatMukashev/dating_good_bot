@@ -72,7 +72,7 @@ async def cmd_start(message: types.Message):
         async with UserClient() as user_client, UserSettingsClient() as user_settings_client:
             new_user = User(telegram_id=user_id, first_name=first_name, username=username)
             new_settings = UserSettings(telegram_id=user_id)
-            user = await user_client.insert_user(new_user)
+            await user_client.insert_user(new_user)
             await user_settings_client.insert_user_settings(new_settings)
 
             picture = Pictures.USER_PROFILE_PICTURE.value
@@ -318,10 +318,12 @@ async def query_profile_edit(callback: types.CallbackQuery):
                 await bot.edit_message_media(chat_id=callback.message.chat.id,
                                              message_id=message_id,
                                              media=InputMediaPhoto(media=Pictures.CLEANING.value,
-                                                                   caption=texts['TEXT']['user_profile']['waiting'])
-                                            )
-            except Exception as e:
+                                                                   caption=texts['TEXT']['user_profile']['waiting']))
+            except TelegramBadRequest as e:
                 print(f"ошибка изменения сообщений: {e}")
+                # теперь удаляем из кэша по telegram_id + parameter
+                async with CacheClient() as cache_client:
+                    await cache_client.delete_cache_by_telegram_id_and_parameter(user_id, parameter)
         else:
             # теперь удаляем из кэша по telegram_id + parameter
             async with CacheClient() as cache_client:
@@ -1287,10 +1289,17 @@ async def handle_text(message: types.Message):
             markup = el.get('markup')
 
             if message_id:
-                await bot.edit_message_media(chat_id=message.chat.id,
-                                             message_id=message_id,
-                                             media=InputMediaPhoto(media=photo_id, caption=caption),
-                                             reply_markup = markup)
+                try:
+                    await bot.edit_message_media(chat_id=message.chat.id,
+                                                message_id=message_id,
+                                                media=InputMediaPhoto(media=photo_id, caption=caption),
+                                                reply_markup = markup)
+                except TelegramBadRequest as e:
+                    print(f"ошибка редактирования сообщений: {e}")
+                    msg = await message.answer_photo(photo=photo_id, caption=caption, reply_markup=markup)
+                    async with CacheClient() as cache_client:
+                        new_cache = Cache(user_id, parameter, message_id = msg.message_id)
+                        await cache_client.insert_cache(new_cache)
             else:
                 msg = await message.answer_photo(photo=photo_id, caption=caption, reply_markup=markup)
                 async with CacheClient() as cache_client:
