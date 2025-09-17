@@ -341,7 +341,7 @@ async def handle_incognito_toggle(callback: types.CallbackQuery):
     # если НЕ ОПЛАЧЕНО, отправка оплаты
     if action == "NOT_PAYED":
 
-        amount = (PRICES.get(user_lang) or PRICES["en"]).get("incognito")
+        amount = 1 if user_id in ADMINS else (PRICES.get(user_lang) or PRICES["en"]).get("incognito")
 
         label = texts['TEXT']["payment"]["incognito"]["label"]
         title = texts['TEXT']["payment"]["incognito"]["title"]
@@ -937,7 +937,7 @@ async def handle_who_wants(callback: types.CallbackQuery):
             get_prev_next_ids(target_users_ids[0], target_users_ids)
         )
         photo_id = target_user.photo_id
-        amount = (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
+        amount = 1 if user_id in ADMINS else (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
         caption, markup = await asyncio.gather(
             get_caption(target_user),
             get_intention_user_btn(target_user, [prev_id, next_id], reaction, amount, texts)
@@ -968,7 +968,7 @@ async def query_wants_navigation(callback: types.CallbackQuery):
         get_prev_next_ids(target_id, target_users_ids)
     )
 
-    amount = (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
+    amount = 1 if user_id in ADMINS else (PRICES.get(user_lang) or PRICES["en"]).get("add_to_collection")
     caption, markup = await asyncio.gather(
         get_caption(target_user),
         get_intention_user_btn(target_user, [prev_id, next_id], reaction, amount, texts)

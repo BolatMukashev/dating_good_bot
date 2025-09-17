@@ -3,7 +3,7 @@ import ydb
 import ydb.aio
 from enum import Enum
 from typing import Optional, Dict, Any, List
-from config import YDB_ENDPOINT, YDB_PATH, YDB_TOKEN
+from config import YDB_ENDPOINT, YDB_PATH, YDB_TOKEN, LOCAL_WEBHOOK
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -67,6 +67,7 @@ class YDBClient:
         self.token = token
         self.driver = None
         self.pool = None
+        self.credentials = ydb.AccessTokenCredentials(self.token) if LOCAL_WEBHOOK else ydb.iam.MetadataUrlCredentials()
     
     async def __aenter__(self):
         """Async context manager entry"""
@@ -87,7 +88,7 @@ class YDBClient:
         driver_config = ydb.DriverConfig(
             self.endpoint, 
             self.database,
-            credentials=ydb.iam.MetadataUrlCredentials(), # в облаке: ydb.iam.MetadataUrlCredentials() локально: ydb.AccessTokenCredentials(self.token)
+            credentials=self.credentials,
             root_certificates=ydb.load_ydb_root_certificate(),
         )
         
