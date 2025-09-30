@@ -1,5 +1,6 @@
 from ydb_functions import *
 from config import *
+from config import Pictures_Prod
 import asyncio
 from ydb_functions import YDBClient
 import random
@@ -19,7 +20,9 @@ async def add_new_fake_user(
     about_me: str = None,
     incognito: bool = False,
     banned: bool = False,
-    username: str = 'astana11b'
+    username: str = 'astana11b',
+    photo_man: str = Pictures_Prod.TEST_MAN_PHOTO.value,
+    photo_woman: str = Pictures_Prod.TEST_WOMAN_PHOTO.value
 ):
 
     if tg_id == 0:
@@ -27,10 +30,10 @@ async def add_new_fake_user(
 
     if gender == Gender.MAN:
         first_name = fake.first_name_male()
-        photo_id = Pictures.TEST_MAN_PHOTO.value
+        photo_id = photo_man
     else:
         first_name = fake.first_name_female()
-        photo_id = Pictures.TEST_WOMAN_PHOTO.value
+        photo_id = photo_woman
 
     country = "Kazakhstan" if not random_country else fake.country()
     city = "Oral" if not random_city else fake.city()
@@ -723,5 +726,5 @@ search_test9() - A search A - 6 положительных результато�
 
 
 if __name__ == "__main__":
-    # asyncio.run(reset_database())
-    asyncio.run(test_match_menu())
+    asyncio.run(reset_database())
+    # asyncio.run(test_match_menu())

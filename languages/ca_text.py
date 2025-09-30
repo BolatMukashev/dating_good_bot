@@ -21,8 +21,8 @@ TEXT = {"user_profile":{"step_1": "🔘 ⚪ ⚪ ⚪ ⚪ ⚪\n\n"
                         "🔸 Pas 4. Indica a qui busques ⚧️",
 
                         "step_5": "🟢 🟢 🟢 🟢 🔘 ⚪\n\n"
-                        "🔸 Pas 5. Envia la teva foto 🤳"
-                        "\n<i>Preferiblement un selfie on es vegi bé la cara</i>",
+                        "🔸 Pas 5. Envia la teva <b>FOTO</b> 📎"
+                        "\n<i>Preferiblement un selfie on es vegi bé la cara 🤳</i>",
 
                         "step_6": "🟢 🟢 🟢 🟢 🟢 🔘\n\n"
                         "🔸 Pas 6. Explica una mica sobre tu 📝"

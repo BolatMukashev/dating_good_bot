@@ -23,8 +23,8 @@ TEXT = {
                   "🔸 Step 4. Who are you looking for? ⚧️",
 
         "step_5": "🟢 🟢 🟢 🟢 🔘 ⚪\n\n"
-                  "🔸 Step 5. Upload your photo 🤳"
-                  "\n<i>A selfie where your face is clearly visible is best</i>",
+                  "🔸 Step 5. Upload your <b>PHOTO</b> 📎"
+                  "\n<i>A selfie where your face is clearly visible is best 🤳</i>",
 
         "step_6": "🟢 🟢 🟢 🟢 🟢 🔘\n\n"
                   "🔸 Step 6. Tell us a bit about yourself 📝"
