@@ -568,8 +568,8 @@ class UserSettingsClient(YDBClient):
         existing_settings = await self.get_user_settings_by_id(settings.telegram_id)
         
         if existing_settings:
-            if settings.created_at is None:
-                settings.created_at = existing_settings.created_at
+            return existing_settings
+
         else:
             if settings.created_at is None:
                 from datetime import datetime, timezone
