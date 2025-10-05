@@ -22,6 +22,7 @@ from ydb_functions import *
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 # Инициализация бота и диспетчера
 bot = Bot(token=BOT_API_KEY, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 storage = MemoryStorage()
