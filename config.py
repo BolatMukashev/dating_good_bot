@@ -87,7 +87,7 @@ PRICES = {'en': {'name': 'английский', 'incognito': 100, 'add_to_colle
           'pt-br': {'name': 'португальский (бразильский)', 'incognito': 100, 'add_to_collection': 40},
           'hr': {'name': 'хорватский', 'incognito': 100, 'add_to_collection': 40},
 
-          'ru': {'name': 'русский', 'incognito': 20, 'add_to_collection': 20},
+          'ru': {'name': 'русский', 'incognito': 50, 'add_to_collection': 20},
           'ar': {'name': 'арабский', 'incognito': 50, 'add_to_collection': 20},
           'be': {'name': 'белорусский', 'incognito': 50, 'add_to_collection': 20},
           'ca': {'name': 'каталанский', 'incognito': 50, 'add_to_collection': 20},
