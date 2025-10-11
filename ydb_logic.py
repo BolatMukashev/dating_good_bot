@@ -576,8 +576,6 @@ async def btn_start_search(callback: types.CallbackQuery):
     user_lang = callback.from_user.language_code
     first_name = callback.from_user.first_name
     username = callback.from_user.username
-    
-    await callback.answer("⏳ ...")
 
     # поиск первого подходящего собеседника, получение текста на языке пользователя
     texts = await get_texts(user_lang)
@@ -673,8 +671,6 @@ async def btn_reload_search(callback: types.CallbackQuery):
     first_name = callback.from_user.first_name
     username = callback.from_user.username
 
-    await callback.answer("⏳ ...")
-
     texts = await get_texts(user_lang)
 
     if not username or username == '':
@@ -715,8 +711,6 @@ async def query_start__reload_btn_match_menu(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
     username = callback.from_user.username
-
-    await callback.answer("⏳ ...")
 
     texts = await get_texts(user_lang)
 
