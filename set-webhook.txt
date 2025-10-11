@@ -4,7 +4,7 @@ curl \
   --request POST \
   --url https://api.telegram.org/bot<токен_бота>/setWebhook \
   --header 'content-type: application/json' \
-  --data '{"url": "<домен_API-шлюза>/tg-bot",
+  --data '{"url": "<домен_API-шлюза>/<имя_функции>,
           "max_connections": 100
   }'
 
@@ -12,3 +12,22 @@ curl \
   чтобы выключить: curl -F "url=" https://api.telegram.org/bot<ТОКЕН_БОТА>/setWebhook
 
   чтобы проверить наличие: curl https://api.telegram.org/bot<ТОКЕН_БОТА>/getWebhookInfo
+
+
+API - шлюз настройка:
+openapi: 3.0.0
+info:
+  title: Sample API
+  version: 1.0.0
+servers:
+- url: https://<незнаю>.apigw.yandexcloud.net
+paths:
+  /<имя_функции>:
+    post:
+      x-yc-apigateway-integration:
+        queue_url: <url_message_queue>
+        action: SendMessage
+        type: cloud_ymq
+        payload_format_type: body
+        folder_id: <незнаю>
+        service_account_id: <незнаю>

@@ -3,24 +3,17 @@ from ydb_logic import dp, bot, logger
 
 
 async def handler(event, context):
-    """
-    Entry point (index.handler)
-    """
+    """Обработчик очереди (worker)"""
     messages = event.get("messages", [])
-
-    # Логируем количество и тип сообщений
-    logger.info(f"Всего сообщений: {len(messages)}")
+    logger.info(f"Worker получил {len(messages)} сообщений")
 
     for msg in messages:
-        details = msg.get("details", {})
-        message = details.get("message", {})
-        body_str = message.get("body")
-
-        # Логируем само тело (даже если это ping)
-        logger.info(f"BODY: {body_str}")
+        body_str = msg.get("details", {}).get("message", {}).get("body")
 
         if not body_str:
             continue
+
+        logger.info(f"Worker BODY: {body_str}")
 
         try:
             body = json.loads(body_str)
@@ -28,13 +21,11 @@ async def handler(event, context):
             logger.error(f"Ошибка парсинга body: {e}")
             continue
 
-        # Если это ping — просто логируем
         if body.get("ping"):
-            logger.info("⚙️ Получен ping — бот пробуждён")
+            logger.info("⚙️ Получен ping — пропускаем")
             continue
 
-        # Иначе — Telegram update
-        await dp.feed_webhook_update(bot=bot, update=body)
-
-    return {'statusCode': 200}
-
+        try:
+            await dp.feed_webhook_update(bot=bot, update=body)
+        except Exception as e:
+            logger.error(f"Ошибка при обработке update: {e}")
