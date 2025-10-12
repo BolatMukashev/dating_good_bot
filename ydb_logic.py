@@ -681,6 +681,8 @@ async def btn_reload_search(callback: types.CallbackQuery):
         caption = texts['TEXT']["user_profile"]["username_error"]
         markup = await reload_search_button(texts)
 
+        await callback.message.edit_media(media=types.InputMediaPhoto(media=picture, caption=caption), reply_markup = markup)
+
     else:
         async with UserClient() as user_client:
             target_user = await user_client.search_user(user_id, first_name, username)
@@ -692,14 +694,14 @@ async def btn_reload_search(callback: types.CallbackQuery):
                 get_btn_to_search(target_user.first_name, target_user.telegram_id, texts)
             )
 
+            await callback.message.edit_media(media=types.InputMediaPhoto(media=picture, caption=caption), reply_markup = markup)
+
         else:
-            picture = Pictures.SEARCH_NOT_FOUND_PICTURE.value
-            caption = texts['TEXT']["search_menu"]["not_found"]
             markup = await reload_search_button(texts)
+            await callback.message.edit_reply_markup(reply_markup=markup)
             await callback.answer(texts['TEXT']["notifications"]["not_found"]) # уведомление сверху
 
-    await callback.message.edit_media(media=types.InputMediaPhoto(media=picture, caption=caption),
-                                      reply_markup = markup)
+
 
 
 # ------------------------------------------------------------------ СОВПАДЕНИЯ ----------------------------------------------------------
@@ -707,7 +709,7 @@ async def btn_reload_search(callback: types.CallbackQuery):
 
 # колбек кнопка старт у меню совпадений
 @dp.callback_query(lambda c: c.data.startswith("match_menu_start_btn"))
-async def query_start__reload_btn_match_menu(callback: types.CallbackQuery):
+async def query_start_btn_match_menu(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     user_lang = callback.from_user.language_code
     username = callback.from_user.username
@@ -744,9 +746,50 @@ async def query_start__reload_btn_match_menu(callback: types.CallbackQuery):
         notification = texts['TEXT']["notifications"]["reloaded"]
 
     # изменение сообщения и отправка уведомления
-    await callback.message.edit_media(media=InputMediaPhoto(media=picture, caption=caption),
-                                      reply_markup = markup)
+    await callback.message.edit_media(media=InputMediaPhoto(media=picture, caption=caption), reply_markup = markup)
     await callback.answer(notification)
+
+
+# колбек кнопка обновить у меню совпадений
+@dp.callback_query(lambda c: c.data.startswith("match_menu_reload_btn"))
+async def query__reload_btn_match_menu(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    user_lang = callback.from_user.language_code
+    username = callback.from_user.username
+
+    texts = await get_texts(user_lang)
+
+    if not username or username == '':
+        async with UserClient() as user_client:
+            await user_client.update_user_fields(user_id, username=None)
+
+        picture = Pictures.NO_USERNAME_PICTURE.value
+        caption = texts['TEXT']["user_profile"]["username_error"]
+        markup = await get_empty_menu_buttons(texts)
+        notification = texts['TEXT']["notifications"]["not_username"]
+
+        # изменение сообщения и отправка уведомления
+        await callback.message.edit_media(media=InputMediaPhoto(media=picture, caption=caption), reply_markup = markup)
+        await callback.answer(notification)
+
+    else:
+        # получение языка пользователя, кол-во реакции по категориям
+        async with UserClient() as user_client, ReactionClient() as reaction_client, PaymentClient() as payment_client:
+            results = await asyncio.gather(
+                reaction_client.get_match_users(user_id),
+                payment_client.get_collection_targets_with_filter(user_id),
+                reaction_client.get_intent_targets(user_id, "LOVE"),
+                reaction_client.get_intent_targets(user_id, "SEX"),
+                reaction_client.get_intent_targets(user_id, "CHAT"),
+                user_client.update_user_fields(user_id, username=username)
+            )
+
+        # Распаковка результатов
+        (_, match_count), (_, collection_count), (_, love_count), (_, sex_count), (_, chat_count), _ = results
+
+        markup = await get_matches_menu_buttons(match_count, collection_count, love_count, sex_count, chat_count, texts)
+        await callback.message.edit_reply_markup(reply_markup=markup)
+        await callback.answer(texts['TEXT']["notifications"]["reloaded"]) # уведомление сверху
 
 
 # колбек кнопка мэтчи в меню Совпадений
@@ -783,8 +826,7 @@ async def query_matches(callback: types.CallbackQuery):
             get_match_user_btn(target_user, [prev_id, next_id], texts)
         )
 
-    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption),
-                                      reply_markup = markup)
+    await callback.message.edit_media(media=InputMediaPhoto(media=photo_id, caption=caption), reply_markup = markup)
 
 
 # вперед/назад при навигации у меню Совпадений

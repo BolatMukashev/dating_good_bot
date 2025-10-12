@@ -63,7 +63,7 @@ async def get_matches_menu_buttons(match_count: int, collection_count: int, love
     button2 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["match_menu"]['love'].format(love_count=love_count), callback_data=f"intentions|LOVE")
     button3 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["match_menu"]['sex'].format(sex_count=sex_count), callback_data=f"intentions|SEX")
     button4 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["match_menu"]['chat'].format(chat_count=chat_count), callback_data=f"intentions|CHAT")
-    button5 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reload"], callback_data=f"match_menu_start_btn|{unique_suffix}")
+    button5 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reload"], callback_data=f"match_menu_reload_btn|{unique_suffix}")
 
     markup = InlineKeyboardMarkup(inline_keyboard=[[button0], [button1], [button2, button3, button4], [button5]])
 
@@ -71,19 +71,10 @@ async def get_matches_menu_buttons(match_count: int, collection_count: int, love
 
 
 async def get_empty_menu_buttons(texts: dict):
-    # Пустая кнопка match меню
+    # Пустая кнопка match меню, когда нет username
     unique_suffix = uuid4().hex[:4]
     button0 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["reload"], callback_data=f"match_menu_start_btn|{unique_suffix}")
     markup = InlineKeyboardMarkup(inline_keyboard=[[button0]])
-    return markup
-
-
-async def error_matches_menu_button(texts: dict):
-    # Пустая категория, выход в меню Совпадений
-    unique_suffix = uuid4().hex[:4]
-    button1 = InlineKeyboardButton(text=texts["BUTTONS_TEXT"]["return"], callback_data=f"match_menu_start_btn|{unique_suffix}")
-    markup = InlineKeyboardMarkup(inline_keyboard=[[button1]])
-    
     return markup
 
 
